@@ -1,0 +1,103 @@
+(function(){
+  const TAU=Math.PI*2;
+  function mulberry32(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+  function hashSeed(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+  function rr(rng,a,b){return a+(b-a)*rng()}
+  function pick(rng,a){return a[Math.floor(rng()*a.length)]}
+  function jitter(rng,amount){return (rng()-.5)*2*amount}
+  function rotatePoint(x,y,a){let c=Math.cos(a),s=Math.sin(a);return[x*c-y*s,x*s+y*c]}
+  function roundRect(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+  function heart(ctx,x,y,s,rot=0){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.beginPath();ctx.moveTo(0,s*.35);ctx.bezierCurveTo(-s*.62,-s*.05,-s*.48,-s*.58,0,-s*.30);ctx.bezierCurveTo(s*.48,-s*.58,s*.62,-s*.05,0,s*.35);ctx.closePath();ctx.restore()}
+  function star(ctx,x,y,r1,r2,n=5,rot=-Math.PI/2){ctx.beginPath();for(let i=0;i<n*2;i++){let r=i%2?r2:r1,a=rot+i*Math.PI/n;let px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath()}
+  function sparkle(ctx,x,y,s,rot=0){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.beginPath();ctx.moveTo(0,-s);ctx.quadraticCurveTo(s*.12,-s*.12,s,0);ctx.quadraticCurveTo(s*.12,s*.12,0,s);ctx.quadraticCurveTo(-s*.12,s*.12,-s,0);ctx.quadraticCurveTo(-s*.12,-s*.12,0,-s);ctx.closePath();ctx.restore()}
+  function bow(ctx,x,y,s,rot=0){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.beginPath();ctx.moveTo(-s*.08,0);ctx.bezierCurveTo(-s*.52,-s*.5,-s*.8,-s*.1,-s*.38,s*.12);ctx.bezierCurveTo(-s*.7,s*.52,-s*.25,s*.58,-s*.05,s*.12);ctx.arc(0,0,s*.13,0,TAU);ctx.moveTo(s*.08,0);ctx.bezierCurveTo(s*.52,-s*.5,s*.8,-s*.1,s*.38,s*.12);ctx.bezierCurveTo(s*.7,s*.52,s*.25,s*.58,s*.05,s*.12);ctx.fill();ctx.restore()}
+  function flower(ctx,x,y,s,petals=5,rot=0){ctx.save();ctx.translate(x,y);ctx.rotate(rot);for(let i=0;i<petals;i++){let a=i*TAU/petals;ctx.save();ctx.rotate(a);ctx.beginPath();ctx.ellipse(0,-s*.30,s*.20,s*.34,0,0,TAU);ctx.fill();ctx.restore()}ctx.restore()}
+  function cloud(ctx,x,y,s){ctx.beginPath();ctx.arc(x-s*.28,y,s*.22,Math.PI*.55,Math.PI*1.65);ctx.arc(x,y-s*.12,s*.30,Math.PI,TAU);ctx.arc(x+s*.28,y,s*.22,Math.PI*1.35,Math.PI*.45);ctx.quadraticCurveTo(x+s*.2,y+s*.2,x,y+s*.18);ctx.quadraticCurveTo(x-s*.2,y+s*.2,x-s*.36,y+s*.08);ctx.closePath()}
+  function cherry(ctx,x,y,s){ctx.save();ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x,y-s*.34);ctx.quadraticCurveTo(x+s*.2,y-s*.75,x+s*.42,y-s*.58);ctx.moveTo(x,y-s*.34);ctx.quadraticCurveTo(x-s*.08,y-s*.62,x-s*.25,y-s*.54);ctx.stroke();ctx.beginPath();ctx.arc(x-s*.24,y,s*.22,0,TAU);ctx.arc(x+s*.22,y+s*.1,s*.22,0,TAU);ctx.fill();ctx.restore()}
+  function strawberry(ctx,x,y,s){ctx.save();ctx.translate(x,y);ctx.beginPath();ctx.moveTo(0,s*.45);ctx.bezierCurveTo(-s*.42,s*.18,-s*.42,-s*.38,0,-s*.38);ctx.bezierCurveTo(s*.42,-s*.38,s*.42,s*.18,0,s*.45);ctx.closePath();ctx.fill();ctx.restore()}
+  function smile(ctx,x,y,s){ctx.beginPath();ctx.arc(x,y,s*.36,0,TAU);ctx.fill();}
+  function cellLoop(w,h,step,cb){for(let y=-step;y<h+step;y+=step)for(let x=-step;x<w+step;x+=step)cb(x,y)}
+  function withAlpha(ctx,a,fn){ctx.save();ctx.globalAlpha*=a;fn();ctx.restore()}
+  function common(s,scale){return{size:s.size*scale,gap:s.gap*scale,jit:s.jitter/100*s.size*scale*.42,stroke:s.stroke*scale,detail:s.detail/100,rot:s.rotation*Math.PI/180,op:s.opacity/100,seed:hashSeed(String(s.seed))}}
+  function drawBackground(ctx,w,h,s){if(s.transparentBg){ctx.clearRect(0,0,w,h);return}ctx.save();if(s.bgMode==='linear'){let a=(s.gradientAngle||135)*Math.PI/180,cx=w/2,cy=h/2,L=Math.abs(w*Math.cos(a))+Math.abs(h*Math.sin(a));let dx=Math.cos(a)*L/2,dy=Math.sin(a)*L/2;let g=ctx.createLinearGradient(cx-dx,cy-dy,cx+dx,cy+dy);g.addColorStop(0,s.colors[0]);g.addColorStop(1,s.colors[1]);ctx.fillStyle=g}else ctx.fillStyle=s.colors[0];ctx.fillRect(0,0,w,h);ctx.restore()}
+  function checker(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cell=Math.max(4,p.size),rng=mulberry32(p.seed),cols=s.colors;ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let row=-2,y=-cell*2;y<h+cell*2;row++,y+=cell){for(let col=-2,x=-cell*2;x<w+cell*2;col++,x+=cell){let on=(row+col)%2===0;if(!on&&!opt.gingham)continue;let xx=x+jitter(rng,opt.hand?p.jit*.3:0),yy=y+jitter(rng,opt.hand?p.jit*.3:0),sz=cell+(opt.hand?jitter(rng,p.jit*.2):0);if(opt.gingham){ctx.globalAlpha=p.op*(on?.65:.2);ctx.fillStyle=on?cols[2]:cols[1];ctx.fillRect(xx,yy,sz,sz)}else{ctx.globalAlpha=p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx+p.gap*.12,yy+p.gap*.12,sz-p.gap*.24,sz-p.gap*.24,Math.max(3,sz*.18));ctx.fill()}else ctx.fillRect(xx,yy,sz,sz)}if(on&&opt.motif&&rng()<.35+p.detail*.5){ctx.fillStyle=cols[3];ctx.globalAlpha=p.op*.88;let mx=xx+sz/2,my=yy+sz/2,ms=sz*(.16+.13*p.detail);if(opt.motif==='heart'){heart(ctx,mx,my,ms);ctx.fill()}if(opt.motif==='star'){star(ctx,mx,my,ms,ms*.48);ctx.fill()}if(opt.motif==='dot'){ctx.beginPath();ctx.arc(mx,my,ms*.65,0,TAU);ctx.fill()}}}}
+    ctx.restore()}
+  function wavyChecker(ctx,w,h,s,scale){let p=common(s,scale),cell=Math.max(10,p.size),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-cell*3;y<h+cell*3;row++,y+=cell){for(let col=-3,x=-cell*3;x<w+cell*3;col++,x+=cell){if((row+col)%2)continue;let amp=cell*(.06+.10*p.detail),xx=x+jitter(rng,p.jit*.25),yy=y+jitter(rng,p.jit*.25);ctx.fillStyle=(row+col)%4===0?s.colors[1]:s.colors[2];ctx.beginPath();ctx.moveTo(xx,yy+amp);ctx.bezierCurveTo(xx+cell*.3,yy-amp,xx+cell*.7,yy+amp,xx+cell,yy);ctx.lineTo(xx+cell,yy+cell-amp);ctx.bezierCurveTo(xx+cell*.7,yy+cell+amp,xx+cell*.3,yy+cell-amp,xx,yy+cell);ctx.closePath();ctx.fill()}}ctx.restore()}
+  function dots(ctx,w,h,s,scale,opt={}){let p=common(s,scale),step=Math.max(8,p.size+p.gap),rng=mulberry32(p.seed),r=Math.max(2,p.size*.22);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);cellLoop(w,h,step,(x,y)=>{let xx=x+(opt.irregular?jitter(rng,p.jit):0),yy=y+(opt.irregular?jitter(rng,p.jit):0),rr=r*(opt.irregular?rrand(rng,.68,1.25):1);ctx.fillStyle=pick(rng,s.colors.slice(1));ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=p.stroke;if(opt.ring){ctx.beginPath();ctx.arc(xx,yy,rr,0,TAU);ctx.stroke()}else if(opt.doodle){ctx.beginPath();let n=10;for(let i=0;i<=n;i++){let a=i/n*TAU,rad=rr+jitter(rng,p.jit*.18);let px=xx+Math.cos(a)*rad,py=yy+Math.sin(a)*rad;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fill()}else{ctx.beginPath();ctx.arc(xx,yy,rr,0,TAU);ctx.fill()}});ctx.restore()}
+  function rrand(rng,a,b){return a+(b-a)*rng()}
+  function grid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),step=Math.max(10,p.size+p.gap),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.lineCap='round';ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let x=-step;x<w+step;x+=step){ctx.beginPath();for(let y=-step;y<=h+step;y+=step/3){let xx=x+(opt.hand?jitter(rng,p.jit*.22):0);y===-step?ctx.moveTo(xx,y):ctx.lineTo(xx,y)}ctx.stroke()}for(let y=-step;y<h+step;y+=step){ctx.beginPath();for(let x=-step;x<=w+step;x+=step/3){let yy=y+(opt.hand?jitter(rng,p.jit*.22):0);x===-step?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke()}ctx.restore()}
+  function stripes(ctx,w,h,s,scale,opt={}){let p=common(s,scale),step=Math.max(8,p.size+p.gap),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+(opt.diagonal?Math.PI/4:0));ctx.translate(-w/2,-h/2);ctx.lineWidth=Math.max(2,p.size*.55);ctx.lineCap='round';for(let y=-h;y<h*2;y+=step){ctx.strokeStyle=pick(rng,s.colors.slice(1));ctx.beginPath();if(opt.wavy){ctx.moveTo(-w,y);for(let x=-w;x<=w*2;x+=step*.55){ctx.quadraticCurveTo(x+step*.27,y+Math.sin(x/step*2)*p.size*.18*(.3+p.detail),x+step*.55,y)}}else if(opt.scribble){ctx.moveTo(-w,y);for(let x=-w;x<=w*2;x+=step*.35)ctx.lineTo(x,y+jitter(rng,p.jit*.6))}else{ctx.moveTo(-w,y);ctx.lineTo(w*2,y)}ctx.stroke()}ctx.restore()}
+  function zigzag(ctx,w,h,s,scale){let p=common(s,scale),step=Math.max(12,p.size+p.gap),amp=p.size*.35;ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let y=-step;y<h+step;y+=step){ctx.beginPath();for(let x=-step,i=0;x<w+step;x+=step/2,i++){let yy=y+(i%2?amp:-amp);i?ctx.lineTo(x,yy):ctx.moveTo(x,yy)}ctx.stroke()}ctx.restore()}
+  function motifScatter(ctx,w,h,s,scale,type,opt={}){let p=common(s,scale),step=Math.max(14,p.size+p.gap),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);cellLoop(w,h,step,(x,y)=>{let xx=x+jitter(rng,p.jit),yy=y+jitter(rng,p.jit),sz=p.size*rrand(rng,.28,.48),col=pick(rng,s.colors.slice(1));ctx.fillStyle=col;ctx.strokeStyle=col;ctx.lineWidth=p.stroke;let a=jitter(rng,.35*p.detail);if(type==='heart'){heart(ctx,xx,yy,sz,a);opt.outline?ctx.stroke():ctx.fill()}else if(type==='star'){star(ctx,xx,yy,sz,sz*.48,opt.sparkle?4:5,a);opt.outline?ctx.stroke():ctx.fill()}else if(type==='sparkle'){sparkle(ctx,xx,yy,sz,a);ctx.fill()}else if(type==='bow'){bow(ctx,xx,yy,sz,a)}else if(type==='flower'){flower(ctx,xx,yy,sz,5,a);if(p.detail>.15){ctx.fillStyle=s.colors[3];ctx.beginPath();ctx.arc(xx,yy,sz*.13,0,TAU);ctx.fill()}}else if(type==='cloud'){cloud(ctx,xx,yy,sz);ctx.fill()}else if(type==='moonstar'){if(rng()<.55){ctx.beginPath();ctx.arc(xx,yy,sz*.7,0,TAU);ctx.fill();ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.arc(xx+sz*.3,yy-sz*.08,sz*.62,0,TAU);ctx.fill();ctx.globalCompositeOperation='source-over'}else{star(ctx,xx,yy,sz*.7,sz*.32);ctx.fill()}}else if(type==='smile'){smile(ctx,xx,yy,sz);ctx.fillStyle=s.colors[0];ctx.beginPath();ctx.arc(xx-sz*.12,yy-sz*.07,sz*.035,0,TAU);ctx.arc(xx+sz*.12,yy-sz*.07,sz*.035,0,TAU);ctx.fill();ctx.strokeStyle=s.colors[0];ctx.lineWidth=Math.max(1,p.stroke*.65);ctx.beginPath();ctx.arc(xx,yy+sz*.02,sz*.16,.1*Math.PI,.9*Math.PI);ctx.stroke()}else if(type==='cherry'){ctx.strokeStyle=s.colors[2];ctx.fillStyle=s.colors[1];cherry(ctx,xx,yy,sz)}else if(type==='strawberry'){ctx.fillStyle=s.colors[1];strawberry(ctx,xx,yy,sz);ctx.fillStyle=s.colors[2];for(let i=0;i<5;i++){ctx.beginPath();ctx.ellipse(xx+jitter(rng,sz*.18),yy+jitter(rng,sz*.22),Math.max(1,sz*.03),Math.max(1,sz*.06),0,0,TAU);ctx.fill()}ctx.fillStyle=s.colors[3];star(ctx,xx,yy-sz*.35,sz*.18,sz*.08,5,Math.PI/2);ctx.fill()}});ctx.restore()}
+  function raindrops(ctx,w,h,s,scale){let p=common(s,scale),step=p.size+p.gap,rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;cellLoop(w,h,step,(x,y)=>{let xx=x+jitter(rng,p.jit),yy=y+jitter(rng,p.jit),sz=p.size*.32;ctx.fillStyle=pick(rng,s.colors.slice(1));ctx.beginPath();ctx.moveTo(xx,yy-sz);ctx.bezierCurveTo(xx+sz*.65,yy-sz*.15,xx+sz*.55,yy+sz*.65,xx,yy+sz*.72);ctx.bezierCurveTo(xx-sz*.55,yy+sz*.65,xx-sz*.65,yy-sz*.15,xx,yy-sz);ctx.fill()});ctx.restore()}
+  function confetti(ctx,w,h,s,scale){let p=common(s,scale),rng=mulberry32(p.seed),count=Math.floor((w*h)/Math.max(800,p.size*p.size*1.45));ctx.save();ctx.globalAlpha=p.op;ctx.lineCap='round';for(let i=0;i<count;i++){let x=rng()*w,y=rng()*h,sz=p.size*rrand(rng,.10,.28),a=rng()*TAU;ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle=pick(rng,s.colors.slice(1));ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(1,p.stroke);let t=Math.floor(rng()*4);if(t===0)ctx.fillRect(-sz*.5,-sz*.14,sz,sz*.28);else if(t===1){ctx.beginPath();ctx.arc(0,0,sz*.24,0,TAU);ctx.fill()}else if(t===2){star(ctx,0,0,sz*.34,sz*.16,4);ctx.fill()}else{ctx.beginPath();ctx.moveTo(-sz*.5,0);ctx.quadraticCurveTo(0,-sz*.5,sz*.5,0);ctx.stroke()}ctx.restore()}ctx.restore()}
+  function doodles(ctx,w,h,s,scale){let p=common(s,scale),rng=mulberry32(p.seed),step=p.size+p.gap;ctx.save();ctx.globalAlpha=p.op;cellLoop(w,h,step,(x,y)=>{let xx=x+jitter(rng,p.jit),yy=y+jitter(rng,p.jit),sz=p.size*.32,t=Math.floor(rng()*7);ctx.strokeStyle=pick(rng,s.colors.slice(1));ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=p.stroke;ctx.lineCap='round';if(t===0){heart(ctx,xx,yy,sz);ctx.stroke()}else if(t===1){star(ctx,xx,yy,sz,sz*.42);ctx.stroke()}else if(t===2){sparkle(ctx,xx,yy,sz);ctx.stroke()}else if(t===3){ctx.beginPath();ctx.arc(xx,yy,sz*.6,0,TAU);ctx.stroke()}else if(t===4){ctx.beginPath();ctx.moveTo(xx-sz,yy);ctx.bezierCurveTo(xx-sz*.4,yy-sz,xx+sz*.4,yy+sz,xx+sz,yy);ctx.stroke()}else if(t===5){ctx.beginPath();for(let i=0;i<4;i++)ctx.arc(xx+i*sz*.24-sz*.36,yy,sz*.15,0,TAU);ctx.stroke()}else{ctx.beginPath();ctx.moveTo(xx-sz*.7,yy-sz*.7);ctx.lineTo(xx+sz*.7,yy+sz*.7);ctx.moveTo(xx+sz*.7,yy-sz*.7);ctx.lineTo(xx-sz*.7,yy+sz*.7);ctx.stroke()}});ctx.restore()}
+  function blobs(ctx,w,h,s,scale,opt={}){let p=common(s,scale),rng=mulberry32(p.seed),count=Math.floor((w*h)/Math.max(1000,p.size*p.size*2.2));ctx.save();ctx.globalAlpha=p.op;for(let i=0;i<count;i++){let x=rng()*w,y=rng()*h,rad=p.size*rrand(rng,.28,.72),n=7;ctx.fillStyle=pick(rng,s.colors.slice(1));ctx.beginPath();for(let j=0;j<=n;j++){let a=j/n*TAU,r=rad*rrand(rng,.7,1.18),px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;j?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fill();if(opt.dot&&rng()<.7){ctx.fillStyle=s.colors[3];ctx.beginPath();ctx.arc(x,y,rad*.17,0,TAU);ctx.fill()}}ctx.restore()}
+  function groovyFlower(ctx,w,h,s,scale){let p=common(s,scale),rng=mulberry32(p.seed),step=p.size+p.gap;ctx.save();ctx.globalAlpha=p.op;cellLoop(w,h,step,(x,y)=>{let xx=x+jitter(rng,p.jit),yy=y+jitter(rng,p.jit),sz=p.size*.42,pet=rrand(rng,5,8)|0;ctx.fillStyle=pick(rng,s.colors.slice(1,3));flower(ctx,xx,yy,sz,pet,rng()*TAU);ctx.fillStyle=s.colors[3];ctx.beginPath();ctx.arc(xx,yy,sz*.23,0,TAU);ctx.fill()});ctx.restore()}
+  function waveLines(ctx,w,h,s,scale){let p=common(s,scale),rng=mulberry32(p.seed),step=p.size+p.gap;ctx.save();ctx.globalAlpha=p.op;ctx.lineWidth=p.stroke;ctx.lineCap='round';for(let y=-step;y<h+step;y+=step){ctx.strokeStyle=pick(rng,s.colors.slice(1));ctx.beginPath();ctx.moveTo(-step,y);for(let x=-step;x<w+step;x+=step*.7){let amp=p.size*(.18+.2*p.detail);ctx.quadraticCurveTo(x+step*.35,y+amp,x+step*.7,y)}ctx.stroke()}ctx.restore()}
+  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);ctx.restore()}
+
+  const presets=[
+    ['pastel-checker','파스텔 체크','체크·도트','깔끔한 기본 체커보드','checker',{}],
+    ['mini-checker','미니 체크','체크·도트','잔잔한 작은 체크','checker',{}],
+    ['rounded-checker','둥근 체크','체크·도트','모서리가 말랑한 체크','checker',{round:true}],
+    ['gingham','파스텔 깅엄','체크·도트','천 느낌의 겹친 체크','checker',{gingham:true}],
+    ['wavy-checker','웨이브 체크','체크·도트','삐뚤삐뚤 물결 체커','wavy-checker',{}],
+    ['hand-checker','손그림 체크','체크·도트','조금씩 흔들리는 체크','checker',{hand:true}],
+    ['retro-checker','레트로 체크','체크·도트','색이 교차하는 복고 체크','checker',{round:true}],
+    ['checker-heart','하트 체크','체크·도트','체크 칸 안에 미니 하트','checker',{motif:'heart'}],
+    ['checker-star','별 체크','체크·도트','체크 칸 안에 미니 별','checker',{motif:'star'}],
+    ['checker-dot','도트 체크','체크·도트','체크 칸 안에 작은 도트','checker',{motif:'dot'}],
+    ['polka','파스텔 땡땡이','체크·도트','기본 폴카 도트','dots',{}],
+    ['tiny-dot','미니 도트','체크·도트','프사 배경용 잔도트','dots',{}],
+    ['irregular-dot','불규칙 도트','체크·도트','위치와 크기가 살짝 랜덤','dots',{irregular:true}],
+    ['doodle-dot','손그림 도트','체크·도트','동그라미 선이 살짝 흔들림','dots',{doodle:true,irregular:true}],
+    ['ring-dot','링 도트','체크·도트','속이 빈 원형 도트','dots',{ring:true,irregular:true}],
+    ['bubble-dot','버블 도트','체크·도트','크기가 섞인 말랑한 점','dots',{irregular:true}],
+    ['grid','파스텔 격자','격자·줄무늬','깔끔한 기본 그리드','grid',{}],
+    ['hand-grid','손그림 격자','격자·줄무늬','선이 조금씩 흔들리는 격자','grid',{hand:true}],
+    ['stripe','파스텔 스트라이프','격자·줄무늬','부드러운 줄무늬','stripes',{}],
+    ['diagonal-stripe','사선 스트라이프','격자·줄무늬','캔디 같은 사선 줄무늬','stripes',{diagonal:true}],
+    ['wavy-stripe','물결 줄무늬','격자·줄무늬','살랑거리는 웨이브 스트라이프','stripes',{wavy:true}],
+    ['scribble-stripe','낙서 줄무늬','격자·줄무늬','손으로 그은 듯한 줄무늬','stripes',{scribble:true}],
+    ['wave-lines','물결 라인','격자·줄무늬','반복되는 부드러운 물결선','wave-lines',{}],
+    ['zigzag','지그재그','격자·줄무늬','깔끔한 파스텔 지그재그','zigzag',{}],
+    ['hearts','미니 하트','리본·하트·별','작은 하트 반복','motif',{motif:'heart'}],
+    ['outline-hearts','낙서 하트','리본·하트·별','선으로 그린 손그림 하트','motif',{motif:'heart',outline:true}],
+    ['stars','미니 별','리본·하트·별','작은 별 반복','motif',{motif:'star'}],
+    ['outline-stars','손그림 별','리본·하트·별','선으로 그린 낙서 별','motif',{motif:'star',outline:true}],
+    ['sparkles','반짝이','리본·하트·별','트윙클 스파클 반복','motif',{motif:'sparkle'}],
+    ['bows','미니 리본','리본·하트·별','귀여운 리본 반복','motif',{motif:'bow'}],
+    ['flowers','미니 꽃','귀여운 오브젝트','작은 데이지 패턴','motif',{motif:'flower'}],
+    ['groovy-flower','그루비 꽃','귀여운 오브젝트','복고풍 둥근 꽃','groovy-flower',{}],
+    ['cherry','체리','귀여운 오브젝트','미니 체리 반복','motif',{motif:'cherry'}],
+    ['strawberry','딸기','귀여운 오브젝트','작은 딸기 반복','motif',{motif:'strawberry'}],
+    ['cloud','구름','귀여운 오브젝트','말랑한 구름 반복','motif',{motif:'cloud'}],
+    ['moonstar','달·별','귀여운 오브젝트','달과 별이 섞인 셀레스티얼','motif',{motif:'moonstar'}],
+    ['smiley','스마일','귀여운 오브젝트','귀여운 얼굴 반복','motif',{motif:'smile'}],
+    ['raindrop','물방울','귀여운 오브젝트','말랑한 물방울 반복','raindrops',{}],
+    ['doodle','낙서 믹스','키치·낙서','하트·별·링·물결 낙서','doodles',{}],
+    ['confetti','파스텔 컨페티','키치·낙서','색종이 조각을 흩뿌린 느낌','confetti',{}],
+    ['sticker-mix','스티커 믹스','키치·낙서','다양한 미니 도형이 섞인 느낌','doodles',{}],
+    ['sprinkles','스프링클','키치·낙서','짧은 선과 도형의 키치 패턴','confetti',{}],
+    ['blob','파스텔 블롭','몽글·추상','몽글몽글 유기적 도형','blobs',{}],
+    ['blob-dot','포인트 블롭','몽글·추상','블롭 안에 작은 포인트','blobs',{dot:true}],
+    ['organic','유기적 도형','몽글·추상','불규칙한 소프트 셰이프','blobs',{}],
+    ['jelly','젤리 도형','몽글·추상','말랑한 젤리 같은 덩어리','blobs',{dot:true}],
+    ['terrazzo','테라조','몽글·추상','작은 불규칙 조각 패턴','confetti',{}],
+    ['retro-wave','레트로 웨이브','몽글·추상','복고풍 물결 리듬','wave-lines',{}]
+  ].map(([id,name,category,desc,type,opt])=>({id,name,category,desc,type,opt}));
+
+  const defaults={
+    'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:0,jitter:0,detail:25},
+    'wavy-checker':{size:92,gap:0,jitter:18,detail:65},'hand-checker':{size:75,gap:0,jitter:40,detail:45},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
+    'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3},
+    'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
+    'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
+    'hearts':{size:56,gap:46,jitter:28},'bows':{size:64,gap:56,jitter:28},'sparkles':{size:48,gap:40,jitter:34},'flowers':{size:68,gap:54,jitter:34},
+    'groovy-flower':{size:95,gap:34,jitter:28,detail:62},'cherry':{size:76,gap:55,jitter:30},'strawberry':{size:72,gap:50,jitter:30},
+    'cloud':{size:84,gap:55,jitter:35},'moonstar':{size:62,gap:48,jitter:45},'smiley':{size:58,gap:48,jitter:32},'raindrop':{size:58,gap:42,jitter:42},
+    'doodle':{size:60,gap:48,jitter:55,stroke:4},'confetti':{size:62,gap:26,jitter:70},'blob':{size:110,gap:30,jitter:60},'blob-dot':{size:120,gap:24,jitter:60}
+  };
+  window.PatternEngine={presets,defaults,render};
+})();

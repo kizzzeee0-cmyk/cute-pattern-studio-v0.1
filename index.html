@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f5ff" />
+  <title>Cute Pattern Studio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
+        <h1>Cute Pattern Studio <span>v0.1</span></h1>
+      </div>
+      <div class="top-actions">
+        <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
+        <button id="resetBtn" class="ghost">↺ 초기화</button>
+        <button id="exportBtn" class="primary">PNG 2000×2000 저장</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="pattern-panel panel">
+        <div class="panel-head">
+          <div>
+            <h2>패턴</h2>
+            <p id="patternCount"></p>
+          </div>
+          <input id="searchInput" type="search" placeholder="체크, 도트, 리본…" />
+        </div>
+        <div id="categoryTabs" class="tabs"></div>
+        <div id="patternList" class="pattern-list"></div>
+      </aside>
+
+      <section class="preview-panel panel">
+        <div class="preview-toolbar">
+          <div class="selected-copy">
+            <span id="selectedCategory" class="pill"></span>
+            <strong id="selectedName"></strong>
+            <small id="selectedDesc"></small>
+          </div>
+          <div class="zoom-box">
+            <button id="zoomOut" title="축소">−</button>
+            <span id="zoomText">100%</span>
+            <button id="zoomIn" title="확대">＋</button>
+          </div>
+        </div>
+        <div id="canvasStage" class="canvas-stage">
+          <canvas id="previewCanvas" width="1000" height="1000"></canvas>
+        </div>
+        <div class="preview-note">미리보기는 가볍게 렌더링되고, 저장할 때는 <b>실제 2000×2000</b>으로 다시 그립니다.</div>
+      </section>
+
+      <aside class="control-panel panel">
+        <div class="control-scroll">
+          <section class="control-section">
+            <div class="section-title-row">
+              <h2>색상</h2>
+              <button id="paletteShuffle" class="mini-btn">팔레트 랜덤</button>
+            </div>
+            <div class="color-grid" id="colorGrid"></div>
+            <div class="palette-presets" id="palettePresets"></div>
+          </section>
+
+          <section class="control-section">
+            <div class="section-title-row">
+              <h2>배경</h2>
+              <label class="switch-row"><input id="transparentBg" type="checkbox" /> 투명 배경</label>
+            </div>
+            <label>배경 모드
+              <select id="bgMode">
+                <option value="solid">단색</option>
+                <option value="linear">그라데이션</option>
+              </select>
+            </label>
+            <div id="gradientControls" class="conditional">
+              <label>그라데이션 각도 <span id="gradientAngleVal"></span>
+                <input id="gradientAngle" type="range" min="0" max="360" value="135" />
+              </label>
+            </div>
+          </section>
+
+          <section class="control-section">
+            <div class="section-title-row">
+              <h2>패턴 조절</h2>
+              <button id="randomSeed" class="mini-btn">새 배치</button>
+            </div>
+            <label>패턴 크기 <span id="sizeVal"></span>
+              <input id="size" type="range" min="12" max="240" value="72" />
+            </label>
+            <label>간격 <span id="gapVal"></span>
+              <input id="gap" type="range" min="0" max="150" value="24" />
+            </label>
+            <label>불규칙함 <span id="jitterVal"></span>
+              <input id="jitter" type="range" min="0" max="100" value="18" />
+            </label>
+            <label>회전 <span id="rotationVal"></span>
+              <input id="rotation" type="range" min="-45" max="45" value="0" />
+            </label>
+            <label>선 두께 <span id="strokeVal"></span>
+              <input id="stroke" type="range" min="1" max="18" value="4" />
+            </label>
+            <label>패턴 투명도 <span id="opacityVal"></span>
+              <input id="opacity" type="range" min="20" max="100" value="100" />
+            </label>
+            <label>포인트/디테일 <span id="detailVal"></span>
+              <input id="detail" type="range" min="0" max="100" value="45" />
+            </label>
+          </section>
+
+          <section class="control-section">
+            <h2>출력</h2>
+            <div class="export-grid">
+              <label>가로(px)<input id="exportW" type="number" min="256" max="6000" step="1" value="2000" /></label>
+              <label>세로(px)<input id="exportH" type="number" min="256" max="6000" step="1" value="2000" /></label>
+            </div>
+            <label class="switch-row"><input id="lockSquare" type="checkbox" checked /> 정사각형 고정</label>
+            <button id="exportBtn2" class="primary wide">PNG 저장</button>
+          </section>
+
+          <section class="control-section info-box">
+            <h3>💡 사용 팁</h3>
+            <p>‘불규칙함’을 올리면 사람이 직접 그린 듯한 배치가 되고, ‘디테일’을 올리면 체크 안 포인트나 보조 장식이 더 많이 생깁니다.</p>
+          </section>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="patterns.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
