@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio</title>
+  <title>Cute Pattern Studio v0.2</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,12 +12,14 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v0.1</span></h1>
+        <h1>Cute Pattern Studio <span>v0.2</span></h1>
+        <p class="subtitle">3개 레이어 조합 · 업로드 SVG/PNG 패턴화 · 팔레트 추출 · 즐겨찾기/내 프리셋 저장</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
         <button id="resetBtn" class="ghost">↺ 초기화</button>
-        <button id="exportBtn" class="primary">PNG 2000×2000 저장</button>
+        <button id="exportBtn" class="primary">PNG 저장</button>
+        <button id="exportTileBtn" class="secondary">심리스 타일 저장</button>
       </div>
     </header>
 
@@ -25,13 +27,34 @@
       <aside class="pattern-panel panel">
         <div class="panel-head">
           <div>
-            <h2>패턴</h2>
+            <h2>패턴 라이브러리</h2>
             <p id="patternCount"></p>
           </div>
           <input id="searchInput" type="search" placeholder="체크, 도트, 리본…" />
         </div>
+
+        <section class="mini-section no-border">
+          <div class="layer-tabs" id="layerTabs"></div>
+          <div class="inline-row small-gap">
+            <label class="switch-row compact"><input id="favoriteOnly" type="checkbox" /> ★ 즐겨찾기만</label>
+            <span id="activeLayerLabel" class="muted mini-copy"></span>
+          </div>
+        </section>
+
         <div id="categoryTabs" class="tabs"></div>
         <div id="patternList" class="pattern-list"></div>
+
+        <section class="mini-section asset-section">
+          <div class="section-title-row">
+            <div>
+              <h3>업로드 에셋</h3>
+              <p class="micro-copy">SVG/PNG/JPG를 불러와 반복 패턴이나 모티프로 사용할 수 있어.</p>
+            </div>
+            <button id="uploadAssetBtn" class="mini-btn">파일 추가</button>
+          </div>
+          <input id="assetInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden />
+          <div id="assetList" class="asset-list"></div>
+        </section>
       </aside>
 
       <section class="preview-panel panel">
@@ -50,18 +73,18 @@
         <div id="canvasStage" class="canvas-stage">
           <canvas id="previewCanvas" width="1000" height="1000"></canvas>
         </div>
-        <div class="preview-note">미리보기는 가볍게 렌더링되고, 저장할 때는 <b>실제 2000×2000</b>으로 다시 그립니다.</div>
+        <div class="preview-note">미리보기는 가볍게 렌더링되고, 저장 시에는 설정된 실제 해상도로 다시 그립니다. 심리스 타일 저장은 가장자리 반복을 위해 <b>불규칙함을 자동으로 0</b>으로 맞춰 내보냅니다.</div>
       </section>
 
       <aside class="control-panel panel">
         <div class="control-scroll">
           <section class="control-section">
             <div class="section-title-row">
-              <h2>색상</h2>
-              <button id="paletteShuffle" class="mini-btn">팔레트 랜덤</button>
+              <h2>레이어 편집</h2>
+              <button id="duplicateLayerBtn" class="mini-btn">현재 레이어 복제</button>
             </div>
-            <div class="color-grid" id="colorGrid"></div>
-            <div class="palette-presets" id="palettePresets"></div>
+            <div id="layerSummary" class="layer-summary"></div>
+            <div id="layerEditor"></div>
           </section>
 
           <section class="control-section">
@@ -75,6 +98,7 @@
                 <option value="linear">그라데이션</option>
               </select>
             </label>
+            <div class="color-grid compact-grid" id="bgColorGrid"></div>
             <div id="gradientControls" class="conditional">
               <label>그라데이션 각도 <span id="gradientAngleVal"></span>
                 <input id="gradientAngle" type="range" min="0" max="360" value="135" />
@@ -84,30 +108,21 @@
 
           <section class="control-section">
             <div class="section-title-row">
-              <h2>패턴 조절</h2>
-              <button id="randomSeed" class="mini-btn">새 배치</button>
+              <h2>참고 이미지 팔레트 추출</h2>
+              <button id="uploadReferenceBtn" class="mini-btn">참고 이미지 불러오기</button>
             </div>
-            <label>패턴 크기 <span id="sizeVal"></span>
-              <input id="size" type="range" min="12" max="240" value="72" />
-            </label>
-            <label>간격 <span id="gapVal"></span>
-              <input id="gap" type="range" min="0" max="150" value="24" />
-            </label>
-            <label>불규칙함 <span id="jitterVal"></span>
-              <input id="jitter" type="range" min="0" max="100" value="18" />
-            </label>
-            <label>회전 <span id="rotationVal"></span>
-              <input id="rotation" type="range" min="-45" max="45" value="0" />
-            </label>
-            <label>선 두께 <span id="strokeVal"></span>
-              <input id="stroke" type="range" min="1" max="18" value="4" />
-            </label>
-            <label>패턴 투명도 <span id="opacityVal"></span>
-              <input id="opacity" type="range" min="20" max="100" value="100" />
-            </label>
-            <label>포인트/디테일 <span id="detailVal"></span>
-              <input id="detail" type="range" min="0" max="100" value="45" />
-            </label>
+            <input id="referenceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            <div id="referencePreview" class="reference-preview empty">참고 이미지를 불러오면 여기서 색상을 추출해.</div>
+            <div id="referencePalette" class="extracted-palette"></div>
+          </section>
+
+          <section class="control-section">
+            <div class="section-title-row">
+              <h2>즐겨찾기 & 내 프리셋</h2>
+              <button id="savePresetBtn" class="mini-btn">현재 설정 저장</button>
+            </div>
+            <div id="favoritePreview" class="chip-list"></div>
+            <div id="savedPresetList" class="saved-preset-list"></div>
           </section>
 
           <section class="control-section">
@@ -117,12 +132,20 @@
               <label>세로(px)<input id="exportH" type="number" min="256" max="6000" step="1" value="2000" /></label>
             </div>
             <label class="switch-row"><input id="lockSquare" type="checkbox" checked /> 정사각형 고정</label>
+            <div class="tile-grid">
+              <label>타일 가로(px)<input id="tileW" type="number" min="64" max="4000" step="1" value="512" /></label>
+              <label>타일 세로(px)<input id="tileH" type="number" min="64" max="4000" step="1" value="512" /></label>
+            </div>
+            <label class="switch-row"><input id="lockTileSquare" type="checkbox" checked /> 타일 정사각형 고정</label>
             <button id="exportBtn2" class="primary wide">PNG 저장</button>
+            <button id="exportTileBtn2" class="secondary wide">심리스 타일 PNG 저장</button>
           </section>
 
           <section class="control-section info-box">
-            <h3>💡 사용 팁</h3>
-            <p>‘불규칙함’을 올리면 사람이 직접 그린 듯한 배치가 되고, ‘디테일’을 올리면 체크 안 포인트나 보조 장식이 더 많이 생깁니다.</p>
+            <h3>v0.2 추가 기능</h3>
+            <p>① 레이어 1·2·3 각각 별도 패턴/색상/크기/간격/불규칙함/회전 조절</p>
+            <p>② SVG 단색 변환 / PNG 반복 패턴화 / 업로드 에셋 저장</p>
+            <p>③ 즐겨찾기 / 내 프리셋 / 참고 이미지 팔레트 자동 추출</p>
           </section>
         </div>
       </aside>

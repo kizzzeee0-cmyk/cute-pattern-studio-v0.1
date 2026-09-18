@@ -1,48 +1,45 @@
-# Cute Pattern Studio v0.1
+# Cute Pattern Studio v0.2
 
-브라우저에서 귀여운 반복 패턴을 만들고 고해상도 PNG로 저장하는 정적 웹앱입니다.
+Cute Pattern Studio는 **2000×2000 PNG 패턴 배경 생성용 정적 웹앱**입니다.
+GitHub에 업로드하고 Cloudflare Pages로 바로 배포할 수 있습니다.
 
-## 핵심 기능
-- 48개 패턴 프리셋: 체크/도트/격자/줄무늬/리본/하트/별/꽃/체리/딸기/구름/달·별/스마일/물방울/낙서/컨페티/블롭 등
-- 모든 핵심 색상 변경: HTML 컬러피커 + HEX + 지원 브라우저의 EyeDropper API
-- 패턴 크기, 간격, 불규칙함, 회전, 선 두께, 투명도, 디테일 조절
-- 체크 칸 내부 하트/별/도트 포인트 패턴 포함
-- 랜덤 배치(seed) 및 전체 랜덤 조합
-- 단색/그라데이션/투명 배경
-- 기본 2000×2000 PNG, 최대 6000×6000 커스텀 출력
-- 외부 이미지/라이브러리 의존성 없음
+## v0.2 추가 기능
 
-## 로컬 실행
-`index.html`을 더블클릭해도 대부분 기능이 동작합니다. 다만 화면 스포이드(EyeDropper)는 HTTPS 또는 localhost 같은 secure context가 필요한 브라우저가 있으므로 배포 후 사용하는 것을 권장합니다.
+- **패턴 레이어 1·2·3**
+  - 각 레이어별로 개별 제어 가능
+  - 켜기/끄기
+  - 패턴 종류 / 업로드 에셋 선택
+  - 색상 4개
+  - 크기 / 간격 / 불규칙함 / 회전 / 선 두께 / 투명도 / 디테일
+- **사용자 SVG/PNG 업로드**
+  - SVG: 원본 색 유지 또는 단색 변환
+  - PNG/JPG/WEBP: 반복 타일 / 모티프 반복으로 사용 가능
+- **참고 이미지에서 팔레트 자동 추출**
+- **즐겨찾기**
+- **내 프리셋 저장**
+- **심리스 타일 PNG 저장**
+  - 가장자리 반복 안정성을 위해 저장 시 각 레이어의 `불규칙함`을 임시로 0으로 맞춰서 내보냅니다.
+- **사용자 업로드 PNG 파일을 패턴으로 사용**
 
-간단한 로컬 서버:
+## 파일 구성
 
-```bash
-python -m http.server 8080
-```
+- `index.html` — 메인 UI
+- `styles.css` — 스타일
+- `patterns.js` — 기본 패턴 렌더러
+- `app.js` — 앱 로직
 
-그 후 `http://localhost:8080` 접속.
+## GitHub + Cloudflare Pages 배포
 
-## GitHub → Cloudflare Pages 배포
-1. GitHub에 새 저장소를 생성합니다.
-2. 이 폴더의 `index.html`, `styles.css`, `patterns.js`, `app.js`를 저장소 루트에 업로드합니다.
-3. Cloudflare Dashboard → Workers & Pages → Create application → Pages → Import an existing Git repository.
-4. GitHub 저장소를 선택합니다.
-5. 프레임워크 프리셋은 None, Build command는 `exit 0`, Build output directory는 `.` 로 설정합니다.
-6. 배포 후 발급되는 `*.pages.dev` 주소로 접속합니다.
+1. 이 폴더 전체를 GitHub 저장소에 업로드
+2. Cloudflare → Workers & Pages → Create Application
+3. Pages → Import an existing Git repository
+4. Framework preset: `None`
+5. Build command: 비워두거나 `exit 0`
+6. Build output directory: `.`
+7. Deploy
 
-## 파일 구조
-- `index.html` UI
-- `styles.css` 스타일
-- `patterns.js` 패턴 렌더링 엔진 + 프리셋
-- `app.js` 상태/컨트롤/스포이드/PNG 내보내기
+## 참고
 
-## 다음 버전에 추천하는 기능
-- 사용자 SVG/PNG 장식 불러오기 + 색상화 가능한 SVG 마스크 모드
-- 패턴 100+종 확장
-- 레이어 방식(배경 + 패턴 1 + 패턴 2 + 코너 장식)
-- 즐겨찾기/최근 사용/프리셋 저장(localStorage)
-- 색상 비율 슬라이더와 멀티스톱 그라데이션
-- 심리스 타일 PNG 별도 출력
-- SVG 출력
-- 팔레트 이미지 업로드 후 자동 색상 추출
+- 업로드한 에셋/즐겨찾기/내 프리셋은 브라우저 `localStorage`에 저장됩니다.
+- 아주 큰 SVG/PNG를 많이 저장하면 브라우저 저장 공간 제한에 걸릴 수 있습니다.
+- EyeDropper(화면 스포이드)는 지원 브라우저에서만 동작합니다.
