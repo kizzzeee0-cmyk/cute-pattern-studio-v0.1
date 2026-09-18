@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v0.3</title>
+  <title>Cute Pattern Studio v0.4</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v0.3</span></h1>
-        <p class="subtitle">체크/플래드 다양화 · 업로드 이미지 반복 패턴화 · 3개 레이어 조합 · 팔레트 추출</p>
+        <h1>Cute Pattern Studio <span>v0.4</span></h1>
+        <p class="subtitle">배경색 포함 저장 수정 · 기본 1레이어 + 필요시 추가 · 귀여운 패턴 확장 · 팔레트 추출</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -77,7 +77,7 @@
         <div id="canvasStage" class="canvas-stage">
           <canvas id="previewCanvas" width="1000" height="1000"></canvas>
         </div>
-        <div class="preview-note">미리보기는 가볍게 렌더링되고, 저장 시에는 설정된 실제 해상도로 다시 그립니다. 심리스 타일 저장은 가장자리 반복을 위해 <b>불규칙함을 자동으로 0</b>으로 맞춰 내보냅니다.</div>
+        <div class="preview-note">미리보기는 현재 설정한 <b>배경색 + 패턴 레이어 조합</b>을 그대로 보여주고, 저장 시에도 같은 방식으로 다시 그립니다. 심리스 타일 저장은 가장자리 반복을 위해 <b>불규칙함을 자동으로 0</b>으로 맞춰 내보냅니다.</div>
       </section>
 
       <aside class="control-panel panel">
@@ -85,7 +85,7 @@
           <section class="control-section">
             <div class="section-title-row">
               <h2>레이어 편집</h2>
-              <button id="duplicateLayerBtn" class="mini-btn">현재 레이어 복제</button>
+              <button id="duplicateLayerBtn" class="mini-btn">레이어 추가</button>
             </div>
             <div id="layerSummary" class="layer-summary"></div>
             <div id="layerEditor"></div>
@@ -146,10 +146,10 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v0.3 개선 내용</h3>
-            <p>① 체크/플래드 변형 패턴 추가 + 레이어 1·2·3 개별 조절</p>
-            <p>② 투명 PNG/SVG 업로드 → 현재 레이어에 즉시 연결</p>
-            <p>③ 즐겨찾기 / 내 프리셋 / 참고 이미지 팔레트 자동 추출</p>
+            <h3>v0.4 개선 내용</h3>
+            <p>① 기본 레이어 1개로 시작하고, 필요할 때 레이어를 추가하는 구조</p>
+            <p>② 배경색 + 패턴 조합이 미리보기/PNG 저장에 동일하게 반영되도록 수정</p>
+            <p>③ 귀여운 패턴 종류 추가 + 업로드 에셋 반복 패턴화 유지</p>
           </section>
         </div>
       </aside>
