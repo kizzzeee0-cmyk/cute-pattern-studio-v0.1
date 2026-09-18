@@ -55,6 +55,11 @@
     ['handmade-plaid','핸드메이드 플래드','체크·도트','손그림 느낌으로 살짝 흔들리는 체크','plaid',{fine:true,fabric:true,wobble:true}],
     ['textured-checker','텍스처 체크','체크·도트','분필/종이 질감의 포근한 체크','textured-checker',{grid:true}],
     ['sketch-plaid','스케치 플래드','체크·도트','가느다란 손그림 라인의 체크','plaid',{fine:true,fabric:true,wobble:true}],
+    ['marshmallow-check','마시멜로 체크','체크·도트','둥글고 부드러운 캔디 느낌 체크','checker',{round:true,soft:true}],
+    ['picnic-check','피크닉 체크','체크·도트','고전적인 도시락 천 느낌의 깅엄 체크','checker',{gingham:true,soft:true}],
+    ['windowpane-check','윈도우페인 체크','체크·도트','여백감 있는 큰 칸의 얇은 체크','plaid',{fine:true,bandScale:.20}],
+    ['layered-check','레이어드 체크','체크·도트','굵은 줄과 얇은 줄이 겹치는 체크','plaid',{fine:true,bandScale:.34,fabric:true}],
+    ['micro-gingham','마이크로 깅엄','체크·도트','촘촘하고 작은 깅엄 체크','checker',{gingham:true}],
     ['checker-heart','하트 체크','체크·도트','체크 칸 안에 미니 하트','checker',{motif:'heart'}],
     ['checker-star','별 체크','체크·도트','체크 칸 안에 미니 별','checker',{motif:'star'}],
     ['checker-dot','도트 체크','체크·도트','체크 칸 안에 작은 도트','checker',{motif:'dot'}],
@@ -95,24 +100,18 @@
     ['confetti','파스텔 컨페티','키치·낙서','색종이 조각을 흩뿌린 느낌','confetti',{}],
     ['sticker-mix','스티커 믹스','키치·낙서','다양한 미니 도형이 섞인 느낌','doodles',{}],
     ['sprinkles','스프링클','키치·낙서','짧은 선과 도형의 키치 패턴','confetti',{}],
-    ['blob','파스텔 블롭','몽글·추상','몽글몽글 유기적 도형','blobs',{}],
-    ['blob-dot','포인트 블롭','몽글·추상','블롭 안에 작은 포인트','blobs',{dot:true}],
-    ['organic','유기적 도형','몽글·추상','불규칙한 소프트 셰이프','blobs',{}],
-    ['jelly','젤리 도형','몽글·추상','말랑한 젤리 같은 덩어리','blobs',{dot:true}],
-    ['terrazzo','테라조','몽글·추상','작은 불규칙 조각 패턴','confetti',{}],
-    ['retro-wave','레트로 웨이브','몽글·추상','복고풍 물결 리듬','wave-lines',{}]
   ].map(([id,name,category,desc,type,opt])=>({id,name,category,desc,type,opt}));
 
   const defaults={
     'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:8,jitter:0,detail:25},
-    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
+    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
     'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
     'hearts':{size:56,gap:46,jitter:28},'bows':{size:64,gap:56,jitter:28},'sparkles':{size:48,gap:40,jitter:34},'kira-sparkle':{size:34,gap:28,jitter:24,detail:68},'tiny-bows':{size:40,gap:30,jitter:18,detail:36},'puff-hearts':{size:44,gap:34,jitter:20,detail:40},'candy-stars':{size:42,gap:32,jitter:24,detail:38},'flowers':{size:68,gap:54,jitter:34},'daisy-dot':{size:42,gap:34,jitter:26,detail:44},
     'groovy-flower':{size:95,gap:34,jitter:28,detail:62},'cherry':{size:76,gap:55,jitter:30},'strawberry':{size:72,gap:50,jitter:30},
     'cloud':{size:84,gap:55,jitter:35},'moonstar':{size:62,gap:48,jitter:45},'smiley':{size:58,gap:48,jitter:32},'raindrop':{size:58,gap:42,jitter:42},
-    'doodle':{size:60,gap:48,jitter:55,stroke:4},'confetti':{size:62,gap:26,jitter:70},'blob':{size:110,gap:30,jitter:60},'blob-dot':{size:120,gap:24,jitter:60}
+    'doodle':{size:60,gap:48,jitter:55,stroke:4},'confetti':{size:62,gap:26,jitter:70}
   };
   window.PatternEngine={presets,defaults,render};
 })();
