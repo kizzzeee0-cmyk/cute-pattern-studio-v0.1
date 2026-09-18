@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v0.2</title>
+  <title>Cute Pattern Studio v0.3</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v0.2</span></h1>
-        <p class="subtitle">3개 레이어 조합 · 업로드 SVG/PNG 패턴화 · 팔레트 추출 · 즐겨찾기/내 프리셋 저장</p>
+        <h1>Cute Pattern Studio <span>v0.3</span></h1>
+        <p class="subtitle">체크/플래드 다양화 · 업로드 이미지 반복 패턴화 · 3개 레이어 조합 · 팔레트 추출</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -48,11 +48,15 @@
           <div class="section-title-row">
             <div>
               <h3>업로드 에셋</h3>
-              <p class="micro-copy">SVG/PNG/JPG를 불러와 반복 패턴이나 모티프로 사용할 수 있어.</p>
+              <p class="micro-copy">투명 PNG/SVG/JPG를 불러와 체크 간격처럼 반복 패턴으로 만들 수 있어.</p>
             </div>
             <button id="uploadAssetBtn" class="mini-btn">파일 추가</button>
           </div>
           <input id="assetInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden />
+          <button id="assetDropzone" class="asset-dropzone" type="button">
+            <strong>여기에 투명 PNG / SVG / JPG를 올리거나 클릭해서 추가</strong>
+            <span>업로드 후 현재 레이어에 적용하면 원하는 크기·간격으로 반복 패턴을 만들 수 있어.</span>
+          </button>
           <div id="assetList" class="asset-list"></div>
         </section>
       </aside>
@@ -142,9 +146,9 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v0.2 추가 기능</h3>
-            <p>① 레이어 1·2·3 각각 별도 패턴/색상/크기/간격/불규칙함/회전 조절</p>
-            <p>② SVG 단색 변환 / PNG 반복 패턴화 / 업로드 에셋 저장</p>
+            <h3>v0.3 개선 내용</h3>
+            <p>① 체크/플래드 변형 패턴 추가 + 레이어 1·2·3 개별 조절</p>
+            <p>② 투명 PNG/SVG 업로드 → 현재 레이어에 즉시 연결</p>
             <p>③ 즐겨찾기 / 내 프리셋 / 참고 이미지 팔레트 자동 추출</p>
           </section>
         </div>
