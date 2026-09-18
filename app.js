@@ -6,7 +6,7 @@ const palettePresets=[
   ['#FFF8FC','#F7B9D7','#B7D5FF','#D7C2FF'],['#FFF9F3','#FFD7A8','#FFB8C8','#BFE6D3'],['#F7F5FF','#AFA0F4','#D5C9FF','#9EDAE3'],['#FFF8F2','#F3AFA7','#F7D68B','#AECFBA'],
   ['#F7FAFF','#A9C9FF','#BBDCF4','#D9C7FF'],['#FFF8F8','#EFA3B5','#B9D8B4','#F0D78F'],['#FAF7FF','#D7B8FF','#B5E1DE','#FFC6D9'],['#FFF9EC','#F2C572','#F2A4A4','#9FCBC4']
 ];
-const STORAGE={state:'cps-v04-state',favorites:'cps-v04-favorites',presets:'cps-v04-presets',assets:'cps-v04-assets'};
+const STORAGE={state:'cps-v05-state',favorites:'cps-v05-favorites',presets:'cps-v05-presets',assets:'cps-v05-assets'};
 const MAX_LAYERS=8;
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/디테일색']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
@@ -19,7 +19,7 @@ function shuffle(a){let out=[...a];for(let i=out.length-1;i>0;i--){let j=Math.fl
 function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),1800)}
 function categories(){return ['전체',...new Set(PE.presets.map(p=>p.category))]}
 function getPreset(id){return PE.presets.find(p=>p.id===id)||PE.presets[0]}
-function defaultLayer(i,presetId='pastel-checker',enabled=true){return {enabled,name:i===0?'기본 레이어':`추가 레이어 ${i}`,sourceType:'builtin',presetId,assetId:'',renderMode:'motif',colors:['#FFF9FC','#F5B9D4','#B9D7FF','#BFAAF2'],size:i===0?72:58,gap:i===0?24:28,jitter:i===0?18:22,rotation:0,stroke:4,opacity:i===0?100:78,detail:45,seed:Math.floor(Math.random()*1e9),svgColorMode:'original'}}
+function defaultLayer(i,presetId='pastel-checker',enabled=true){return {enabled,name:i===0?'기본 레이어':`추가 레이어 ${i}`,sourceType:'builtin',presetId,assetId:'',renderMode:'motif',colors:['#FFF9FC','#F5B9D4','#B9D7FF','#BFAAF2'],size:i===0?72:58,gap:i===0?24:28,jitter:i===0?18:22,rotation:0,stroke:4,opacity:i===0?100:78,detail:45,seed:Math.floor(Math.random()*1e9),svgColorMode:'original',randomSize:true,randomAngle:true}}
 function makeInitialState(){return {bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
 let favorites=new Set();
 let myPresets=[];
@@ -32,18 +32,19 @@ function loadLocal(){
   try{userAssets=JSON.parse(localStorage.getItem(STORAGE.assets)||'[]')||[]}catch{}
   try{let saved=JSON.parse(localStorage.getItem(STORAGE.state)||'null');if(saved)state=mergeState(saved)}catch{}
 }
-function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:[...(l.colors||defaultLayer(i).colors)]}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`});return merged}
+function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:[...(l.colors||defaultLayer(i).colors)]}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`;if(layer.randomSize===undefined)layer.randomSize=true;if(layer.randomAngle===undefined)layer.randomAngle=true});return merged}
 function persistAll(){localStorage.setItem(STORAGE.favorites,JSON.stringify([...favorites]));localStorage.setItem(STORAGE.presets,JSON.stringify(myPresets));localStorage.setItem(STORAGE.assets,JSON.stringify(stripAssetCache(userAssets)));localStorage.setItem(STORAGE.state,JSON.stringify(stripStateForSave(state)))}
 function stripStateForSave(s){let copy=clone(s);return copy}
 function stripAssetCache(arr){return arr.map(a=>{let c={...a};delete c._img;delete c._cacheKey;return c})}
 
 function currentLayer(){return state.layers[activeLayerIndex]}
+function layerSupportsScatterControls(layer=currentLayer()){if(layer.sourceType!=='builtin')return false;let preset=getPreset(layer.presetId);return ['motif','dots','raindrops'].includes(preset.type)}
 function layerTitle(layer,idx){if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);return `${layer.name} · ${p.name}`}let a=userAssets.find(v=>v.id===layer.assetId);return `${layer.name} · ${a?a.name:'업로드 에셋 없음'}`}
 function addLayer(fromCurrent=true){if(state.layers.length>=MAX_LAYERS){toast(`레이어는 최대 ${MAX_LAYERS}개까지 추가할 수 있어.`);return}let i=state.layers.length;let base=fromCurrent?clone(currentLayer()):defaultLayer(i,'tiny-dot',true);base.name=`추가 레이어 ${i}`;base.enabled=true;base.seed=Math.floor(Math.random()*1e9);state.layers.push(base);activeLayerIndex=state.layers.length-1;persistAll();syncAll();toast(`${base.name}를 추가했어.`)}
 function removeActiveLayer(){if(activeLayerIndex===0){toast('기본 레이어는 삭제할 수 없어.');return}let removed=state.layers.splice(activeLayerIndex,1)[0];state.layers.forEach((layer,i)=>{layer.name=i===0?'기본 레이어':`추가 레이어 ${i}`});activeLayerIndex=Math.max(0,activeLayerIndex-1);persistAll();syncAll();toast(`${removed.name}를 삭제했어.`)}
 
 function drawBackground(target,w,h){if(state.bg.transparent){target.clearRect(0,0,w,h);return}target.clearRect(0,0,w,h);if(state.bg.mode==='linear'){let a=(state.bg.gradientAngle||135)*Math.PI/180,cx=w/2,cy=h/2,L=Math.abs(w*Math.cos(a))+Math.abs(h*Math.sin(a)),dx=Math.cos(a)*L/2,dy=Math.sin(a)*L/2;let g=target.createLinearGradient(cx-dx,cy-dy,cx+dx,cy+dy);g.addColorStop(0,state.bg.colors[0]);g.addColorStop(1,state.bg.colors[1]);target.fillStyle=g}else target.fillStyle=state.bg.colors[0];target.fillRect(0,0,w,h)}
-function layerToPatternState(layer,seamless=false){return {presetId:layer.presetId,colors:[...layer.colors],size:layer.size,gap:layer.gap,jitter:seamless?0:layer.jitter,rotation:layer.rotation,stroke:layer.stroke,opacity:layer.opacity,detail:layer.detail,seed:layer.seed,bgMode:'solid',gradientAngle:0,transparentBg:false,skipBackground:true}}
+function layerToPatternState(layer,seamless=false){return {presetId:layer.presetId,colors:[...layer.colors],size:layer.size,gap:layer.gap,jitter:seamless?0:layer.jitter,rotation:layer.rotation,stroke:layer.stroke,opacity:layer.opacity,detail:layer.detail,seed:layer.seed,bgMode:'solid',gradientAngle:0,transparentBg:false,skipBackground:true,randomSize:layer.randomSize!==false,randomAngle:layer.randomAngle!==false}}
 async function ensureAssetImage(asset,layer=null){if(!asset)return null;let key='';let src='';if(asset.kind==='svg'){let mode=layer?.svgColorMode||asset.svgColorMode||'original';let tint=(layer?.colors?.[1]||asset.tint||'#9B87F5').toUpperCase();key=`${mode}|${tint}`;src=mode==='single'?svgToDataUrl(recolorSvg(asset.svgText||'',tint)):asset.dataURL}else{key='original';src=asset.dataURL}if(asset._img&&asset._cacheKey===key)return asset._img;asset._cacheKey=key;asset._img=await loadImage(src);return asset._img}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src})}
 function svgToDataUrl(svg){return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
@@ -82,8 +83,26 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
   }
   let colorTitle=document.createElement('div');colorTitle.className='section-title-row';colorTitle.innerHTML='<h3>레이어 색상</h3><button id="applyPaletteToLayer" class="mini-btn" type="button">팔레트 랜덤</button>';top.appendChild(colorTitle);
   top.appendChild(renderColorInputs(layer.colors,()=>{persistAll();let asset=userAssets.find(v=>v.id===layer.assetId);if(asset&&asset.kind==='svg'){asset._img=null;ensureAssetImage(asset,layer).then(renderMain)}persistAll();renderPatternListDebounced();renderAssetList();renderMain()}));
+  if(layerSupportsScatterControls(layer)){
+    let scatterBox=document.createElement('div');
+    scatterBox.className='layer-editor-card';
+    scatterBox.innerHTML='<div class="section-title-row"><h3>반복 요소 정렬</h3></div><div class="control-subtitle">하트·별·리본·도트처럼 반복되는 개별 요소의 크기와 방향을 랜덤으로 둘지, 모두 동일하게 정렬할지 선택할 수 있어.</div>';
+    let sizeRow=document.createElement('label');
+    sizeRow.className='switch-row';
+    sizeRow.innerHTML=`<input id="randomSizeToggle" type="checkbox" ${layer.randomSize!==false?'checked':''}/> 요소 크기 랜덤`;
+    let angleRow=document.createElement('label');
+    angleRow.className='switch-row';
+    angleRow.innerHTML=`<input id="randomAngleToggle" type="checkbox" ${layer.randomAngle!==false?'checked':''}/> 요소 각도 랜덤`;
+    let note=document.createElement('div');
+    note.className='control-subtitle';
+    note.textContent='둘 다 끄면 모든 요소가 같은 크기와 같은 방향으로 정렬돼.';
+    scatterBox.append(sizeRow,angleRow,note);
+    top.appendChild(scatterBox)
+  }
   let controls=document.createElement('div');controls.className='layer-editor-grid';controls.appendChild(sliderRow('패턴 크기','size',layer.size,12,260,'px',v=>layer.size=v));controls.appendChild(sliderRow('간격','gap',layer.gap,0,180,'px',v=>layer.gap=v));controls.appendChild(sliderRow('불규칙함','jitter',layer.jitter,0,100,'%',v=>layer.jitter=v));controls.appendChild(sliderRow('회전','rotation',layer.rotation,-45,45,'°',v=>layer.rotation=v));controls.appendChild(sliderRow('선 두께','stroke',layer.stroke,1,18,'px',v=>layer.stroke=v));controls.appendChild(sliderRow('패턴 투명도','opacity',layer.opacity,0,100,'%',v=>layer.opacity=v));controls.appendChild(sliderRow('포인트/디테일','detail',layer.detail,0,100,'%',v=>layer.detail=v));top.appendChild(controls);card.appendChild(top);root.appendChild(card);
   $('#layerEnabledToggle').onchange=e=>{layer.enabled=e.target.checked;persistAll();renderLayerSummary();renderMain()};
+  if($('#randomSizeToggle'))$('#randomSizeToggle').onchange=e=>{layer.randomSize=e.target.checked;persistAll();renderPatternListDebounced();renderMain()};
+  if($('#randomAngleToggle'))$('#randomAngleToggle').onchange=e=>{layer.randomAngle=e.target.checked;persistAll();renderPatternListDebounced();renderMain()};
   $('#applyPaletteToLayer').onclick=()=>{let p=palettePresets[Math.floor(Math.random()*palettePresets.length)];layer.colors=[...p];persistAll();syncLayerUI();renderPatternListDebounced();renderMain()}
 }
 function labeled(labelText,node){let wrap=document.createElement('label');wrap.textContent=labelText;wrap.appendChild(node);return wrap}
@@ -104,7 +123,7 @@ function saveCurrentPreset(){let name=prompt('저장할 프리셋 이름을 입�
 function setupPalettes(){/* reserved for future UI विस्तार */}
 function syncGlobalControls(){renderBgColorInputs();$('#bgMode').value=state.bg.mode;$('#transparentBg').checked=state.bg.transparent;$('#gradientAngle').value=state.bg.gradientAngle;$('#gradientAngleVal').textContent=`${state.bg.gradientAngle}°`;$('#gradientControls').style.display=state.bg.mode==='linear'&&!state.bg.transparent?'block':'none';$('#exportW').value=state.exportW;$('#exportH').value=state.exportH;$('#tileW').value=state.tileW;$('#tileH').value=state.tileH}
 function setZoom(v){zoom=clamp(v,.3,1.6);$('#zoomText').textContent=Math.round(zoom*100)+'%';canvas.style.width=`min(${72*zoom}vh, ${78*zoom}vw)`}
-function randomizeAll(){let palette=palettePresets[Math.floor(Math.random()*palettePresets.length)];state.bg.colors=[palette[0],palette[1]];state.layers.forEach((layer,i)=>{let candidates=PE.presets.filter(p=>!$('#favoriteOnly').checked||favorites.has(p.id));let p=(candidates.length?candidates:PE.presets)[Math.floor(Math.random()*Math.max(1,(candidates.length?candidates:PE.presets).length))];layer.sourceType='builtin';layer.presetId=p.id;let d=PE.defaults[p.id]||{};Object.assign(layer,d);layer.colors=shuffle(palette.concat()).slice(0,4);while(layer.colors.length<4)layer.colors.push(palette[0]);layer.size=clamp((d.size??layer.size)+(i*10),12,220);layer.gap=clamp((d.gap??layer.gap)+Math.floor(Math.random()*30),0,140);layer.jitter=clamp((d.jitter??20)+Math.floor(Math.random()*40),0,100);layer.rotation=Math.floor(-18+Math.random()*36);layer.opacity=clamp(100-i*18,20,100);layer.detail=Math.floor(25+Math.random()*70);layer.enabled=i===0?true:(Math.random()>.25);layer.seed=Math.floor(Math.random()*1e9)});persistAll();syncAll();toast('배경과 레이어 패턴을 랜덤으로 조합했어.')}
+function randomizeAll(){let palette=palettePresets[Math.floor(Math.random()*palettePresets.length)];state.bg.colors=[palette[0],palette[1]];state.layers.forEach((layer,i)=>{let candidates=PE.presets.filter(p=>!$('#favoriteOnly').checked||favorites.has(p.id));let p=(candidates.length?candidates:PE.presets)[Math.floor(Math.random()*Math.max(1,(candidates.length?candidates:PE.presets).length))];layer.sourceType='builtin';layer.presetId=p.id;let d=PE.defaults[p.id]||{};Object.assign(layer,d);layer.colors=shuffle(palette.concat()).slice(0,4);while(layer.colors.length<4)layer.colors.push(palette[0]);layer.size=clamp((d.size??layer.size)+(i*10),12,220);layer.gap=clamp((d.gap??layer.gap)+Math.floor(Math.random()*30),0,140);layer.jitter=clamp((d.jitter??20)+Math.floor(Math.random()*40),0,100);layer.rotation=Math.floor(-18+Math.random()*36);layer.opacity=clamp(100-i*18,20,100);layer.detail=Math.floor(25+Math.random()*70);layer.enabled=i===0?true:(Math.random()>.25);layer.randomSize=true;layer.randomAngle=true;layer.seed=Math.floor(Math.random()*1e9)});persistAll();syncAll();toast('배경과 레이어 패턴을 랜덤으로 조합했어.')}
 async function exportPNG(seamless=false){let w=clamp(+($('#exportW').value)||2000,256,6000),h=clamp(+($('#exportH').value)||2000,256,6000);if(seamless){w=clamp(+($('#tileW').value)||512,64,4000);h=clamp(+($('#tileH').value)||512,64,4000)}state.exportW=w;state.exportH=h;if(seamless){state.tileW=w;state.tileH=h}persistAll();let out=document.createElement('canvas');out.width=w;out.height=h;let octx=out.getContext('2d');drawBackground(octx,w,h);for(let layer of state.layers){if(!layer.enabled)continue;if(layer.sourceType==='builtin'){PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),w/2000)}else{let asset=userAssets.find(v=>v.id===layer.assetId);if(asset){await ensureAssetImage(asset,layer).catch(()=>null);renderUploadedLayer(octx,w,h,layer,w/2000,seamless)}}}let blob=await new Promise(r=>out.toBlob(r,'image/png'));if(!blob){toast('PNG 생성에 실패했어.');return}let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=seamless?`cute-pattern-seamless-${w}x${h}.png`:`cute-pattern-${w}x${h}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);toast(`${w}×${h} ${seamless?'심리스 타일':'PNG'}를 저장했어.`)}
 
 async function handleReferenceFile(file){let dataURL=await readFileAsDataURL(file);let img=await loadImage(dataURL);let prev=$('#referencePreview');prev.innerHTML='';let el=document.createElement('img');el.src=dataURL;prev.classList.remove('empty');prev.appendChild(el);referencePalette=extractPalette(img,6);renderReferencePalette()}
