@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v1.0</title>
+  <title>Cute Pattern Studio v1.1</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v1.0</span></h1>
-        <p class="subtitle">체크 외곽선 색/두께 조절 · 체크 전용 필터 · 선 없는 체크 대응</p>
+        <h1>Cute Pattern Studio <span>v1.1</span></h1>
+        <p class="subtitle">선 색 자동 추천 · 컬러 조합 추천 · 기준 색상 자동 팔레트</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -123,6 +123,19 @@
 
           <section class="control-section">
             <div class="section-title-row">
+              <h2>컬러 추천</h2>
+              <button id="refreshColorSuggestionBtn" class="mini-btn">추천 새로고침</button>
+            </div>
+            <label>기준 색상
+              <input id="baseColorInput" type="color" value="#F5B9D4" />
+            </label>
+            <div class="control-subtitle">한 가지 색상을 고르면 그 색과 잘 어울리는 배경/패턴/포인트/선 색 조합을 자동으로 추천해줘.</div>
+            <div id="curatedPaletteList" class="saved-preset-list"></div>
+            <div id="autoPaletteList" class="saved-preset-list"></div>
+          </section>
+
+          <section class="control-section">
+            <div class="section-title-row">
               <h2>즐겨찾기 & 내 프리셋</h2>
               <button id="savePresetBtn" class="mini-btn">현재 설정 저장</button>
             </div>
@@ -147,10 +160,10 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v1.0 개선 내용</h3>
-            <p>① 체크 선 색상 수정 + 선 두께 0~18px 조절 지원</p>
-            <p>② 선 없는 체크(가운데 선 제거) 대응 + 신규 체크 프리셋 추가</p>
-            <p>③ 체크 전용 필터 추가 + v1.0 개발 명세서 동봉</p>
+            <h3>v1.1 개선 내용</h3>
+            <p>① 선 색 자동 추천 버튼 추가</p>
+            <p>② 예쁜 조합 프리셋 + 기준 색상 자동 추천 추가</p>
+            <p>③ 현재 레이어/배경+레이어에 추천 팔레트 바로 적용 가능</p>
           </section>
         </div>
       </aside>
