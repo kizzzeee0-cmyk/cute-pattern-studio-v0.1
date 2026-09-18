@@ -38,7 +38,7 @@ input[type=range]{width:100%;accent-color:#8977df}
 .layer-tab.active{background:#e9e2ff;border-color:#d7ccff;color:#6754c7;font-weight:800}
 .mini-section{padding:0 16px 12px;border-bottom:1px solid var(--line)}
 .no-border{border-bottom:0;padding-bottom:8px}
-.inline-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.inline-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .small-gap{gap:12px}.mini-copy{font-size:11px}.muted{color:var(--muted)}
 .pattern-list{height:calc(100% - 280px);overflow:auto;padding:4px 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}
 .pattern-card{position:relative;border:1px solid var(--line);border-radius:14px;background:#fff;padding:7px;text-align:left}
