@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v1.1</title>
+  <title>Cute Pattern Studio v1.2</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v1.1</span></h1>
-        <p class="subtitle">선 색 자동 추천 · 컬러 조합 추천 · 기준 색상 자동 팔레트</p>
+        <h1>Cute Pattern Studio <span>v1.2</span></h1>
+        <p class="subtitle">AI Pattern Designer · 영어 키워드 → 패턴 설정 자동 생성 · Cloudflare Worker 연동</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -136,6 +136,27 @@
 
           <section class="control-section">
             <div class="section-title-row">
+              <div>
+                <h2>AI Pattern Designer</h2>
+                <div class="control-subtitle">영어 키워드를 입력하면 AI가 현재 패턴 엔진용 설정 JSON을 생성해줘.</div>
+              </div>
+              <button id="aiGenerateBtn" class="mini-btn">AI 추천 4개 만들기</button>
+            </div>
+            <label>영어 키워드 / 프롬프트
+              <textarea id="aiPrompt" rows="4" placeholder="soft pastel pink gingham, tiny bows, hand drawn texture, cute profile background"></textarea>
+            </label>
+            <div id="aiPromptExamples" class="chip-list"></div>
+            <div class="switch-row compact"><input id="aiPreferBackground" type="checkbox" checked /> 배경까지 포함해서 추천하기</div>
+            <div class="section-title-row ai-inline-actions">
+              <button id="aiUseCurrentColorBtn" class="mini-btn">현재 레이어 색상 기준으로 시작</button>
+              <button id="aiClearBtn" class="mini-btn">입력 비우기</button>
+            </div>
+            <div id="aiStatus" class="muted mini-copy">Cloudflare Worker의 <code>/api/ai-pattern</code>를 호출하고, 설정이 없을 때는 로컬 fallback 추천안을 반환해.</div>
+            <div id="aiResultList" class="saved-preset-list"></div>
+          </section>
+
+          <section class="control-section">
+            <div class="section-title-row">
               <h2>즐겨찾기 & 내 프리셋</h2>
               <button id="savePresetBtn" class="mini-btn">현재 설정 저장</button>
             </div>
@@ -160,10 +181,10 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v1.1 개선 내용</h3>
-            <p>① 선 색 자동 추천 버튼 추가</p>
-            <p>② 예쁜 조합 프리셋 + 기준 색상 자동 추천 추가</p>
-            <p>③ 현재 레이어/배경+레이어에 추천 팔레트 바로 적용 가능</p>
+            <h3>v1.2 개선 내용</h3>
+            <p>① 영어 키워드 입력 → AI가 배경/레이어/색상/패턴 설정을 JSON으로 생성</p>
+            <p>② Cloudflare Worker API + 로컬 fallback 로직 추가</p>
+            <p>③ AI 추천안 4개를 바로 현재 편집기에 적용 가능</p>
           </section>
         </div>
       </aside>

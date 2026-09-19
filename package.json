@@ -1,0 +1,9 @@
+{
+  "name": "cute-pattern-studio-v1-2",
+  "version": "1.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev .",
+    "deploy-preview": "wrangler pages dev ."
+  }
+}

@@ -15,11 +15,18 @@ const curatedHarmonyPresets=[
   {name:'피치 크림',note:'복숭아 + 코랄 + 바닐라',colors:['#FFF8F2','#F6C2B1','#FFE0CC','#F3D27B','#D7A080']},
   {name:'세이지 체크',note:'세이지 + 아이보리 + 부드러운 라인',colors:['#FBFCF8','#A8B4A3','#D8DED3','#F2E6D0','#8F9889']}
 ];
-const STORAGE={state:'cps-v11-state',favorites:'cps-v11-favorites',presets:'cps-v11-presets',assets:'cps-v11-assets'};
+const STORAGE={state:'cps-v12-state',favorites:'cps-v12-favorites',presets:'cps-v12-presets',assets:'cps-v12-assets'};
 const MAX_LAYERS=8;
+const AI_EXAMPLES=[
+  'soft pastel pink gingham, tiny bows, hand drawn texture, cute profile background',
+  'lavender checker with white stars, clean kawaii profile background',
+  'peach and cream mini polka dot, soft ribbon accents, dreamy cute background',
+  'mint blue y2k checker, sparkles and tiny hearts, cute streamer background',
+  'soft beige plaid, cozy fabric texture, gentle clean background'
+];
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/장식색'],['선 색','체크 외곽선/그리드 선']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
-let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[];
+let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],aiSuggestions=[];
 
 function normalizeColors(colors){let base=(colors||[]).slice(0,5);while(base.length<4)base.push(base[base.length-1]||'#FFFFFF');if(!base[4])base[4]=base[3]||base[2]||base[1]||'#CDB9E8';return base}
 function checkPresetOnly(p){let text=`${p.id} ${p.name} ${p.desc}`.toLowerCase();return /(check|checker|gingham|plaid)/.test(text)||/체크|깅엄|플래드/.test(`${p.name} ${p.desc}`)}
@@ -41,6 +48,151 @@ out.forEach(v=>{v.colors=normalizeColors(v.colors);v.colors[4]=suggestLineColor(
 function applyPaletteToCurrentLayer(colors,applyBg=false){let layer=currentLayer();layer.colors=normalizeColors(colors);layer.colors[4]=suggestLineColor(layer.colors);if(applyBg){state.bg.colors=[layer.colors[0],mixHex(layer.colors[0],layer.colors[2],.28)]}persistAll();syncAll()}
 function renderPaletteCard(parent,item){let card=document.createElement('div');card.className='preset-card';let info=document.createElement('div');info.innerHTML=`<strong>${item.name}</strong><small>${item.note||'추천 팔레트'}</small>`;let sw=document.createElement('div');sw.className='swatch-row';item.colors.forEach(c=>{let s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;sw.appendChild(s)});info.appendChild(sw);let acts=document.createElement('div');acts.className='preset-actions';let a1=document.createElement('button');a1.className='mini-btn';a1.textContent='레이어 적용';a1.onclick=()=>applyPaletteToCurrentLayer(item.colors,false);let a2=document.createElement('button');a2.className='mini-btn';a2.textContent='배경+레이어';a2.onclick=()=>applyPaletteToCurrentLayer(item.colors,true);acts.append(a1,a2);card.append(info,acts);parent.appendChild(card)}
 function renderColorRecommendationPanels(){let curated=$('#curatedPaletteList'),auto=$('#autoPaletteList');if(!curated||!auto)return;curated.innerHTML='<div class="muted mini-copy">함께 쓰면 예쁜 조합 프리셋</div>';auto.innerHTML='<div class="muted mini-copy">기준 색상으로 자동 생성한 추천 팔레트</div>';curatedHarmonyPresets.forEach(item=>renderPaletteCard(curated,item));let base=$('#baseColorInput')?.value||currentLayer().colors[1]||'#F5B9D4';generateAutoPalettes(base).forEach(item=>renderPaletteCard(auto,item))}
+
+
+function aiStatus(message,type=''){
+  let el=$('#aiStatus');
+  if(!el)return;
+  el.className=`mini-copy ${type?`status-${type}`:'muted'}`;
+  el.innerHTML=message;
+}
+function presetIdOrFallback(id){return PE.presets.some(p=>p.id===id)?id:'pastel-checker'}
+function clampInt(v,min,max,fallback){let n=Math.round(Number(v));if(Number.isNaN(n))n=fallback;return clamp(n,min,max)}
+function normalizeAiLayer(layer,i=0){
+  let base=defaultLayer(i,presetIdOrFallback(layer?.presetId||'pastel-checker'),i===0?true:(layer?.enabled!==false));
+  let next={...base,...(layer||{})};
+  next.enabled=i===0?true:(layer?.enabled!==false);
+  next.sourceType='builtin';
+  next.presetId=presetIdOrFallback(next.presetId);
+  next.colors=normalizeColors(next.colors||base.colors);
+  next.size=clampInt(next.size,12,220,base.size);
+  next.gap=clampInt(next.gap,0,140,base.gap);
+  next.jitter=clampInt(next.jitter,0,100,base.jitter);
+  next.rotation=clampInt(next.rotation,-180,180,base.rotation);
+  next.stroke=clampInt(next.stroke,0,18,base.stroke);
+  next.opacity=clampInt(next.opacity,0,100,base.opacity);
+  next.detail=clampInt(next.detail,0,100,base.detail);
+  next.randomSize=next.randomSize!==false;
+  next.randomAngle=next.randomAngle!==false;
+  next.randomPosition=next.randomPosition!==false;
+  next.offsetX=clampInt(next.offsetX,-200,200,0);
+  next.offsetY=clampInt(next.offsetY,-200,200,0);
+  next.seed=Math.floor(Math.random()*1e9);
+  return next;
+}
+function normalizeAiSuggestion(suggestion,index=0){
+  let safe=suggestion&&typeof suggestion==='object'?clone(suggestion):{};
+  let layers=(safe.layers||[]).slice(0,MAX_LAYERS).map((layer,i)=>normalizeAiLayer(layer,i));
+  if(!layers.length)layers=[normalizeAiLayer({presetId:'pastel-checker'},0)];
+  let bg={transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,...(safe.bg||{})};
+  bg.transparent=!!bg.transparent;
+  bg.mode=bg.mode==='linear'?'linear':'solid';
+  bg.colors=[bg.colors?.[0]||defaultBg[0],bg.colors?.[1]||bg.colors?.[0]||defaultBg[1]];
+  bg.gradientAngle=clampInt(bg.gradientAngle,0,360,135);
+  return {
+    id:safe.id||uid('ai'),
+    title:safe.title||`AI 추천안 ${index+1}`,
+    summary:safe.summary||'AI가 생성한 패턴 조합',
+    tags:Array.isArray(safe.tags)?safe.tags.slice(0,8):[],
+    bg,
+    layers
+  };
+}
+function applyAiSuggestion(suggestion){
+  let normalized=normalizeAiSuggestion(suggestion,0);
+  let exportW=state.exportW,exportH=state.exportH,tileW=state.tileW,tileH=state.tileH;
+  state={
+    bg:normalized.bg,
+    exportW,exportH,tileW,tileH,
+    layers:normalized.layers
+  };
+  activeLayerIndex=0;
+  persistAll();
+  syncAll();
+  toast(`AI 추천안 "${normalized.title}"을 적용했어.`);
+}
+function palettePreviewFromSuggestion(item){
+  let colors=[];
+  if(item.bg?.colors?.[0])colors.push(item.bg.colors[0]);
+  if(item.bg?.colors?.[1]&&item.bg.colors[1]!==item.bg.colors[0])colors.push(item.bg.colors[1]);
+  (item.layers||[]).forEach(layer=>normalizeColors(layer.colors).forEach(c=>{if(colors.length<8&&!colors.includes(c))colors.push(c)}));
+  return colors.slice(0,8);
+}
+function renderAiSuggestions(){
+  let wrap=$('#aiResultList');
+  if(!wrap)return;
+  wrap.innerHTML='';
+  if(!aiSuggestions.length){
+    wrap.innerHTML='<div class="muted mini-copy">AI 추천 결과가 아직 없어. 위에 영어 키워드를 넣고 생성해봐.</div>';
+    return;
+  }
+  aiSuggestions.forEach((raw,i)=>{
+    let item=normalizeAiSuggestion(raw,i);
+    let card=document.createElement('div');
+    card.className='preset-card ai-result-card';
+    let left=document.createElement('div');
+    left.className='ai-meta';
+    left.innerHTML=`<strong>${item.title}</strong><small>${item.summary}</small>`;
+    let sw=document.createElement('div'); sw.className='swatch-row';
+    palettePreviewFromSuggestion(item).forEach(c=>{let s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;sw.appendChild(s)});
+    left.appendChild(sw);
+    if(item.tags?.length){let tags=document.createElement('div');tags.className='ai-tag-row';item.tags.forEach(tag=>{let el=document.createElement('span');el.className='ai-tag';el.textContent='#'+tag;tags.appendChild(el)});left.appendChild(tags)}
+    let layerList=document.createElement('div');layerList.className='ai-layer-list';
+    item.layers.slice(0,3).forEach((layer,idx)=>{let name=getPreset(layer.presetId).name;let row=document.createElement('div');row.className='ai-layer-item';row.textContent=`Layer ${idx+1} · ${name} · size ${layer.size} · gap ${layer.gap}`;layerList.appendChild(row)});
+    left.appendChild(layerList);
+    let acts=document.createElement('div');acts.className='preset-actions';
+    let apply=document.createElement('button');apply.className='mini-btn';apply.textContent='적용';apply.onclick=()=>applyAiSuggestion(item);
+    let copy=document.createElement('button');copy.className='mini-btn';copy.textContent='JSON 복사';copy.onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(item,null,2));toast('추천안 JSON을 복사했어.')}catch{toast('클립보드 복사에 실패했어.')}};
+    acts.append(apply,copy);
+    card.append(left,acts);
+    wrap.appendChild(card);
+  });
+}
+function renderAiPromptExamples(){
+  let wrap=$('#aiPromptExamples');
+  if(!wrap)return;
+  wrap.innerHTML='';
+  AI_EXAMPLES.forEach(example=>{let b=document.createElement('button');b.type='button';b.className='chip example-chip';b.textContent=example;b.onclick=()=>{$('#aiPrompt').value=example};wrap.appendChild(b)});
+}
+function buildAiColorContext(){
+  let layer=currentLayer();
+  return {
+    base: layer.colors[1],
+    sub: layer.colors[2],
+    accent: layer.colors[3],
+    line: layer.colors[4],
+    background: state.bg.colors[0]
+  };
+}
+async function generateAiSuggestions(){
+  let prompt=$('#aiPrompt')?.value?.trim();
+  if(!prompt){toast('영어 키워드나 프롬프트를 먼저 입력해줘.');$('#aiPrompt')?.focus();return}
+  let btn=$('#aiGenerateBtn');
+  let preferBackground=$('#aiPreferBackground')?.checked!==false;
+  btn.disabled=true;
+  aiStatus('AI 추천안을 생성 중이야… 잠시만 기다려줘.', '');
+  try{
+    let res=await fetch('/api/ai-pattern',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,count:4,preferBackground,colorContext:buildAiColorContext()})});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    let data=await res.json();
+    aiSuggestions=(data.suggestions||data.variations||[]).map((v,i)=>normalizeAiSuggestion(v,i));
+    renderAiSuggestions();
+    let source=data.source==='fallback'?'fallback':'ok';
+    aiStatus(source==='fallback'?'OpenAI 설정이 없거나 응답이 실패해서 로컬 fallback 추천안을 보여주는 중이야.':'Cloudflare Worker가 AI 추천안을 성공적으로 생성했어.',source);
+    if(!aiSuggestions.length)aiStatus('추천 결과가 비어 있어. 프롬프트를 조금 더 구체적으로 적어봐.', 'error');
+  }catch(err){
+    console.error(err);
+    aiSuggestions=[];
+    renderAiSuggestions();
+    aiStatus('AI 추천 생성에 실패했어. Worker 경로와 API 설정을 확인해줘.', 'error');
+    toast('AI 추천 생성에 실패했어.');
+  }finally{btn.disabled=false;}
+}
+function seedAiPromptFromCurrentColors(){
+  let c=buildAiColorContext();
+  $('#aiPrompt').value=`cute pastel background using ${c.base.toLowerCase()}, ${c.sub.toLowerCase()} and ${c.accent.toLowerCase()}, soft checker pattern, clean profile background`;
+  toast('현재 레이어 색상을 바탕으로 프롬프트를 채웠어.');
+}
 
 function uid(prefix='id'){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
 function clone(v){return JSON.parse(JSON.stringify(v))}
@@ -193,6 +345,10 @@ function bindGlobalControls(){
   $('#savePresetBtn').onclick=saveCurrentPreset;
   $('#refreshColorSuggestionBtn').onclick=()=>{renderColorRecommendationPanels();toast('컬러 추천을 새로고침했어.')};
   $('#baseColorInput').oninput=e=>{e.target.dataset.touched='1';renderColorRecommendationPanels()};
+  $('#aiGenerateBtn').onclick=generateAiSuggestions;
+  $('#aiUseCurrentColorBtn').onclick=seedAiPromptFromCurrentColors;
+  $('#aiClearBtn').onclick=()=>{$('#aiPrompt').value='';aiStatus('입력창을 비웠어. 예시 칩을 눌러 바로 시작할 수도 있어.','');};
+  $('#aiPrompt').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();generateAiSuggestions()}});
   $('#duplicateLayerBtn').onclick=()=>addLayer(true);
   $('#exportBtn').onclick=()=>exportPNG(false);
   $('#exportBtn2').onclick=()=>exportPNG(false);
@@ -205,11 +361,13 @@ function bindGlobalControls(){
   $('#tileW').oninput=e=>{state.tileW=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
   $('#tileH').oninput=e=>{state.tileH=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
 }
-function syncAll(){syncGlobalControls();if($('#baseColorInput')&&!$('#baseColorInput').dataset.touched){$('#baseColorInput').value=currentLayer().colors[1]||'#F5B9D4'}syncLayerUI();renderPatternList();renderAssetList();renderFavoritePreview();renderSavedPresets();renderColorRecommendationPanels();renderMain()}
+function syncAll(){syncGlobalControls();if($('#baseColorInput')&&!$('#baseColorInput').dataset.touched){$('#baseColorInput').value=currentLayer().colors[1]||'#F5B9D4'}syncLayerUI();renderPatternList();renderAssetList();renderFavoritePreview();renderSavedPresets();renderColorRecommendationPanels();renderAiSuggestions();renderMain()}
 
 loadLocal();
 bindGlobalControls();
 setupCategories();
 setupLayerTabs();
+renderAiPromptExamples();
+renderAiSuggestions();
 syncAll();
 setZoom(1);
