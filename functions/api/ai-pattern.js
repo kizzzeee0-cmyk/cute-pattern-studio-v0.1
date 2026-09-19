@@ -30,6 +30,8 @@ export async function onRequestPost(context) {
   }
 
   const prompt = String(body?.prompt || '').trim();
+  const negativePrompt = String(body?.negativePrompt || '').trim();
+  const excludePatterns = normalizeExcludePatterns(body?.excludePatterns);
   const count = clampInt(body?.count, 1, 6, 4);
   const preferBackground = body?.preferBackground !== false;
   const colorContext = body?.colorContext && typeof body.colorContext === 'object' ? body.colorContext : {};
@@ -42,24 +44,25 @@ export async function onRequestPost(context) {
       http_status: null,
       message: 'OPENAI_API_KEY is not configured in Cloudflare Variables and Secrets.'
     };
-    const fallback = buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note:diagnostic.message });
-    return json({ ok:true, source:'fallback', schema_version:'1.0', diagnostic, ...fallback });
+    const fallback = buildFallbackSuggestions({ prompt, negativePrompt, excludePatterns, count, preferBackground, colorContext, note:diagnostic.message });
+    return json({ ok:true, source:'fallback', schema_version:'1.1', diagnostic, ...fallback });
   }
 
   try {
-    const ai = await generateViaOpenAI({ prompt, count, preferBackground, colorContext, env: context.env });
-    return json({ ok:true, source:'ai', schema_version:'1.0', diagnostic:{ code:'ok', http_status:200, message:'OpenAI request succeeded.' }, ...ai });
+    const ai = await generateViaOpenAI({ prompt, negativePrompt, excludePatterns, count, preferBackground, colorContext, env: context.env });
+    return json({ ok:true, source:'ai', schema_version:'1.1', diagnostic:{ code:'ok', http_status:200, message:'OpenAI request succeeded.' }, ...ai });
   } catch (error) {
     const diagnostic = classifyOpenAIError(error);
-    const fallback = buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note:diagnostic.message });
-    return json({ ok:true, source:'fallback', schema_version:'1.0', diagnostic, ...fallback });
+    const fallback = buildFallbackSuggestions({ prompt, negativePrompt, excludePatterns, count, preferBackground, colorContext, note:diagnostic.message });
+    return json({ ok:true, source:'fallback', schema_version:'1.1', diagnostic, ...fallback });
   }
 }
 
-async function generateViaOpenAI({ prompt, count, preferBackground, colorContext, env }) {
+async function generateViaOpenAI({ prompt, negativePrompt, excludePatterns, count, preferBackground, colorContext, env }) {
   const base = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
   const url = /chat\/completions$/.test(base) ? base : `${base}/chat/completions`;
   const model = env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const excludedText = excludePatterns.length ? excludePatterns.join(', ') : '(none)';
 
   const system = `You are generating structured design suggestions for Cute Pattern Studio, a kawaii seamless pattern web app.
 Return ONLY valid JSON with the exact top-level shape:
@@ -100,18 +103,24 @@ Rules:
 - Generate exactly ${count} suggestions.
 - Make suggestions cute, editable, and practical for a 2000x2000 profile background.
 - Prefer 1 to 3 layers per suggestion.
+- IMPORTANT: Never include excluded elements. Excluded elements: ${excludedText}.
+- If negativePrompt requests excluding checker/gingham/plaid, do not use any checker/plaid-like preset.
 - If the prompt mentions clean, neat, aligned, or minimal, set randomSize/randomAngle/randomPosition to false and keep jitter low.
 - If the prompt mentions hand drawn, doodle, crayon, fabric, textured, cozy, use more texture-like presets and a little jitter.
+- If the prompt mentions halftone, prefer dot-like presets instead of checker.
+- If the prompt mentions clouds or doodle, provide suggestions without forced checker unless checker is explicitly requested.
 - Use soft pastel palettes unless the prompt asks otherwise.
 - Each suggestion should feel distinct but still faithful to the prompt.
 - Respond with JSON only, no markdown.`;
 
   const user = {
     prompt,
+    negativePrompt,
+    excludePatterns,
     preferBackground,
     colorContext,
     count,
-    target: 'Cute Pattern Studio v1.2',
+    target: 'Cute Pattern Studio v1.2.2',
     note: 'Create editable pattern engine settings rather than a raster image.'
   };
 
@@ -146,7 +155,7 @@ Rules:
   const parsed = safeJsonParse(raw);
   if (!parsed || !Array.isArray(parsed.suggestions)) throw new Error('Invalid JSON schema from model.');
 
-  return { suggestions: parsed.suggestions.slice(0, count) };
+  return { suggestions: parsed.suggestions.slice(0, count), exclusions: excludePatterns };
 }
 
 function classifyOpenAIError(error) {
@@ -194,52 +203,62 @@ function classifyOpenAIError(error) {
   };
 }
 
-function buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note }) {
-  const lower = prompt.toLowerCase();
-  const palette = buildPalette(lower, colorContext);
-  const family = detectPrimaryFamily(lower);
-  const overlays = detectOverlayPresets(lower);
-  const clean = /(clean|neat|simple|minimal|aligned|uniform)/.test(lower);
-  const hand = /(hand.?drawn|doodle|sketch|crayon|fabric|textured|cozy)/.test(lower);
-  const y2k = /(y2k|kitsch|kitch|pop|groovy)/.test(lower);
-  const dreamy = /(dreamy|soft|cute|kawaii|pastel|gentle|fluffy)/.test(lower);
+function buildFallbackSuggestions({ prompt, negativePrompt, excludePatterns, count, preferBackground, colorContext, note }) {
+  const promptLower = String(prompt || '').toLowerCase();
+  const allLower = `${prompt} ${negativePrompt}`.toLowerCase();
+  const exclusions = buildExclusionMap(excludePatterns, allLower);
+  const palette = buildPalette(promptLower, colorContext);
+  let family = detectPrimaryFamily(promptLower);
+  const clean = /(clean|neat|simple|minimal|aligned|uniform)/.test(promptLower);
+  const hand = /(hand.?drawn|doodle|sketch|crayon|fabric|textured|cozy)/.test(promptLower);
+  const y2k = /(y2k|kitsch|kitch|pop|groovy)/.test(promptLower);
+  const dreamy = /(dreamy|soft|cute|kawaii|pastel|gentle|fluffy)/.test(promptLower);
 
-  const baseCandidates = familyBasePresets(family, { hand, clean, y2k });
+  family = resolveAllowedFamily(family, exclusions, promptLower);
+  let baseCandidates = familyBasePresets(family, { hand, clean, y2k, dreamy });
+  baseCandidates = filterExcludedPresets(baseCandidates, exclusions);
+  if (!baseCandidates.length) baseCandidates = filterExcludedPresets(['polka','doodle','cloud','sparkles','confetti'], exclusions);
+  if (!baseCandidates.length) baseCandidates = ['polka'];
+
+  let overlays = detectOverlayPresets(promptLower, exclusions);
+  overlays = filterExcludedPresets(overlays, exclusions);
+
   const suggestions = [];
 
   for (let i = 0; i < count; i++) {
-    const basePreset = baseCandidates[i % baseCandidates.length];
-    const secondaryPreset = overlays[i % overlays.length];
+    const basePreset = baseCandidates[i % baseCandidates.length] || baseCandidates[0];
+    const secondaryPreset = overlays[i % Math.max(1, overlays.length)] || null;
     const colors = varyPalette(palette, i);
+
     const primaryLayer = makeLayer({
       presetId: basePreset,
       colors: [colors.bgA, colors.patternA, colors.patternB, colors.accent, colors.line],
-      size: clampInt(72 + i * 4, 18, 220, 72),
-      gap: family === 'dots' ? 24 + i * 3 : 12 + i * 2,
-      jitter: clean ? 0 : hand ? 22 : 10 + i * 2,
-      rotation: basePreset.includes('diamond') ? 0 : (y2k && i === 2 ? 8 : 0),
-      stroke: family === 'checker' ? 2 : 3,
+      size: clampInt(baseSizeForFamily(family) + i * 4, 18, 220, 72),
+      gap: clampInt(baseGapForFamily(family) + i * 3, 0, 140, 22),
+      jitter: clean ? 0 : hand ? 20 : 8 + i * 2,
+      rotation: /diamond/.test(basePreset) ? 0 : (y2k && i === 2 ? 8 : 0),
+      stroke: family === 'checker' ? 2 : family === 'dots' ? 3 : 2,
       opacity: 100,
       detail: hand ? 62 : 42,
-      randomSize: !clean && !/(gingham|plaid|checker)/.test(basePreset),
-      randomAngle: !clean && !/(gingham|plaid|checker)/.test(basePreset),
-      randomPosition: !clean && !/(gingham|plaid|checker|dot)/.test(basePreset),
+      randomSize: !clean && !isStructuredPreset(basePreset),
+      randomAngle: !clean && !isStructuredPreset(basePreset),
+      randomPosition: !clean && !isStructuredPreset(basePreset),
       offsetX: 0,
       offsetY: 0
     });
 
     const layers = [primaryLayer];
 
-    if (secondaryPreset) {
+    if (secondaryPreset && !sameFamilyPreset(basePreset, secondaryPreset)) {
       layers.push(makeLayer({
         presetId: secondaryPreset,
         colors: [colors.bgA, colors.patternA, colors.patternB, colors.accent, colors.line],
-        size: family === 'dots' ? 42 : 38,
-        gap: 42 + i * 6,
-        jitter: clean ? 0 : 18,
+        size: family === 'dots' ? 34 : family === 'cloud' ? 50 : 38,
+        gap: 40 + i * 6,
+        jitter: clean ? 0 : 15,
         rotation: 0,
-        stroke: secondaryPreset.includes('outline') ? 3 : 2,
-        opacity: family === 'checker' ? 42 : 56,
+        stroke: /outline/.test(secondaryPreset) ? 3 : 2,
+        opacity: family === 'checker' ? 42 : 52,
         detail: 46,
         randomSize: !clean,
         randomAngle: !clean,
@@ -249,16 +268,16 @@ function buildFallbackSuggestions({ prompt, count, preferBackground, colorContex
       }));
     }
 
-    if (y2k && i === count - 1) {
+    if (y2k && i === count - 1 && !isPresetExcluded('sparkles', exclusions)) {
       layers.push(makeLayer({
         presetId: 'sparkles',
         colors: [colors.bgA, colors.patternA, colors.patternB, colors.accent, colors.line],
-        size: 34,
+        size: 30,
         gap: 28,
-        jitter: clean ? 0 : 12,
+        jitter: clean ? 0 : 10,
         rotation: 0,
         stroke: 2,
-        opacity: 40,
+        opacity: 34,
         detail: 55,
         randomSize: !clean,
         randomAngle: !clean,
@@ -277,9 +296,9 @@ function buildFallbackSuggestions({ prompt, count, preferBackground, colorContex
 
     suggestions.push({
       id: `fallback-${i + 1}`,
-      title: suggestionTitle(basePreset, secondaryPreset, i + 1),
-      summary: suggestionSummary(basePreset, secondaryPreset, { clean, hand, y2k, dreamy }),
-      tags: buildTags(lower, family, secondaryPreset, { clean, hand, y2k, dreamy }),
+      title: suggestionTitle(basePreset, secondaryPreset, indexLabelFamily(family, i + 1)),
+      summary: suggestionSummary(basePreset, secondaryPreset, { clean, hand, y2k, dreamy, family, exclusions }),
+      tags: buildTags(promptLower, family, secondaryPreset, { clean, hand, y2k, dreamy, exclusions }),
       bg,
       layers
     });
@@ -287,6 +306,7 @@ function buildFallbackSuggestions({ prompt, count, preferBackground, colorContex
 
   return {
     note,
+    exclusions: exclusions.raw,
     suggestions
   };
 }
@@ -295,7 +315,7 @@ function makeLayer(layer) {
   return {
     enabled: true,
     sourceType: 'builtin',
-    presetId: ALLOWED_PRESETS.includes(layer.presetId) ? layer.presetId : 'pastel-checker',
+    presetId: ALLOWED_PRESETS.includes(layer.presetId) ? layer.presetId : 'polka',
     colors: normalizeColors(layer.colors || []),
     size: clampInt(layer.size, 12, 220, 72),
     gap: clampInt(layer.gap, 0, 140, 22),
@@ -319,34 +339,79 @@ function normalizeColors(colors) {
   return base.map(c => /^#[0-9A-F]{6}$/i.test(c) ? c.toUpperCase() : '#FFFFFF');
 }
 
-function detectPrimaryFamily(lower) {
-  if (/(gingham|checker|checkerboard|check|plaid)/.test(lower)) return 'checker';
-  if (/(polka|dot|dots)/.test(lower)) return 'dots';
-  if (/(stripe|stripes|wave|wavy)/.test(lower)) return 'lines';
-  if (/(confetti|sticker|sprinkles)/.test(lower)) return 'kitsch';
-  if (/(heart|star|bow|ribbon|sparkle)/.test(lower)) return 'motif';
-  return 'checker';
+function normalizeExcludePatterns(arr) {
+  if (!Array.isArray(arr)) return [];
+  return [...new Set(arr.map(v => String(v || '').trim().toLowerCase()).filter(Boolean))];
 }
 
-function detectOverlayPresets(lower) {
+function buildExclusionMap(excludePatterns, lower) {
+  const set = new Set(normalizeExcludePatterns(excludePatterns));
+  const addIf = (name, re) => { if (re.test(lower)) set.add(name); };
+  addIf('checker', /(?:without|no|exclude|except)\s+(?:checker|check|gingham|plaid)|체크\s*제외|깅엄\s*제외/);
+  addIf('dots', /(?:without|no|exclude|except)\s+(?:dot|dots|polka|halftone)|도트\s*제외|땡땡이\s*제외/);
+  addIf('hearts', /(?:without|no|exclude|except)\s+hearts?|하트\s*제외/);
+  addIf('stars', /(?:without|no|exclude|except)\s+stars?|별\s*제외/);
+  addIf('bows', /(?:without|no|exclude|except)\s+(?:bows?|ribbons?)|리본\s*제외/);
+  addIf('clouds', /(?:without|no|exclude|except)\s+clouds?|구름\s*제외/);
+  addIf('doodle', /(?:without|no|exclude|except)\s+doodle|낙서\s*제외/);
+  return {
+    raw: [...set],
+    checker: set.has('checker') || set.has('gingham') || set.has('plaid'),
+    dots: set.has('dots') || set.has('halftone') || set.has('polka'),
+    hearts: set.has('hearts') || set.has('heart'),
+    stars: set.has('stars') || set.has('star'),
+    bows: set.has('bows') || set.has('bow') || set.has('ribbon') || set.has('ribbons'),
+    clouds: set.has('clouds') || set.has('cloud'),
+    doodle: set.has('doodle')
+  };
+}
+
+function detectPrimaryFamily(lower) {
+  if (/(halftone|polka|dot|dots)/.test(lower)) return 'dots';
+  if (/cloud/.test(lower)) return 'cloud';
+  if (/doodle/.test(lower)) return 'doodle';
+  if (/(heart|star|bow|ribbon|sparkle|flower|floral|daisy|smile)/.test(lower)) return 'motif';
+  if (/(gingham|checker|checkerboard|check|plaid)/.test(lower)) return 'checker';
+  if (/(stripe|stripes|wave|wavy|grid|zigzag)/.test(lower)) return 'lines';
+  if (/(confetti|sticker|sprinkles)/.test(lower)) return 'kitsch';
+  if (/(cute|kawaii|pastel|dreamy|soft)/.test(lower)) return 'dots';
+  return 'dots';
+}
+
+function resolveAllowedFamily(family, exclusions, lower) {
+  const order = [family, 'dots', 'doodle', 'cloud', 'motif', 'lines', 'kitsch', 'checker'];
+  for (const candidate of order) {
+    if (!candidate) continue;
+    if (candidate === 'checker' && exclusions.checker) continue;
+    if (candidate === 'dots' && exclusions.dots) continue;
+    if (candidate === 'cloud' && exclusions.clouds) continue;
+    if (candidate === 'doodle' && exclusions.doodle) continue;
+    if (candidate === 'motif' && exclusions.hearts && exclusions.stars && exclusions.bows) continue;
+    return candidate;
+  }
+  return 'dots';
+}
+
+function detectOverlayPresets(lower, exclusions) {
   const out = [];
-  if (/(bow|ribbon)/.test(lower)) out.push('tiny-bows', 'bows');
-  if (/heart/.test(lower)) out.push('hearts', 'outline-hearts');
-  if (/star/.test(lower)) out.push('stars', 'outline-stars');
-  if (/sparkle|twinkle|glitter/.test(lower)) out.push('sparkles', 'kira-sparkle');
-  if (/flower|floral|daisy/.test(lower)) out.push('daisy-dot', 'flowers');
-  if (/cloud/.test(lower)) out.push('cloud');
+  if (/(bow|ribbon)/.test(lower) && !exclusions.bows) out.push('tiny-bows', 'bows');
+  if (/heart/.test(lower) && !exclusions.hearts) out.push('hearts', 'outline-hearts');
+  if (/star/.test(lower) && !exclusions.stars) out.push('stars', 'outline-stars');
+  if (/sparkle|twinkle|glitter/.test(lower) && !exclusions.stars) out.push('sparkles', 'kira-sparkle');
+  if (/flower|floral|daisy/.test(lower) && !exclusions.dots) out.push('flowers', 'daisy-dot');
+  if (/cloud/.test(lower) && !exclusions.clouds) out.push('cloud');
   if (/smile/.test(lower)) out.push('smiley');
-  if (/doodle/.test(lower)) out.push('doodle');
-  if (!out.length) out.push('tiny-bows', 'hearts', 'sparkles');
-  return out;
+  if (/doodle/.test(lower) && !exclusions.doodle) out.push('doodle');
+  return [...new Set(out)];
 }
 
 function familyBasePresets(family, flags) {
   if (family === 'dots') return flags.clean ? ['tiny-dot','polka','ring-dot','bubble-dot'] : ['polka','tiny-dot','doodle-dot','bubble-dot'];
-  if (family === 'lines') return ['grid','soft-plaid','wavy-checker','windowpane-check'].filter(Boolean);
-  if (family === 'kitsch') return ['confetti','sticker-mix','sprinkles','doodle'];
-  if (family === 'motif') return flags.clean ? ['flat-checker','pastel-checker','mini-checker','soft-gingham'] : ['checker-heart','checker-star','pastel-checker','soft-gingham'];
+  if (family === 'lines') return ['grid','hand-grid','stripe','diagonal-stripe','wavy-stripe','wave-lines','zigzag'];
+  if (family === 'kitsch') return ['confetti','sticker-mix','sprinkles','sparkles'];
+  if (family === 'cloud') return ['cloud','doodle','sparkles','smiley'];
+  if (family === 'doodle') return ['doodle','sprinkles','confetti','sticker-mix'];
+  if (family === 'motif') return flags.clean ? ['hearts','stars','bows','sparkles'] : ['hearts','stars','bows','flowers','sparkles'];
   const arr = [];
   if (flags.hand) arr.push('textured-checker','pencil-check','pastel-crayon-check','fabric-checker');
   if (flags.clean) arr.push('soft-gingham','mini-checker','flat-checker','windowpane-check');
@@ -355,10 +420,49 @@ function familyBasePresets(family, flags) {
   return [...new Set(arr)].slice(0, 8);
 }
 
-function suggestionTitle(basePreset, secondaryPreset, index) {
+function filterExcludedPresets(list, exclusions) {
+  return list.filter(id => !isPresetExcluded(id, exclusions));
+}
+
+function isPresetExcluded(id, exclusions) {
+  const s = String(id).toLowerCase();
+  if (exclusions.checker && /(check|checker|gingham|plaid)/.test(s)) return true;
+  if (exclusions.dots && /(dot|polka|bubble-dot|ring-dot|daisy-dot|checker-dot)/.test(s)) return true;
+  if (exclusions.hearts && /(heart|hearts|puff-hearts|checker-heart)/.test(s)) return true;
+  if (exclusions.stars && /(stars|star|moonstar|candy-stars|checker-star|sparkle|kira-sparkle)/.test(s)) return true;
+  if (exclusions.bows && /(bows|bow|ribbon)/.test(s)) return true;
+  if (exclusions.clouds && /cloud/.test(s)) return true;
+  if (exclusions.doodle && /doodle/.test(s)) return true;
+  return false;
+}
+
+function baseSizeForFamily(family) {
+  return ({ checker:72, dots:44, lines:70, motif:46, cloud:64, doodle:52, kitsch:42 })[family] || 60;
+}
+
+function baseGapForFamily(family) {
+  return ({ checker:12, dots:24, lines:12, motif:36, cloud:28, doodle:26, kitsch:20 })[family] || 18;
+}
+
+function isStructuredPreset(id) {
+  return /(gingham|plaid|checker|grid|stripe|zigzag|wave-lines|diagonal-stripe|wavy-stripe)/.test(id);
+}
+
+function sameFamilyPreset(a, b) {
+  if (!a || !b) return false;
+  const toFam = id => /(checker|gingham|plaid)/.test(id) ? 'checker' : /(dot|polka|bubble|ring)/.test(id) ? 'dots' : /(heart|bow|star|flower|cloud|smiley|sparkle|doodle)/.test(id) ? 'motif' : 'other';
+  return toFam(a) === toFam(b);
+}
+
+function indexLabelFamily(family, n) {
+  const label = ({ checker:'Check', dots:'Dot', lines:'Line', motif:'Motif', cloud:'Cloud', doodle:'Doodle', kitsch:'Kitsch' })[family] || 'Pattern';
+  return `${n}. ${label}`;
+}
+
+function suggestionTitle(basePreset, secondaryPreset, prefix) {
   const primary = niceName(basePreset);
   const secondary = secondaryPreset ? ` + ${niceName(secondaryPreset)}` : '';
-  return `${index}. ${primary}${secondary}`;
+  return `${prefix} · ${primary}${secondary}`;
 }
 
 function suggestionSummary(basePreset, secondaryPreset, flags) {
@@ -367,6 +471,7 @@ function suggestionSummary(basePreset, secondaryPreset, flags) {
   if (flags.hand) parts.push('손그림/텍스처 감성');
   if (flags.dreamy) parts.push('부드러운 파스텔 무드');
   if (flags.y2k) parts.push('살짝 키치한 포인트');
+  if (flags.exclusions?.checker) parts.push('체크 제외');
   parts.push(`${niceName(basePreset)} 중심 구성`);
   if (secondaryPreset) parts.push(`${niceName(secondaryPreset)} 포인트 레이어`);
   return parts.join(' · ');
@@ -379,6 +484,7 @@ function buildTags(lower, family, secondaryPreset, flags) {
   if (flags.hand) tags.push('textured');
   if (flags.y2k) tags.push('y2k');
   if (flags.dreamy) tags.push('pastel');
+  if (flags.exclusions?.checker) tags.push('no_checker');
   if (/profile/.test(lower)) tags.push('profile_bg');
   return [...new Set(tags)].slice(0, 8);
 }

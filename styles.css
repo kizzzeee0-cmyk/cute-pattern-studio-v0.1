@@ -87,3 +87,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f5f0ff;
 .ai-layer-list{display:grid;gap:4px;margin-top:8px}.ai-layer-item{font-size:10px;color:#5f5872;background:#faf9fd;border:1px solid var(--line);padding:6px 8px;border-radius:10px}
 .ai-meta{display:grid;gap:3px}.example-chip{background:#fff7ff}.example-chip:hover{background:#f6f0ff}
 .status-ok{color:#5d7d3d}.status-fallback{color:#8a6b2c}.status-error{color:#ad4f67}
+
+input[type="text"]{border:1px solid var(--line);background:#fbfaff;border-radius:12px;padding:10px 11px;color:var(--ink);outline:none;width:100%}
+.exclude-chip{background:#fff4f6;border-color:#f0d3db}
+.exclude-chip:hover{background:#fdeaf0}

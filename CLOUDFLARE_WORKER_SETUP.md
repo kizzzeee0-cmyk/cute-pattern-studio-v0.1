@@ -130,3 +130,8 @@ Content-Type: application/json
 - 배포 직후에도 기능 시연 가능
 - API 장애 시에도 빈 화면이 되지 않음
 - 개발 단계에서 UI 테스트 가능
+
+
+## v1.2.2 Negative Prompt
+브라우저는 이제 `negativePrompt` 와 `excludePatterns` 값을 함께 전송한다.
+예: `checker, gingham, plaid` 를 넣으면 체크 계열을 제외한 추천을 요청한다.

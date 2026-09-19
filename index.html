@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v1.2.1</title>
+  <title>Cute Pattern Studio v1.2.2</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v1.2.1</span></h1>
-        <p class="subtitle">AI Pattern Designer · API 오류 원인 표시 강화 · Cloudflare Worker 연동</p>
+        <h1>Cute Pattern Studio <span>v1.2.2</span></h1>
+        <p class="subtitle">AI Pattern Designer · 제외 요소(negative prompt) 지원 · Cloudflare Worker 연동</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -143,15 +143,20 @@
               <button id="aiGenerateBtn" class="mini-btn">AI 추천 4개 만들기</button>
             </div>
             <label>영어 키워드 / 프롬프트
-              <textarea id="aiPrompt" rows="4" placeholder="soft pastel pink gingham, tiny bows, hand drawn texture, cute profile background"></textarea>
+              <textarea id="aiPrompt" rows="4" placeholder="mint kawaii doodle background, cute profile background"></textarea>
+            </label>
+            <label>빼고 싶은 요소 / Negative Prompt
+              <input id="aiNegativePrompt" type="text" placeholder="checker, gingham, plaid, hearts, stars, bows" />
             </label>
             <div id="aiPromptExamples" class="chip-list"></div>
+            <div id="aiExcludeExamples" class="chip-list"></div>
             <div class="switch-row compact"><input id="aiPreferBackground" type="checkbox" checked /> 배경까지 포함해서 추천하기</div>
             <div class="section-title-row ai-inline-actions">
               <button id="aiUseCurrentColorBtn" class="mini-btn">현재 레이어 색상 기준으로 시작</button>
+              <button id="aiNoCheckerBtn" class="mini-btn">체크/깅엄 제외</button>
               <button id="aiClearBtn" class="mini-btn">입력 비우기</button>
             </div>
-            <div id="aiStatus" class="muted mini-copy">Cloudflare Worker의 <code>/api/ai-pattern</code>를 호출해. 실패 시 API KEY 없음 / 401 / 429 / 모델 오류를 구분해서 표시하고 fallback 추천안을 반환해.</div>
+            <div id="aiStatus" class="muted mini-copy">Cloudflare Worker의 <code>/api/ai-pattern</code>를 호출해. 실패 시 API KEY 없음 / 401 / 429 / 모델 오류를 구분해서 표시하고, 제외 요소가 있으면 그 패턴을 빼고 fallback 추천안을 반환해.</div>
             <div id="aiResultList" class="saved-preset-list"></div>
           </section>
 
@@ -181,7 +186,7 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v1.2.1 개선 내용</h3>
+            <h3>v1.2.2 개선 내용</h3>
             <p>① API KEY 없음 / 401 인증 실패 / 429 한도 문제 / 모델 오류를 화면에서 구분</p>
             <p>② fallback이 작동해도 정확한 원인을 상태 문구로 바로 확인</p>
             <p>③ 기존 AI 추천 4개 / JSON 복사 / 로컬 fallback 기능 유지</p>

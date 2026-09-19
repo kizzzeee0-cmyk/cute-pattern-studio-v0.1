@@ -15,15 +15,16 @@ const curatedHarmonyPresets=[
   {name:'피치 크림',note:'복숭아 + 코랄 + 바닐라',colors:['#FFF8F2','#F6C2B1','#FFE0CC','#F3D27B','#D7A080']},
   {name:'세이지 체크',note:'세이지 + 아이보리 + 부드러운 라인',colors:['#FBFCF8','#A8B4A3','#D8DED3','#F2E6D0','#8F9889']}
 ];
-const STORAGE={state:'cps-v121-state',favorites:'cps-v121-favorites',presets:'cps-v121-presets',assets:'cps-v121-assets'};
+const STORAGE={state:'cps-v122-state',favorites:'cps-v122-favorites',presets:'cps-v122-presets',assets:'cps-v122-assets'};
 const MAX_LAYERS=8;
 const AI_EXAMPLES=[
+  'mint kawaii doodle background',
+  'pastel halftone background',
+  'cute cloud doodle',
   'soft pastel pink gingham, tiny bows, hand drawn texture, cute profile background',
-  'lavender checker with white stars, clean kawaii profile background',
-  'peach and cream mini polka dot, soft ribbon accents, dreamy cute background',
-  'mint blue y2k checker, sparkles and tiny hearts, cute streamer background',
-  'soft beige plaid, cozy fabric texture, gentle clean background'
+  'peach and cream mini polka dot, soft ribbon accents, dreamy cute background'
 ];
+const AI_EXCLUDE_EXAMPLES=['checker, gingham, plaid','hearts, stars','bows, ribbons','dots, halftone','clouds'];
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/장식색'],['선 색','체크 외곽선/그리드 선']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
 let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],aiSuggestions=[];
@@ -68,6 +69,16 @@ function aiDiagnosticMessage(data){
   };
   return map[code]||'OpenAI 응답에 문제가 있어 로컬 fallback 추천안을 보여주는 중이야.';
 }
+
+function parseNegativePrompt(text=''){return String(text||'').split(/[\n,]/).map(v=>v.trim()).filter(Boolean)}
+function buildExcludeTokens(prompt='',negative=''){let combined=`${prompt} ${negative}`.toLowerCase();let raw=parseNegativePrompt(negative).map(v=>v.toLowerCase());
+  const tokens=new Set(raw);
+  const checks=[['checker',/(?:without|no|exclude|except)\s+check(?:er|ers)?|(?:without|no|exclude|except)\s+gingham|(?:without|no|exclude|except)\s+plaid|체크\s*제외|깅엄\s*제외/],['gingham',/gingham/],['plaid',/plaid/],['dots',/(?:without|no|exclude|except)\s+(?:dot|dots|polka|halftone)|도트\s*제외|땡땡이\s*제외/],['halftone',/halftone/],['hearts',/(?:without|no|exclude|except)\s+heart|하트\s*제외/],['stars',/(?:without|no|exclude|except)\s+star|별\s*제외/],['bows',/(?:without|no|exclude|except)\s+(?:bow|bows|ribbon|ribbons)|리본\s*제외/],['clouds',/(?:without|no|exclude|except)\s+cloud|구름\s*제외/],['doodle',/(?:without|no|exclude|except)\s+doodle|낙서\s*제외/]];
+  checks.forEach(([name,re])=>{if(re.test(combined))tokens.add(name)});
+  return [...tokens];
+}
+function buildExcludePatternMap(tokens=[]){let set=new Set(tokens.map(v=>v.toLowerCase()));return {checker:set.has('checker')||set.has('gingham')||set.has('plaid'),dots:set.has('dots')||set.has('halftone')||set.has('polka'),hearts:set.has('hearts')||set.has('heart'),stars:set.has('stars')||set.has('star'),bows:set.has('bows')||set.has('bow')||set.has('ribbon')||set.has('ribbons'),clouds:set.has('clouds')||set.has('cloud'),doodle:set.has('doodle')}}
+
 function presetIdOrFallback(id){return PE.presets.some(p=>p.id===id)?id:'pastel-checker'}
 function clampInt(v,min,max,fallback){let n=Math.round(Number(v));if(Number.isNaN(n))n=fallback;return clamp(n,min,max)}
 function normalizeAiLayer(layer,i=0){
@@ -162,9 +173,9 @@ function renderAiSuggestions(){
 }
 function renderAiPromptExamples(){
   let wrap=$('#aiPromptExamples');
-  if(!wrap)return;
-  wrap.innerHTML='';
-  AI_EXAMPLES.forEach(example=>{let b=document.createElement('button');b.type='button';b.className='chip example-chip';b.textContent=example;b.onclick=()=>{$('#aiPrompt').value=example};wrap.appendChild(b)});
+  if(wrap){wrap.innerHTML='';AI_EXAMPLES.forEach(example=>{let b=document.createElement('button');b.type='button';b.className='chip example-chip';b.textContent=example;b.onclick=()=>{$('#aiPrompt').value=example};wrap.appendChild(b)})}
+  let ex=$('#aiExcludeExamples');
+  if(ex){ex.innerHTML='';AI_EXCLUDE_EXAMPLES.forEach(example=>{let b=document.createElement('button');b.type='button';b.className='chip exclude-chip';b.textContent=`exclude: ${example}`;b.onclick=()=>{$('#aiNegativePrompt').value=example};ex.appendChild(b)})}
 }
 function buildAiColorContext(){
   let layer=currentLayer();
@@ -179,19 +190,22 @@ function buildAiColorContext(){
 async function generateAiSuggestions(){
   let prompt=$('#aiPrompt')?.value?.trim();
   if(!prompt){toast('영어 키워드나 프롬프트를 먼저 입력해줘.');$('#aiPrompt')?.focus();return}
+  let negativePrompt=$('#aiNegativePrompt')?.value?.trim()||'';
+  let excludeTokens=buildExcludeTokens(prompt,negativePrompt);
   let btn=$('#aiGenerateBtn');
   let preferBackground=$('#aiPreferBackground')?.checked!==false;
   btn.disabled=true;
   aiStatus('AI 추천안을 생성 중이야… 잠시만 기다려줘.', '');
   try{
-    let res=await fetch('/api/ai-pattern',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,count:4,preferBackground,colorContext:buildAiColorContext()})});
+    let res=await fetch('/api/ai-pattern',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,negativePrompt,excludePatterns:excludeTokens,count:4,preferBackground,colorContext:buildAiColorContext()})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     let data=await res.json();
     aiSuggestions=(data.suggestions||data.variations||[]).map((v,i)=>normalizeAiSuggestion(v,i));
     renderAiSuggestions();
     let source=data.source==='fallback'?'fallback':'ok';
-    if(source==='fallback')aiStatus(aiDiagnosticMessage(data),'fallback');
-    else aiStatus('Cloudflare Worker가 OpenAI AI 추천안을 성공적으로 생성했어.','ok');
+    let excludeMessage=excludeTokens.length?` 제외 요소: <code>${excludeTokens.join(', ')}</code>. `:'';
+    if(source==='fallback')aiStatus(aiDiagnosticMessage(data)+excludeMessage,'fallback');
+    else aiStatus('Cloudflare Worker가 OpenAI AI 추천안을 성공적으로 생성했어.'+excludeMessage,'ok');
     if(!aiSuggestions.length)aiStatus('추천 결과가 비어 있어. 프롬프트를 조금 더 구체적으로 적어봐.', 'error');
   }catch(err){
     console.error(err);
@@ -203,9 +217,10 @@ async function generateAiSuggestions(){
 }
 function seedAiPromptFromCurrentColors(){
   let c=buildAiColorContext();
-  $('#aiPrompt').value=`cute pastel background using ${c.base.toLowerCase()}, ${c.sub.toLowerCase()} and ${c.accent.toLowerCase()}, soft checker pattern, clean profile background`;
+  $('#aiPrompt').value=`cute pastel background using ${c.base.toLowerCase()}, ${c.sub.toLowerCase()} and ${c.accent.toLowerCase()}, soft doodle pattern, clean profile background`;
   toast('현재 레이어 색상을 바탕으로 프롬프트를 채웠어.');
 }
+function applyNoCheckerExclude(){let input=$('#aiNegativePrompt');if(!input)return;let items=parseNegativePrompt(input.value);['checker','gingham','plaid'].forEach(v=>{if(!items.map(x=>x.toLowerCase()).includes(v))items.push(v)});input.value=items.join(', ');toast('체크/깅엄 제외 조건을 추가했어.')}
 
 function uid(prefix='id'){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
 function clone(v){return JSON.parse(JSON.stringify(v))}
@@ -360,8 +375,10 @@ function bindGlobalControls(){
   $('#baseColorInput').oninput=e=>{e.target.dataset.touched='1';renderColorRecommendationPanels()};
   $('#aiGenerateBtn').onclick=generateAiSuggestions;
   $('#aiUseCurrentColorBtn').onclick=seedAiPromptFromCurrentColors;
-  $('#aiClearBtn').onclick=()=>{$('#aiPrompt').value='';aiStatus('입력창을 비웠어. 예시 칩을 눌러 바로 시작할 수도 있어.','');};
+  $('#aiNoCheckerBtn').onclick=applyNoCheckerExclude;
+  $('#aiClearBtn').onclick=()=>{$('#aiPrompt').value='';$('#aiNegativePrompt').value='';aiStatus('입력창을 비웠어. 예시 칩을 눌러 바로 시작할 수도 있어.','');};
   $('#aiPrompt').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();generateAiSuggestions()}});
+  $('#aiNegativePrompt').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();generateAiSuggestions()}});
   $('#duplicateLayerBtn').onclick=()=>addLayer(true);
   $('#exportBtn').onclick=()=>exportPNG(false);
   $('#exportBtn2').onclick=()=>exportPNG(false);
