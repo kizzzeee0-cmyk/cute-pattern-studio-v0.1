@@ -1,9 +1,21 @@
-# Cute Pattern Studio v1.2
+# Cute Pattern Studio v1.2.1
 
 Cute Pattern Studio는 **귀여운 패턴 배경을 만들고 PNG / 심리스 타일 PNG로 저장하는 정적 웹앱**이야.  
 GitHub에 업로드한 뒤 **Cloudflare Pages**로 바로 배포할 수 있고, v1.2부터는 **Cloudflare Worker(Functions)** 를 이용한 **AI Pattern Designer** 기능이 추가되었어.
 
 ---
+
+
+## v1.2.1 진단 개선
+
+AI Pattern Designer가 fallback으로 전환되면 화면에서 아래 원인을 바로 구분해 보여줘.
+- API KEY 없음
+- 401 인증 실패
+- 429 한도 문제
+- 모델 오류
+- 기타 OpenAI API 오류
+
+추천안은 fallback으로 계속 생성되므로 앱 사용은 중단되지 않아.
 
 ## v1.2 핵심 업데이트
 
@@ -91,6 +103,7 @@ Cloudflare Pages / Workers 환경변수에 아래를 넣으면 AI API가 활성�
 
 ## 포함 문서
 
+- `V1_2_1_DEV_SPEC.md` — v1.2.1 오류 진단 개선 명세서
 - `V1_2_DEV_SPEC.md` — v1.2 실제 개발 명세서
 - `CLOUDFLARE_WORKER_SETUP.md` — Worker / Pages 연동 가이드
 - `AI_PATTERN_JSON_SCHEMA.json` — AI 응답 JSON 스키마

@@ -15,7 +15,7 @@ const curatedHarmonyPresets=[
   {name:'피치 크림',note:'복숭아 + 코랄 + 바닐라',colors:['#FFF8F2','#F6C2B1','#FFE0CC','#F3D27B','#D7A080']},
   {name:'세이지 체크',note:'세이지 + 아이보리 + 부드러운 라인',colors:['#FBFCF8','#A8B4A3','#D8DED3','#F2E6D0','#8F9889']}
 ];
-const STORAGE={state:'cps-v12-state',favorites:'cps-v12-favorites',presets:'cps-v12-presets',assets:'cps-v12-assets'};
+const STORAGE={state:'cps-v121-state',favorites:'cps-v121-favorites',presets:'cps-v121-presets',assets:'cps-v121-assets'};
 const MAX_LAYERS=8;
 const AI_EXAMPLES=[
   'soft pastel pink gingham, tiny bows, hand drawn texture, cute profile background',
@@ -55,6 +55,18 @@ function aiStatus(message,type=''){
   if(!el)return;
   el.className=`mini-copy ${type?`status-${type}`:'muted'}`;
   el.innerHTML=message;
+}
+function aiDiagnosticMessage(data){
+  let code=data?.diagnostic?.code||'';
+  let status=data?.diagnostic?.http_status;
+  const map={
+    missing_api_key:'API KEY 없음: Cloudflare → Settings → Variables and Secrets에 <code>OPENAI_API_KEY</code>를 Secret으로 추가한 뒤 다시 배포해줘.',
+    auth_failed:'401 인증 실패: 저장한 <code>OPENAI_API_KEY</code>가 잘못되었거나 사용할 수 없는 키인지 확인해줘.',
+    rate_limit:'429 한도 문제: OpenAI API 크레딧/결제 상태 또는 요청 한도를 확인해줘.',
+    model_error:'모델 오류: <code>OPENAI_MODEL</code> 값이 잘못되었거나 해당 모델을 사용할 권한이 없는지 확인해줘.',
+    api_error:`OpenAI API 오류${status?` (${status})`:''}: Cloudflare Functions 로그에서 상세 내용을 확인해줘.`
+  };
+  return map[code]||'OpenAI 응답에 문제가 있어 로컬 fallback 추천안을 보여주는 중이야.';
 }
 function presetIdOrFallback(id){return PE.presets.some(p=>p.id===id)?id:'pastel-checker'}
 function clampInt(v,min,max,fallback){let n=Math.round(Number(v));if(Number.isNaN(n))n=fallback;return clamp(n,min,max)}
@@ -178,7 +190,8 @@ async function generateAiSuggestions(){
     aiSuggestions=(data.suggestions||data.variations||[]).map((v,i)=>normalizeAiSuggestion(v,i));
     renderAiSuggestions();
     let source=data.source==='fallback'?'fallback':'ok';
-    aiStatus(source==='fallback'?'OpenAI 설정이 없거나 응답이 실패해서 로컬 fallback 추천안을 보여주는 중이야.':'Cloudflare Worker가 AI 추천안을 성공적으로 생성했어.',source);
+    if(source==='fallback')aiStatus(aiDiagnosticMessage(data),'fallback');
+    else aiStatus('Cloudflare Worker가 OpenAI AI 추천안을 성공적으로 생성했어.','ok');
     if(!aiSuggestions.length)aiStatus('추천 결과가 비어 있어. 프롬프트를 조금 더 구체적으로 적어봐.', 'error');
   }catch(err){
     console.error(err);

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v1.2</title>
+  <title>Cute Pattern Studio v1.2.1</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
-        <h1>Cute Pattern Studio <span>v1.2</span></h1>
-        <p class="subtitle">AI Pattern Designer · 영어 키워드 → 패턴 설정 자동 생성 · Cloudflare Worker 연동</p>
+        <h1>Cute Pattern Studio <span>v1.2.1</span></h1>
+        <p class="subtitle">AI Pattern Designer · API 오류 원인 표시 강화 · Cloudflare Worker 연동</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -151,7 +151,7 @@
               <button id="aiUseCurrentColorBtn" class="mini-btn">현재 레이어 색상 기준으로 시작</button>
               <button id="aiClearBtn" class="mini-btn">입력 비우기</button>
             </div>
-            <div id="aiStatus" class="muted mini-copy">Cloudflare Worker의 <code>/api/ai-pattern</code>를 호출하고, 설정이 없을 때는 로컬 fallback 추천안을 반환해.</div>
+            <div id="aiStatus" class="muted mini-copy">Cloudflare Worker의 <code>/api/ai-pattern</code>를 호출해. 실패 시 API KEY 없음 / 401 / 429 / 모델 오류를 구분해서 표시하고 fallback 추천안을 반환해.</div>
             <div id="aiResultList" class="saved-preset-list"></div>
           </section>
 
@@ -181,10 +181,10 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v1.2 개선 내용</h3>
-            <p>① 영어 키워드 입력 → AI가 배경/레이어/색상/패턴 설정을 JSON으로 생성</p>
-            <p>② Cloudflare Worker API + 로컬 fallback 로직 추가</p>
-            <p>③ AI 추천안 4개를 바로 현재 편집기에 적용 가능</p>
+            <h3>v1.2.1 개선 내용</h3>
+            <p>① API KEY 없음 / 401 인증 실패 / 429 한도 문제 / 모델 오류를 화면에서 구분</p>
+            <p>② fallback이 작동해도 정확한 원인을 상태 문구로 바로 확인</p>
+            <p>③ 기존 AI 추천 4개 / JSON 복사 / 로컬 fallback 기능 유지</p>
           </section>
         </div>
       </aside>

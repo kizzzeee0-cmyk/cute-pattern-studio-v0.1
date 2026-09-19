@@ -36,18 +36,24 @@ export async function onRequestPost(context) {
 
   if (!prompt) return json({ ok:false, error:'prompt is required.' }, 400);
 
-  try {
-    if (context.env.OPENAI_API_KEY) {
-      const ai = await generateViaOpenAI({ prompt, count, preferBackground, colorContext, env: context.env });
-      return json({ ok:true, source:'ai', schema_version:'1.0', ...ai });
-    }
-  } catch (error) {
-    const fallback = buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note:`AI error: ${error.message}` });
-    return json({ ok:true, source:'fallback', schema_version:'1.0', ...fallback });
+  if (!context.env.OPENAI_API_KEY) {
+    const diagnostic = {
+      code: 'missing_api_key',
+      http_status: null,
+      message: 'OPENAI_API_KEY is not configured in Cloudflare Variables and Secrets.'
+    };
+    const fallback = buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note:diagnostic.message });
+    return json({ ok:true, source:'fallback', schema_version:'1.0', diagnostic, ...fallback });
   }
 
-  const fallback = buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note:'No OPENAI_API_KEY configured.' });
-  return json({ ok:true, source:'fallback', schema_version:'1.0', ...fallback });
+  try {
+    const ai = await generateViaOpenAI({ prompt, count, preferBackground, colorContext, env: context.env });
+    return json({ ok:true, source:'ai', schema_version:'1.0', diagnostic:{ code:'ok', http_status:200, message:'OpenAI request succeeded.' }, ...ai });
+  } catch (error) {
+    const diagnostic = classifyOpenAIError(error);
+    const fallback = buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note:diagnostic.message });
+    return json({ ok:true, source:'fallback', schema_version:'1.0', diagnostic, ...fallback });
+  }
 }
 
 async function generateViaOpenAI({ prompt, count, preferBackground, colorContext, env }) {
@@ -126,13 +132,66 @@ Rules:
     })
   });
 
-  if (!response.ok) throw new Error(`OpenAI HTTP ${response.status}`);
+  if (!response.ok) {
+    let errorBody = '';
+    try { errorBody = await response.text(); } catch {}
+    const error = new Error(`OpenAI HTTP ${response.status}`);
+    error.status = response.status;
+    error.body = errorBody;
+    error.model = model;
+    throw error;
+  }
   const data = await response.json();
   const raw = data?.choices?.[0]?.message?.content || '{}';
   const parsed = safeJsonParse(raw);
   if (!parsed || !Array.isArray(parsed.suggestions)) throw new Error('Invalid JSON schema from model.');
 
   return { suggestions: parsed.suggestions.slice(0, count) };
+}
+
+function classifyOpenAIError(error) {
+  const status = Number(error?.status) || null;
+  const body = String(error?.body || '');
+  const message = String(error?.message || 'OpenAI request failed.');
+  const combined = `${message} ${body}`.toLowerCase();
+
+  if (status === 401) {
+    return {
+      code: 'auth_failed',
+      http_status: 401,
+      message: 'OpenAI 인증 실패(401): API 키가 잘못되었거나 만료/비활성 상태일 수 있습니다.'
+    };
+  }
+
+  if (status === 429) {
+    return {
+      code: 'rate_limit',
+      http_status: 429,
+      message: 'OpenAI 사용 한도/요청 제한(429): 크레딧, 결제 상태 또는 요청 한도를 확인하세요.'
+    };
+  }
+
+  if (status === 404 || ((status === 400 || status === 403) && /model|does not exist|not found|access/.test(combined))) {
+    return {
+      code: 'model_error',
+      http_status: status,
+      message: `OpenAI 모델 오류${status ? `(${status})` : ''}: OPENAI_MODEL 값 또는 해당 모델 접근 권한을 확인하세요.`
+    };
+  }
+
+  if (/model/.test(combined) && /(invalid|unsupported|not found|does not exist|access)/.test(combined)) {
+    return {
+      code: 'model_error',
+      http_status: status,
+      message: 'OpenAI 모델 오류: OPENAI_MODEL 값 또는 모델 접근 권한을 확인하세요.'
+    };
+  }
+
+  return {
+    code: 'api_error',
+    http_status: status,
+    message: `OpenAI API 오류${status ? `(${status})` : ''}: ${message}`
+  };
 }
 
 function buildFallbackSuggestions({ prompt, count, preferBackground, colorContext, note }) {
