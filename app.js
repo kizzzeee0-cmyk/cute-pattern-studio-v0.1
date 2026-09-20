@@ -279,12 +279,42 @@ function jitterRand(rng,a){return (rng()-.5)*2*a}
 function hashString(str){let h=2166136261>>>0;str=String(str);for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 function mulberry32(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 async function ensureVisibleAssets(){let needs=[];for(let layer of state.layers){if(layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId){let asset=userAssets.find(v=>v.id===layer.assetId);if(asset)needs.push(ensureAssetImage(asset,layer).catch(()=>null))}}if(needs.length)await Promise.all(needs)}
-async function renderMain(){await ensureVisibleAssets();ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,canvas.width,canvas.height);ctx.restore();for(let layer of state.layers){if(!layer.enabled)continue;if(layer.sourceType==='builtin'){PE.render(ctx,canvas.width,canvas.height,layerToPatternState(layer,false),getPreset(layer.presetId),canvas.width/2000)}else renderUploadedLayer(ctx,canvas.width,canvas.height,layer,canvas.width/2000,false)}updateSelected();renderCirclePreview()}
+async function renderMain(){
+  await ensureVisibleAssets();
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,canvas.width,canvas.height);ctx.restore();
+  for(let layer of state.layers){
+    if(!layer.enabled)continue;
+    try{
+      if(layer.sourceType==='builtin')PE.render(ctx,canvas.width,canvas.height,layerToPatternState(layer,false),getPreset(layer.presetId),canvas.width/2000);
+      else renderUploadedLayer(ctx,canvas.width,canvas.height,layer,canvas.width/2000,false);
+    }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
+  }
+  updateSelected();renderCirclePreview()
+}
 function updateSelected(){let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
 function setupCategories(){let wrap=$('#categoryTabs');wrap.innerHTML='';categories().forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===activeCategory?' active':'');b.textContent=c;b.onclick=()=>{activeCategory=c;setupCategories();renderPatternList()};wrap.appendChild(b)})}
 function filteredPresets(){let q=$('#searchInput').value.trim().toLowerCase();let checksOnly=$('#checkOnly')?.checked;return PE.presets.filter(p=>(activeCategory==='전체'||p.category===activeCategory)&&(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!checksOnly||checkPresetOnly(p))&&(!q||`${p.name} ${p.category} ${p.desc} ${p.id}`.toLowerCase().includes(q)))}
 function thumbnailLayerForPreset(p){let layer={...currentLayer(),presetId:p.id,sourceType:'builtin'};let d=PE.defaults[p.id]||{};Object.assign(layer,d);return layer}
-function renderPatternList(){let list=$('#patternList'),items=filteredPresets();$('#patternCount').textContent=`${PE.presets.length}가지 패턴 · 현재 ${items.length}개`;list.innerHTML='';items.forEach(p=>{let b=document.createElement('button');b.className='pattern-card'+(currentLayer().sourceType==='builtin'&&p.id===currentLayer().presetId?' active':'');let fav=document.createElement('button');fav.type='button';fav.className='pattern-fav'+(favorites.has(p.id)?' on':'');fav.textContent=favorites.has(p.id)?'★':'☆';fav.title='즐겨찾기';fav.onclick=e=>{e.stopPropagation();toggleFavorite(p.id)};let c=document.createElement('canvas');c.width=c.height=180;let thumbLayer=thumbnailLayerForPreset(p);PE.render(c.getContext('2d'),180,180,layerToPatternState(thumbLayer,false),p,180/720);let st=document.createElement('strong');st.textContent=p.name;let sm=document.createElement('small');sm.textContent=p.desc;b.append(fav,c,st,sm);b.onclick=()=>selectPatternForActiveLayer(p.id);list.appendChild(b)})}
+function renderPatternList(){
+  let list=$('#patternList'),items=filteredPresets();
+  $('#patternCount').textContent=`${PE.presets.length}가지 패턴 · 현재 ${items.length}개`;
+  list.innerHTML='';
+  items.forEach(p=>{
+    let b=document.createElement('button');b.className='pattern-card'+(currentLayer().sourceType==='builtin'&&p.id===currentLayer().presetId?' active':'');
+    let fav=document.createElement('button');fav.type='button';fav.className='pattern-fav'+(favorites.has(p.id)?' on':'');fav.textContent=favorites.has(p.id)?'★':'☆';fav.title='즐겨찾기';fav.onclick=e=>{e.stopPropagation();toggleFavorite(p.id)};
+    let c=document.createElement('canvas');c.width=c.height=180;
+    try{
+      let thumbLayer=thumbnailLayerForPreset(p);
+      PE.render(c.getContext('2d'),180,180,layerToPatternState(thumbLayer,false),p,180/720)
+    }catch(err){
+      console.error('Pattern thumbnail failed:',p.id,err);
+      let x=c.getContext('2d');x.clearRect(0,0,180,180);x.fillStyle='#FAF8FF';x.fillRect(0,0,180,180);x.fillStyle='#8E83A4';x.font='12px sans-serif';x.textAlign='center';x.fillText('미리보기 오류',90,92)
+    }
+    let st=document.createElement('strong');st.textContent=p.name;
+    let sm=document.createElement('small');sm.textContent=p.desc;
+    b.append(fav,c,st,sm);b.onclick=()=>selectPatternForActiveLayer(p.id);list.appendChild(b)
+  })
+}
 function toggleFavorite(id){favorites.has(id)?favorites.delete(id):favorites.add(id);persistAll();renderPatternList();renderFavoritePreview()}
 function selectPatternForActiveLayer(id){let layer=currentLayer();layer.sourceType='builtin';layer.presetId=id;let d=PE.defaults[id]||{};Object.assign(layer,d);if(layer.checkerToneMode&&isCheckLikePresetId(id))applyCheckerTonePalette(layer,false);layer.seed=Math.floor(Math.random()*1e9);persistAll();syncLayerUI();renderPatternList();renderMain()}
 function setupLayerTabs(){let wrap=$('#layerTabs');wrap.innerHTML='';state.layers.forEach((layer,i)=>{let b=document.createElement('button');b.className='layer-tab'+(i===activeLayerIndex?' active':'');b.textContent=`${layer.name}`;b.onclick=()=>{activeLayerIndex=i;setupLayerTabs();syncLayerUI();renderPatternList();renderAssetList();renderMain()};wrap.appendChild(b)});let add=document.createElement('button');add.className='layer-tab';add.textContent='＋ 레이어 추가';add.onclick=()=>addLayer(true);wrap.appendChild(add);$('#activeLayerLabel').textContent=`현재 편집: ${state.layers[activeLayerIndex].name} · 총 ${state.layers.length}개`}
@@ -330,6 +360,70 @@ function renderBgColorInputs(){let root=$('#bgColorGrid');root.innerHTML='';root
   let even=document.createElement('button');even.type='button';even.className='mini-btn';even.textContent='범위 균등 정렬';even.onclick=()=>{let current=normalizeGradientStops(state.bg.gradientStops,state.bg.colors);let step=current.length>1?100/(current.length-1):100;state.bg.gradientStops=current.map((s,idx)=>({...s,pos:Math.round(step*idx)}));persistBg()};
   let note=document.createElement('div');note.className='micro-copy';note.textContent='각 색상의 범위는 0~100 위치로 조절돼. 값이 가까우면 색이 빠르게 바뀌고, 넓게 벌리면 더 부드럽게 이어져.';
   actions.append(add,even);root.append(actions,note)
+}
+function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor');root.innerHTML='';let card=document.createElement('div');card.className='layer-editor-card';let top=document.createElement('div');top.className='layer-editor-grid';let canToggle=activeLayerIndex>0;let canDelete=activeLayerIndex>0;top.innerHTML=`<div class="inline-row"><strong>${layer.name}</strong><label class="switch-row compact"><input id="layerEnabledToggle" type="checkbox" ${layer.enabled?'checked':''} ${canToggle?'':'disabled'}/> ${canToggle?'사용':'기본 레이어는 항상 켜짐'}</label></div><div class="control-subtitle">패턴 카드 선택은 현재 활성 레이어에 바로 적용돼. 필요하면 레이어를 추가해서 패턴을 겹칠 수 있어.</div>`;
+  let topActions=document.createElement('div');topActions.className='section-title-row';topActions.innerHTML='<h3>레이어 작업</h3>';
+  let actionWrap=document.createElement('div');actionWrap.className='preset-actions';
+  let addBtn=document.createElement('button');addBtn.className='mini-btn';addBtn.type='button';addBtn.textContent='현재 레이어 복제 추가';addBtn.onclick=()=>addLayer(true);
+  actionWrap.appendChild(addBtn);
+  if(activeLayerIndex>1){let upBtn=document.createElement('button');upBtn.className='mini-btn';upBtn.type='button';upBtn.textContent='위로';upBtn.onclick=()=>moveActiveLayer(-1);actionWrap.appendChild(upBtn)}
+  if(activeLayerIndex>0&&activeLayerIndex<state.layers.length-1){let downBtn=document.createElement('button');downBtn.className='mini-btn';downBtn.type='button';downBtn.textContent='아래로';downBtn.onclick=()=>moveActiveLayer(1);actionWrap.appendChild(downBtn)}
+  if(canDelete){let delBtn=document.createElement('button');delBtn.className='mini-btn';delBtn.type='button';delBtn.textContent='현재 레이어 삭제';delBtn.onclick=removeActiveLayer;actionWrap.appendChild(delBtn)}
+  topActions.appendChild(actionWrap);top.appendChild(topActions);
+  let sourceRow=document.createElement('div');sourceRow.className='source-type-row';let builtinBtn=document.createElement('button');builtinBtn.className='ghost'+(layer.sourceType==='builtin'?' active':'');builtinBtn.textContent='내장 패턴';let uploadBtn=document.createElement('button');uploadBtn.className='ghost'+(layer.sourceType==='uploaded'?' active':'');uploadBtn.textContent='업로드 에셋';builtinBtn.onclick=()=>{layer.sourceType='builtin';persistAll();syncLayerUI();renderPatternList();renderMain()};uploadBtn.onclick=()=>{layer.sourceType='uploaded';persistAll();syncLayerUI();renderAssetList();renderMain()};sourceRow.append(builtinBtn,uploadBtn);top.appendChild(sourceRow);
+  if(layer.sourceType==='builtin'){
+    let sel=document.createElement('div');sel.className='selectish';let p=getPreset(layer.presetId);sel.textContent=`현재 선택: ${p.name} · ${p.category}`;top.appendChild(sel)
+  }else{
+    let box=document.createElement('div');box.className='layer-editor-grid';let assetSel=document.createElement('select');let placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='업로드 에셋 선택';assetSel.appendChild(placeholder);userAssets.forEach(a=>{let op=document.createElement('option');op.value=a.id;op.textContent=`${a.name} (${a.kind==='svg'?'SVG':'PNG/JPG'})`;if(a.id===layer.assetId)op.selected=true;assetSel.appendChild(op)});assetSel.onchange=()=>{layer.assetId=assetSel.value;persistAll();renderAssetList();renderMain()};let renderMode=document.createElement('select');[['motif','모티프 반복'],['tile','반복 타일'],['brick','브릭 반복'],['halfdrop','하프드롭 반복'],['diagonal','대각 반복']].forEach(([v,t])=>{let op=document.createElement('option');op.value=v;op.textContent=t;if(layer.renderMode===v)op.selected=true;renderMode.appendChild(op)});renderMode.onchange=()=>{layer.renderMode=renderMode.value;persistAll();renderMain()};box.appendChild(labeled('업로드 에셋',assetSel));box.appendChild(labeled('배치 방식',renderMode));let selectedAsset=userAssets.find(v=>v.id===layer.assetId);if(!selectedAsset){let help=document.createElement('div');help.className='control-subtitle';help.textContent='왼쪽 업로드 박스에 투명 PNG/SVG를 올리면 현재 레이어에 바로 연결돼. 원하는 크기와 간격으로 반복 패턴을 만들 수 있어.';box.appendChild(help)}if(selectedAsset?.kind==='svg'){let svgMode=document.createElement('select');[['original','원본 색상 유지'],['single','레이어 패턴 A 색으로 단색 변환']].forEach(([v,t])=>{let op=document.createElement('option');op.value=v;op.textContent=t;if((layer.svgColorMode||'original')===v)op.selected=true;svgMode.appendChild(op)});svgMode.onchange=async()=>{layer.svgColorMode=svgMode.value;selectedAsset._img=null;persistAll();await ensureAssetImage(selectedAsset,layer).catch(()=>null);renderAssetList();renderMain()};box.appendChild(labeled('SVG 색상 모드',svgMode))}
+    top.appendChild(box)
+  }
+  let colorTitle=document.createElement('div');colorTitle.className='section-title-row';colorTitle.innerHTML='<h3>레이어 색상</h3><div class="preset-actions"><button id="applyPaletteToLayer" class="mini-btn" type="button">팔레트 랜덤</button><button id="autoLineColorBtn" class="mini-btn" type="button">선 색 자동 추천</button></div>';top.appendChild(colorTitle);
+  top.appendChild(renderColorInputs(layer.colors,()=>{persistAll();let asset=userAssets.find(v=>v.id===layer.assetId);if(asset&&asset.kind==='svg'){asset._img=null;ensureAssetImage(asset,layer).then(renderMain)}persistAll();renderPatternListDebounced();renderAssetList();renderMain()}));
+  if(layer.sourceType==='builtin'&&isCheckLikePresetId(layer.presetId)){
+    let toneBox=document.createElement('div');
+    toneBox.className='layer-editor-card';
+    toneBox.innerHTML='<div class="section-title-row"><h3>체크 전용 1색 → 3톤 자동 배색</h3><div class="preset-actions"><button id="applyCheckerToneBtn" class="mini-btn" type="button">3톤 생성 적용</button></div></div><div class="control-subtitle">대표색 하나만 고르면 비슷한 톤 3가지와 선 색을 자동으로 만들어줘. 가운데 구분선이 없는 체크나 3색 체크를 빠르게 만들고 싶을 때 사용해.</div>';
+    let modeRow=document.createElement('label');modeRow.className='switch-row';modeRow.innerHTML=`<input id="checkerToneModeToggle" type="checkbox" ${layer.checkerToneMode?'checked':''}/> 대표색 변경 시 자동으로 3톤 다시 생성`;
+    let baseRow=document.createElement('div');baseRow.className='color-row';
+    let baseLabel=document.createElement('div');baseLabel.className='color-label';baseLabel.textContent='대표색';
+    let basePicker=document.createElement('input');basePicker.type='color';basePicker.id='checkerToneBasePicker';basePicker.value=(layer.checkerToneBase||layer.colors[1]||'#AFC3FF').toUpperCase();
+    let baseText=document.createElement('input');baseText.type='text';baseText.id='checkerToneBaseText';baseText.maxLength=7;baseText.value=basePicker.value;
+    let preview=document.createElement('div');preview.className='swatch-row';preview.id='checkerTonePreview';preview.style.marginTop='8px';
+    baseRow.append(baseLabel,basePicker,baseText);toneBox.append(modeRow,baseRow,preview);top.appendChild(toneBox);
+  }
+  if(layerSupportsScatterControls(layer)){
+    let scatterBox=document.createElement('div');
+    scatterBox.className='layer-editor-card';
+    scatterBox.innerHTML='<div class="section-title-row"><h3>반복 요소 정렬</h3><button id="cleanAlignBtn" class="mini-btn" type="button">깔끔 정렬 적용</button></div><div class="control-subtitle">하트·별·도트·리본·업로드 오브젝트처럼 반복되는 요소를 더 반듯하게 맞추고 싶을 때 사용해. 랜덤을 끄면 같은 크기·같은 방향·같은 간격에 가깝게 정렬돼.</div>';
+    let sizeRow=document.createElement('label');
+    sizeRow.className='switch-row';
+    sizeRow.innerHTML=`<input id="randomSizeToggle" type="checkbox" ${layer.randomSize!==false?'checked':''}/> 요소 크기 랜덤`;
+    let angleRow=document.createElement('label');
+    angleRow.className='switch-row';
+    angleRow.innerHTML=`<input id="randomAngleToggle" type="checkbox" ${layer.randomAngle!==false?'checked':''}/> 요소 각도 랜덤`;
+    let posRow=document.createElement('label');
+    posRow.className='switch-row';
+    posRow.innerHTML=`<input id="randomPositionToggle" type="checkbox" ${layer.randomPosition!==false?'checked':''}/> 요소 위치 랜덤`;
+    let note=document.createElement('div');
+    note.className='control-subtitle';
+    note.textContent='세 옵션을 모두 끄거나 “깔끔 정렬 적용”을 누르면 위치 흔들림을 없애고, 불규칙함과 레이어 회전도 0으로 맞춰 훨씬 더 깔끔하게 정렬돼.';
+    scatterBox.append(sizeRow,angleRow,posRow,note);
+    top.appendChild(scatterBox)
+  }
+  let controls=document.createElement('div');controls.className='layer-editor-grid';controls.appendChild(sliderRow('패턴 크기','size',layer.size,12,260,'px',v=>layer.size=v));controls.appendChild(sliderRow('간격','gap',layer.gap,0,180,'px',v=>layer.gap=v));controls.appendChild(sliderRow('불규칙함','jitter',layer.jitter,0,100,'%',v=>layer.jitter=v));controls.appendChild(sliderRow('회전','rotation',layer.rotation,-45,45,'°',v=>layer.rotation=v));controls.appendChild(sliderRow('위치 X','offsetX',layer.offsetX||0,-200,200,'px',v=>layer.offsetX=v));controls.appendChild(sliderRow('위치 Y','offsetY',layer.offsetY||0,-200,200,'px',v=>layer.offsetY=v));controls.appendChild(sliderRow('선 두께','stroke',layer.stroke,0,18,'px',v=>layer.stroke=v));controls.appendChild(sliderRow('패턴 투명도','opacity',layer.opacity,0,100,'%',v=>layer.opacity=v));controls.appendChild(sliderRow('포인트/디테일','detail',layer.detail,0,100,'%',v=>layer.detail=v));top.appendChild(controls);let offsetRow=document.createElement('div');offsetRow.className='section-title-row';offsetRow.innerHTML='<div class="control-subtitle">패턴이 애매하게 잘려 보일 때는 위치 X/Y를 살짝 움직여 반복 시작 위치를 조정할 수 있어. 숫자를 직접 입력해서 미세 조정도 가능해.</div><button id="resetOffsetBtn" class="mini-btn" type="button">오프셋 초기화</button>';top.appendChild(offsetRow);card.appendChild(top);root.appendChild(card);
+  $('#layerEnabledToggle').onchange=e=>{layer.enabled=e.target.checked;persistAll();renderLayerSummary();renderMain()};
+  if($('#randomSizeToggle'))$('#randomSizeToggle').onchange=e=>{layer.randomSize=e.target.checked;persistAll();renderPatternListDebounced();renderMain()};
+  if($('#randomAngleToggle'))$('#randomAngleToggle').onchange=e=>{layer.randomAngle=e.target.checked;persistAll();renderPatternListDebounced();renderMain()};
+  if($('#randomPositionToggle'))$('#randomPositionToggle').onchange=e=>{layer.randomPosition=e.target.checked;persistAll();renderPatternListDebounced();renderMain()};
+  if($('#cleanAlignBtn'))$('#cleanAlignBtn').onclick=()=>{layer.randomSize=false;layer.randomAngle=false;layer.randomPosition=false;layer.jitter=0;layer.rotation=0;persistAll();syncLayerUI();renderPatternListDebounced();renderMain()};
+  if($('#resetOffsetBtn'))$('#resetOffsetBtn').onclick=()=>{layer.offsetX=0;layer.offsetY=0;persistAll();syncLayerUI();renderPatternListDebounced();renderMain()};
+  $('#applyPaletteToLayer').onclick=()=>{let p=palettePresets[Math.floor(Math.random()*palettePresets.length)];layer.colors=normalizeColors([...p,p[3]||p[2]||p[1]||p[0]]);layer.colors[4]=suggestLineColor(layer.colors);layer.checkerToneBase=layer.colors[1];persistAll();syncLayerUI();renderPatternListDebounced();renderMain()}
+  if($('#autoLineColorBtn'))$('#autoLineColorBtn').onclick=()=>{layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncLayerUI();renderPatternListDebounced();renderMain();toast('현재 레이어 색상에 맞춰 선 색을 자동 추천했어.')}
+  if($('#checkerTonePreview')){let sw=$('#checkerTonePreview');let previewColors=buildCheckerTonePalette(layer.checkerToneBase||layer.colors[1]||'#AFC3FF');sw.innerHTML='';previewColors.slice(1,5).forEach(c=>{let s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;sw.appendChild(s)})}
+  if($('#checkerToneModeToggle'))$('#checkerToneModeToggle').onchange=e=>{layer.checkerToneMode=e.target.checked;persistAll();};
+  if($('#checkerToneBasePicker'))$('#checkerToneBasePicker').oninput=e=>{let value=e.target.value.toUpperCase();layer.checkerToneBase=value;$('#checkerToneBaseText').value=value;if(layer.checkerToneMode)applyCheckerTonePalette(layer,true);else{persistAll();renderLayerEditor()}};
+  if($('#checkerToneBaseText'))$('#checkerToneBaseText').oninput=e=>{let value=e.target.value.toUpperCase();if(/^#[0-9A-F]{6}$/.test(value)){layer.checkerToneBase=value;$('#checkerToneBasePicker').value=value;if(layer.checkerToneMode)applyCheckerTonePalette(layer,true);else{persistAll();renderLayerEditor()}}};
+  if($('#applyCheckerToneBtn'))$('#applyCheckerToneBtn').onclick=()=>{applyCheckerTonePalette(layer,true);toast('대표색 기준으로 체크용 3톤 팔레트를 적용했어.')}
 }
 function labeled(labelText,node){let wrap=document.createElement('label');wrap.textContent=labelText;wrap.appendChild(node);return wrap}
 function sliderRow(label,key,val,min,max,unit,setter){let wrap=document.createElement('label');let head=document.createElement('div');head.style.display='flex';head.style.alignItems='center';head.style.justifyContent='space-between';head.style.gap='8px';let title=document.createElement('span');title.textContent=label;let controls=document.createElement('div');controls.style.display='flex';controls.style.alignItems='center';controls.style.gap='6px';let number=document.createElement('input');number.type='number';number.min=min;number.max=max;number.step='1';number.value=val;number.style.width='68px';number.style.padding='5px 7px';number.style.fontSize='11px';let applyVal=v=>{let next=Math.max(min,Math.min(max,Number(v)||0));setter(next);input.value=next;number.value=next;if(!['seed','offsetX','offsetY'].includes(key)){currentLayer().seed=Math.floor(Math.random()*1e9)}persistAll();renderPatternListDebounced();renderMain()};if(key==='offsetX'||key==='offsetY'){[-5,-1,1,5].forEach(step=>{let b=document.createElement('button');b.type='button';b.className='mini-btn';b.textContent=step>0?`+${step}`:`${step}`;b.style.padding='4px 6px';b.onclick=e=>{e.preventDefault();applyVal((+number.value||0)+step)};controls.appendChild(b)})}let unitSpan=document.createElement('span');unitSpan.textContent=unit;unitSpan.style.float='none';unitSpan.style.color='#8c83a0';controls.append(number,unitSpan);head.append(title,controls);wrap.appendChild(head);let input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.value=val;input.oninput=()=>applyVal(input.value);number.onchange=()=>applyVal(number.value);wrap.appendChild(input);return wrap}
@@ -397,7 +491,7 @@ function bindGlobalControls(){
   $('#tileW').oninput=e=>{state.tileW=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
   $('#tileH').oninput=e=>{state.tileH=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
 }
-function syncAll(){syncGlobalControls();if($('#baseColorInput')&&!$('#baseColorInput').dataset.touched){$('#baseColorInput').value=currentLayer().colors[1]||'#F5B9D4'}syncLayerUI();renderPatternList();renderAssetList();renderFavoritePreview();renderSavedPresets();renderColorRecommendationPanels();renderAiSuggestions();renderMain()}
+function syncAll(){syncGlobalControls();if($('#baseColorInput')&&!$('#baseColorInput').dataset.touched){$('#baseColorInput').value=currentLayer().colors[1]||'#F5B9D4'}syncLayerUI();renderMain();renderPatternList();renderAssetList();renderFavoritePreview();renderSavedPresets();renderColorRecommendationPanels();renderAiSuggestions()}
 
 loadLocal();
 bindGlobalControls();
