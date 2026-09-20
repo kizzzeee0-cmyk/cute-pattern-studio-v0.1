@@ -1,40 +1,42 @@
-# Cute Pattern Studio v1.2.2
+# Cute Pattern Studio v1.3
 
 Cute Pattern Studio는 귀여운 패턴 배경을 만들고 PNG / 심리스 타일 PNG로 저장하는 정적 웹앱이야.
-Cloudflare Pages + Functions 구조를 사용하고, v1.2.2에서는 **AI 추천용 negative prompt(제외 요소)** 기능이 추가되었어.
+Cloudflare Pages + Functions 구조를 사용하고, v1.3에서는 **체크 패턴 강화 + 대표색 1개 기반 3톤 자동 배색** 기능이 추가되었어.
 
-## v1.2.2 핵심 변경점
-- **빼고 싶은 요소 / Negative Prompt 입력칸 추가**
-  - 예: `checker, gingham, plaid`
-- **빠른 제외 버튼 추가**
-  - `체크/깅엄 제외`
-- **AI fallback 로직 개선**
-  - `mint kawaii doodle background` → 체크 위주가 아니라 doodle 계열 우선
-  - `pastel halftone background` → halftone/dot 계열 우선
-  - `cute cloud doodle` → cloud / doodle 계열 우선
-- **체크 없는 추천안 생성 강화**
-  - prompt에 checker가 없으면 무조건 checker로 몰리지 않도록 개선
-- **기존 오류 표시 유지**
-  - API KEY 없음 / 401 / 429 / 모델 오류 / 기타 API 오류 구분 표시
+## v1.3 핵심 변경점
+- **노갭 체크 계열 추가**
+  - `flat-checker`, `flat-tri-check` 렌더링 수정
+  - `no-gap-checker`, `soft-no-gap-check`, `no-gap-tri-check` 추가
+- **찢어진 체크 패턴 추가**
+  - `torn-checker`
+- **대표색 1개 → 3톤 자동 배색**
+  - 체크 패턴 레이어에서 대표색 하나를 고르면
+  - 비슷한 톤 3가지 + 선 색을 자동 생성
+  - `대표색 변경 시 자동으로 3톤 다시 생성` 옵션 제공
+- **기존 AI 기능 유지**
+  - negative prompt
+  - API KEY 없음 / 401 / 429 / 모델 오류 구분 표시
 
-## AI 사용 팁
-### 체크 없는 버전 원할 때
-- Prompt: `mint kawaii doodle background`
-- Negative Prompt: `checker, gingham, plaid`
+## 추천 사용법
+### 1) 하얀 틈 없는 체크 만들기
+- 패턴: `노갭 체크` 또는 `노갭 3색 체크`
+- 간격: 0
+- 선 두께: 0
 
-### 하트/별도 빼고 싶을 때
-- Negative Prompt: `checker, hearts, stars`
+### 2) 대표색 하나로 블루 체크 만들기
+- 체크 패턴 선택
+- `체크 전용 1색 → 3톤 자동 배색` 박스에서 대표색 지정
+- `3톤 생성 적용` 클릭
 
-### 구름 낙서만 원할 때
-- Prompt: `cute cloud doodle`
-- Negative Prompt: `checker, dots`
+### 3) 찢어진 체크 느낌 만들기
+- 패턴: `찢어진 체크`
+- 배경색을 흰색/크림색으로 두면 종이 느낌이 더 자연스러움
 
 ## 주요 파일
-- `index.html` — AI negative prompt UI 추가
-- `app.js` — 제외 요소 입력 / 전달 / 상태표시 처리
-- `functions/api/ai-pattern.js` — OpenAI + fallback 추천 로직 개선
-- `V1_2_2_DEV_SPEC.md` — 실제 개발 명세서
-- `CLOUDFLARE_WORKER_SETUP.md` — Cloudflare 설정 가이드
+- `patterns.js` — 체크 렌더링 개선 + 새 프리셋 추가
+- `app.js` — 체크 전용 1색→3톤 자동 배색 UI/상태 처리
+- `functions/api/ai-pattern.js` — 새 체크 프리셋 허용
+- `V1_3_DEV_SPEC.md` — 이번 버전 개발 명세서
 
 ## 환경변수
 - `OPENAI_API_KEY`
