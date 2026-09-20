@@ -2,7 +2,8 @@ const ALLOWED_PRESETS = [
   'pastel-checker','mini-checker','rounded-checker','gingham','wavy-checker','hand-checker','soft-plaid','airy-plaid','powder-gingham','fabric-checker','milk-checker','soft-gingham','handmade-plaid','textured-checker','sketch-plaid','marshmallow-check','picnic-check','windowpane-check','layered-check','micro-gingham','tri-color-check','diamond-check','diamond-gingham','flat-checker','flat-tri-check','no-gap-checker','soft-no-gap-check','soft-overlap-check','airy-overlap-check','no-gap-tri-check','torn-checker','pencil-check','pastel-crayon-check','checker-heart','checker-star','checker-dot',
   'polka','tiny-dot','irregular-dot','doodle-dot','ring-dot','bubble-dot','grid','hand-grid','stripe','diagonal-stripe','wavy-stripe','scribble-stripe','wave-lines','zigzag',
   'hearts','outline-hearts','stars','outline-stars','sparkles','kira-sparkle','bows','tiny-bows','puff-hearts','candy-stars',
-  'flowers','daisy-dot','cloud','moonstar','smiley','raindrop','doodle','confetti','sticker-mix','sprinkles'
+  'flowers','daisy-dot','cloud','moonstar','smiley','raindrop','doodle','confetti','sticker-mix','sprinkles',
+  'sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'
 ];
 
 const COLOR_WORDS = {
@@ -64,7 +65,7 @@ async function generateViaOpenAI({ prompt, negativePrompt, excludePatterns, coun
   const model = env.OPENAI_MODEL || 'gpt-4.1-mini';
   const excludedText = excludePatterns.length ? excludePatterns.join(', ') : '(none)';
 
-  const system = `You are generating structured design suggestions for Cute Pattern Studio v1.5, a kawaii seamless pattern web app.
+  const system = `You are generating structured design suggestions for Cute Pattern Studio v1.5.1, a kawaii seamless pattern web app.
 Return ONLY valid JSON with the exact top-level shape:
 {
   "suggestions": [
@@ -120,7 +121,7 @@ Rules:
     preferBackground,
     colorContext,
     count,
-    target: 'Cute Pattern Studio v1.5',
+    target: 'Cute Pattern Studio v1.5.1',
     note: 'Create editable pattern engine settings rather than a raster image.'
   };
 
@@ -367,6 +368,7 @@ function buildExclusionMap(excludePatterns, lower) {
 }
 
 function detectPrimaryFamily(lower) {
+  if (/(sunburst|sunshine|sun ray|sun rays|radial ray|radial rays|glossy|glow|shiny|light burst|빛|햇살|광택)/.test(lower)) return 'light';
   if (/(halftone|polka|dot|dots)/.test(lower)) return 'dots';
   if (/cloud/.test(lower)) return 'cloud';
   if (/doodle/.test(lower)) return 'doodle';
@@ -379,7 +381,7 @@ function detectPrimaryFamily(lower) {
 }
 
 function resolveAllowedFamily(family, exclusions, lower) {
-  const order = [family, 'dots', 'doodle', 'cloud', 'motif', 'lines', 'kitsch', 'checker'];
+  const order = [family, 'light', 'dots', 'doodle', 'cloud', 'motif', 'lines', 'kitsch', 'checker'];
   for (const candidate of order) {
     if (!candidate) continue;
     if (candidate === 'checker' && exclusions.checker) continue;
@@ -406,6 +408,7 @@ function detectOverlayPresets(lower, exclusions) {
 }
 
 function familyBasePresets(family, flags) {
+  if (family === 'light') return ['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'];
   if (family === 'dots') return flags.clean ? ['tiny-dot','polka','ring-dot','bubble-dot'] : ['polka','tiny-dot','doodle-dot','bubble-dot'];
   if (family === 'lines') return ['grid','hand-grid','stripe','diagonal-stripe','wavy-stripe','wave-lines','zigzag'];
   if (family === 'kitsch') return ['confetti','sticker-mix','sprinkles','sparkles'];
@@ -455,7 +458,7 @@ function sameFamilyPreset(a, b) {
 }
 
 function indexLabelFamily(family, n) {
-  const label = ({ checker:'Check', dots:'Dot', lines:'Line', motif:'Motif', cloud:'Cloud', doodle:'Doodle', kitsch:'Kitsch' })[family] || 'Pattern';
+  const label = ({ checker:'Check', dots:'Dot', lines:'Line', motif:'Motif', cloud:'Cloud', doodle:'Doodle', kitsch:'Kitsch', light:'Light' })[family] || 'Pattern';
   return `${n}. ${label}`;
 }
 

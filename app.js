@@ -15,7 +15,7 @@ const curatedHarmonyPresets=[
   {name:'피치 크림',note:'복숭아 + 코랄 + 바닐라',colors:['#FFF8F2','#F6C2B1','#FFE0CC','#F3D27B','#D7A080']},
   {name:'세이지 체크',note:'세이지 + 아이보리 + 부드러운 라인',colors:['#FBFCF8','#A8B4A3','#D8DED3','#F2E6D0','#8F9889']}
 ];
-const STORAGE={state:'cps-v150-state',favorites:'cps-v150-favorites',presets:'cps-v150-presets',assets:'cps-v150-assets'};
+const STORAGE={state:'cps-v151-state',favorites:'cps-v151-favorites',presets:'cps-v151-presets',assets:'cps-v151-assets'};
 const MAX_LAYERS=8;
 const AI_EXAMPLES=[
   'mint kawaii doodle background',
