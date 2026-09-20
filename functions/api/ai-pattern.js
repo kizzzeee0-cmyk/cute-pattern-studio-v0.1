@@ -64,7 +64,7 @@ async function generateViaOpenAI({ prompt, negativePrompt, excludePatterns, coun
   const model = env.OPENAI_MODEL || 'gpt-4.1-mini';
   const excludedText = excludePatterns.length ? excludePatterns.join(', ') : '(none)';
 
-  const system = `You are generating structured design suggestions for Cute Pattern Studio v1.3.1, a kawaii seamless pattern web app.
+  const system = `You are generating structured design suggestions for Cute Pattern Studio v1.5, a kawaii seamless pattern web app.
 Return ONLY valid JSON with the exact top-level shape:
 {
   "suggestions": [
@@ -73,7 +73,7 @@ Return ONLY valid JSON with the exact top-level shape:
       "title": "string",
       "summary": "string",
       "tags": ["string"],
-      "bg": { "transparent": false, "mode": "solid or linear", "colors": ["#RRGGBB", "#RRGGBB"], "gradientAngle": 135 },
+      "bg": { "transparent": false, "mode": "solid or linear", "colors": ["#RRGGBB", "#RRGGBB"], "gradientAngle": 135, "gradientStops": [{"color":"#RRGGBB","pos":0},{"color":"#RRGGBB","pos":100}] },
       "layers": [
         {
           "enabled": true,
@@ -120,7 +120,7 @@ Rules:
     preferBackground,
     colorContext,
     count,
-    target: 'Cute Pattern Studio v1.3.1',
+    target: 'Cute Pattern Studio v1.5',
     note: 'Create editable pattern engine settings rather than a raster image.'
   };
 
