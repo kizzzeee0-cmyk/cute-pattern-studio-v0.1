@@ -133,6 +133,6 @@ Content-Type: application/json
 
 
 ## v1.2.2 Negative Prompt
-(이 가이드는 그대로 유효하며, v1.3에서는 체크 패턴 강화 기능이 추가되었어.)
+(이 가이드는 그대로 유효하며, v1.3.1에서는 체크 패턴 라이브러리 UI와 겹침 체크 프리셋이 추가되었어.)
 브라우저는 이제 `negativePrompt` 와 `excludePatterns` 값을 함께 전송한다.
 예: `checker, gingham, plaid` 를 넣으면 체크 계열을 제외한 추천을 요청한다.

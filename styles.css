@@ -20,7 +20,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none}
 .topbar h1 span{font-size:12px;color:#9b91b3;background:#eee9fb;padding:4px 8px;border-radius:999px;vertical-align:middle}
 .subtitle{margin:6px 0 0;font-size:12px;color:var(--muted)}
 .top-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.workspace{max-width:1840px;margin:auto;display:grid;grid-template-columns:360px minmax(520px,1fr) 390px;gap:14px;align-items:stretch}
+.workspace{max-width:1900px;margin:auto;display:grid;grid-template-columns:410px minmax(500px,1fr) 390px;gap:14px;align-items:stretch}
 .panel{background:rgba(255,255,255,.92);border:1px solid rgba(230,225,241,.9);border-radius:var(--radius);box-shadow:var(--shadow);min-height:0}
 .pattern-panel,.control-panel{height:calc(100vh - 100px);overflow:hidden}
 .preview-panel{height:calc(100vh - 100px);display:flex;flex-direction:column;overflow:hidden}
@@ -40,12 +40,12 @@ input[type=range]{width:100%;accent-color:#8977df}
 .no-border{border-bottom:0;padding-bottom:8px}
 .inline-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .small-gap{gap:12px}.mini-copy{font-size:11px}.muted{color:var(--muted)}
-.pattern-list{height:calc(100% - 280px);overflow:auto;padding:4px 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}
-.pattern-card{position:relative;border:1px solid var(--line);border-radius:14px;background:#fff;padding:7px;text-align:left}
+.pattern-list{height:calc(100% - 280px);overflow:auto;padding:4px 10px 12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;align-content:start}
+.pattern-card{position:relative;border:1px solid var(--line);border-radius:14px;background:#fff;padding:6px;text-align:left;min-width:0}
 .pattern-card.active{border-color:#9b87f0;box-shadow:0 0 0 2px rgba(155,135,240,.16)}
 .pattern-card canvas{width:100%;aspect-ratio:1;border-radius:9px;display:block;background:#f8f7fb}
-.pattern-card strong{display:block;font-size:11px;margin:6px 2px 1px;padding-right:26px}
-.pattern-card small{font-size:9px;color:var(--muted);margin:0 2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pattern-card strong{display:block;font-size:10px;margin:6px 2px 1px;padding-right:24px;line-height:1.35}
+.pattern-card small{font-size:8.5px;color:var(--muted);margin:0 2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pattern-fav{position:absolute;right:8px;top:8px;padding:5px 6px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:12px}
 .pattern-fav.on{background:#fff3b2;border-color:#f0d46b}
 .asset-section{border-top:1px solid var(--line);padding-top:14px}
@@ -74,7 +74,7 @@ input[type=range]{width:100%;accent-color:#8977df}
 .info-box{background:#faf8ff;border:1px solid #eee8ff!important;border-radius:14px;padding:12px!important;margin-top:14px}.info-box h3{margin:0 0 5px;font-size:12px}.info-box p{margin:4px 0;font-size:10px;line-height:1.55;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:#2f2a40;color:white;padding:10px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:.25s;font-size:12px;z-index:20}.toast.show{opacity:1;transform:translate(-50%,0)}
 .micro-copy{font-size:10px;color:var(--muted);margin:3px 0 0}.hidden{display:none}
-@media(max-width:1380px){.workspace{grid-template-columns:320px minmax(420px,1fr) 360px}.pattern-list{grid-template-columns:1fr}}
+@media(max-width:1450px){.workspace{grid-template-columns:360px minmax(420px,1fr) 360px}.pattern-list{grid-template-columns:1fr}}
 @media(max-width:1060px){.workspace{display:block}.pattern-panel,.preview-panel,.control-panel{height:auto;margin-bottom:12px}.pattern-list{height:auto;max-height:420px;grid-template-columns:repeat(2,1fr)}.preview-panel{min-height:720px}.control-scroll{height:auto}.topbar{display:block}.top-actions{justify-content:flex-start;margin-top:10px}.preview-extras{grid-template-columns:1fr}.profile-preview-card{justify-items:center}}
 
 #baseColorInput{width:100%;height:40px;padding:0;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}

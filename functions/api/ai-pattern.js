@@ -1,5 +1,5 @@
 const ALLOWED_PRESETS = [
-  'pastel-checker','mini-checker','rounded-checker','gingham','wavy-checker','hand-checker','soft-plaid','airy-plaid','powder-gingham','fabric-checker','milk-checker','soft-gingham','handmade-plaid','textured-checker','sketch-plaid','marshmallow-check','picnic-check','windowpane-check','layered-check','micro-gingham','tri-color-check','diamond-check','diamond-gingham','flat-checker','flat-tri-check','no-gap-checker','soft-no-gap-check','no-gap-tri-check','torn-checker','pencil-check','pastel-crayon-check','checker-heart','checker-star','checker-dot',
+  'pastel-checker','mini-checker','rounded-checker','gingham','wavy-checker','hand-checker','soft-plaid','airy-plaid','powder-gingham','fabric-checker','milk-checker','soft-gingham','handmade-plaid','textured-checker','sketch-plaid','marshmallow-check','picnic-check','windowpane-check','layered-check','micro-gingham','tri-color-check','diamond-check','diamond-gingham','flat-checker','flat-tri-check','no-gap-checker','soft-no-gap-check','soft-overlap-check','airy-overlap-check','no-gap-tri-check','torn-checker','pencil-check','pastel-crayon-check','checker-heart','checker-star','checker-dot',
   'polka','tiny-dot','irregular-dot','doodle-dot','ring-dot','bubble-dot','grid','hand-grid','stripe','diagonal-stripe','wavy-stripe','scribble-stripe','wave-lines','zigzag',
   'hearts','outline-hearts','stars','outline-stars','sparkles','kira-sparkle','bows','tiny-bows','puff-hearts','candy-stars',
   'flowers','daisy-dot','cloud','moonstar','smiley','raindrop','doodle','confetti','sticker-mix','sprinkles'
@@ -64,7 +64,7 @@ async function generateViaOpenAI({ prompt, negativePrompt, excludePatterns, coun
   const model = env.OPENAI_MODEL || 'gpt-4.1-mini';
   const excludedText = excludePatterns.length ? excludePatterns.join(', ') : '(none)';
 
-  const system = `You are generating structured design suggestions for Cute Pattern Studio v1.3, a kawaii seamless pattern web app.
+  const system = `You are generating structured design suggestions for Cute Pattern Studio v1.3.1, a kawaii seamless pattern web app.
 Return ONLY valid JSON with the exact top-level shape:
 {
   "suggestions": [
@@ -120,7 +120,7 @@ Rules:
     preferBackground,
     colorContext,
     count,
-    target: 'Cute Pattern Studio v1.3',
+    target: 'Cute Pattern Studio v1.3.1',
     note: 'Create editable pattern engine settings rather than a raster image.'
   };
 
@@ -414,8 +414,8 @@ function familyBasePresets(family, flags) {
   if (family === 'motif') return flags.clean ? ['hearts','stars','bows','sparkles'] : ['hearts','stars','bows','flowers','sparkles'];
   const arr = [];
   if (flags.hand) arr.push('textured-checker','pencil-check','pastel-crayon-check','fabric-checker','torn-checker');
-  if (flags.clean) arr.push('soft-gingham','mini-checker','flat-checker','no-gap-checker','soft-no-gap-check','windowpane-check');
-  if (flags.y2k) arr.push('diamond-check','tri-color-check','no-gap-tri-check','wavy-checker','checker-star');
+  if (flags.clean) arr.push('soft-gingham','mini-checker','flat-checker','no-gap-checker','soft-no-gap-check','soft-overlap-check','airy-overlap-check','windowpane-check');
+  if (flags.y2k) arr.push('diamond-check','tri-color-check','no-gap-tri-check','soft-overlap-check','wavy-checker','checker-star');
   arr.push('pastel-checker','gingham','soft-plaid','marshmallow-check','no-gap-checker');
   return [...new Set(arr)].slice(0, 8);
 }
