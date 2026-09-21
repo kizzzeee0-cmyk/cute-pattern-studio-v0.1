@@ -381,6 +381,23 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
   }
   let colorTitle=document.createElement('div');colorTitle.className='section-title-row';colorTitle.innerHTML='<h3>레이어 색상</h3><div class="preset-actions"><button id="applyPaletteToLayer" class="mini-btn" type="button">팔레트 랜덤</button><button id="autoLineColorBtn" class="mini-btn" type="button">선 색 자동 추천</button></div>';top.appendChild(colorTitle);
   top.appendChild(renderColorInputs(layer.colors,()=>{persistAll();let asset=userAssets.find(v=>v.id===layer.assetId);if(asset&&asset.kind==='svg'){asset._img=null;ensureAssetImage(asset,layer).then(renderMain)}persistAll();renderPatternListDebounced();renderAssetList();renderMain()}));
+  if(layer.sourceType==='builtin'&&['soft-sunburst-bg','sunburst-bg'].includes(layer.presetId)){
+    let sbBox=document.createElement('div');
+    sbBox.className='layer-editor-card';
+    sbBox.innerHTML='<div class="section-title-row"><h3>햇살 2색 직접 조절</h3></div><div class="control-subtitle">햇살이 번갈아 보이는 두 가지 색을 각각 지정할 수 있어. 색상 1은 기본 햇살, 색상 2는 교차 햇살/깊은 톤으로 사용돼.</div>';
+    let grid=document.createElement('div');grid.className='color-grid';
+    [['햇살 색상 1','기본 햇살','#FFD95A'],['햇살 색상 2','교차 햇살','#FFB83D']].forEach((meta,idx)=>{
+      let row=document.createElement('div');row.className='color-row';
+      let label=document.createElement('div');label.className='color-label';label.innerHTML=`<strong>${meta[0]}</strong><small>${meta[1]}</small>`;
+      let picker=document.createElement('input');picker.type='color';picker.value=(layer.colors[idx+1]||meta[2]).toUpperCase();
+      let text=document.createElement('input');text.type='text';text.maxLength=7;text.value=picker.value;
+      const apply=()=>{layer.colors[idx+1]=picker.value.toUpperCase();text.value=layer.colors[idx+1];persistAll();renderPatternListDebounced();renderMain()};
+      picker.oninput=apply;
+      text.oninput=()=>{if(/^#[0-9a-fA-F]{6}$/.test(text.value)){layer.colors[idx+1]=text.value.toUpperCase();picker.value=layer.colors[idx+1];persistAll();renderPatternListDebounced();renderMain()}};
+      row.append(label,picker,text);grid.appendChild(row);
+    });
+    sbBox.appendChild(grid);top.appendChild(sbBox);
+  }
   if(layer.sourceType==='builtin'&&isCheckLikePresetId(layer.presetId)){
     let toneBox=document.createElement('div');
     toneBox.className='layer-editor-card';
