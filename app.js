@@ -384,7 +384,7 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
   if(layer.sourceType==='builtin'&&['soft-sunburst-bg','sunburst-bg'].includes(layer.presetId)){
     let sbBox=document.createElement('div');
     sbBox.className='layer-editor-card';
-    sbBox.innerHTML='<div class="section-title-row"><h3>햇살 2색 직접 조절</h3></div><div class="control-subtitle">햇살이 번갈아 보이는 두 가지 색을 각각 지정할 수 있어. 색상 1은 기본 햇살, 색상 2는 교차 햇살/깊은 톤으로 사용돼.</div>';
+    sbBox.innerHTML='<div class="section-title-row"><h3>햇살 2색 직접 조절</h3></div><div class="control-subtitle">두 색상은 서로 완전히 독립적이야. 색상 1을 바꿔도 색상 2는 자동으로 따라 바뀌지 않아. 노랑 + 흰색처럼 원하는 조합을 그대로 지정할 수 있어.</div>';
     let grid=document.createElement('div');grid.className='color-grid';
     [['햇살 색상 1','기본 햇살','#FFD95A'],['햇살 색상 2','교차 햇살','#FFB83D']].forEach((meta,idx)=>{
       let row=document.createElement('div');row.className='color-row';
