@@ -1,4 +1,4 @@
-# Cute Pattern Studio v1.5.6 개발 명세서
+# Cute Pattern Studio v1.5.8 개발 명세서
 
 ## 변경 목표
 소프트 썬버스트의 두 색상을 완전히 독립적으로 지정할 수 있도록 수정한다.

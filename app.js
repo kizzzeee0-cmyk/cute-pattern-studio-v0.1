@@ -283,17 +283,60 @@ function drawWatercolorBackground(target,w,h){
   let stops=normalizeGradientStops(state.bg.gradientStops,state.bg.colors), colors=stops.map(x=>x.color).filter(Boolean);if(!colors.length)colors=[defaultBg[0],defaultBg[1]];
   let rng=mulberry32(state.bg.watercolorSeed||47291), spread=(state.bg.watercolorSpread??62)/100, scale=(state.bg.watercolorScale??58)/100, irregular=(state.bg.watercolorIrregular??72)/100;
   target.fillStyle=colors[0];target.fillRect(0,0,w,h);
-  target.save();target.globalCompositeOperation='source-over';
-  let count=Math.round(30+spread*48), baseR=Math.min(w,h)*(.10+.18*scale), minR=baseR*.48;
-  for(let i=0;i<count;i++){
-    let c=colors[i%colors.length], x=w*(.04+rng()*.92), y=h*(.04+rng()*.92), r=minR+rng()*(baseR-minR), wobble=.55+irregular*.85;
-    let g=target.createRadialGradient(x,y,0,x,y,r*(1.15+wobble*.35));
-    let a=.10+spread*.11;g.addColorStop(0,hexToRgba(c,a));g.addColorStop(.38,hexToRgba(c,a*.72));g.addColorStop(.72,hexToRgba(c,a*.24));g.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=g;target.beginPath();
-    let pts=14;for(let j=0;j<pts;j++){let ang=j*Math.PI*2/pts,rr=r*(.72+rng()*.42*irregular),px=x+Math.cos(ang)*rr,py=y+Math.sin(ang)*rr*(.72+rng()*.55);j?target.lineTo(px,py):target.moveTo(px,py)}target.closePath();target.fill();
+  target.save();
+  target.globalCompositeOperation='source-over';
+
+  // 수채화는 '얼룩 도형'이 보이지 않도록 큰 저채도 색 덩어리를 여러 겹 겹쳐
+  // 가장자리를 강하게 흐리고, 서로 천천히 섞이는 형태로 만든다.
+  let washCount=Math.round(18+spread*22);
+  let baseR=Math.min(w,h)*(.24+.20*scale);
+  let blurPx=Math.max(8,Math.min(w,h)*(.025+.075*spread));
+  let centerDrift=.10+.32*irregular;
+  let alphaBase=.055+.045*(1-spread*.45);
+
+  for(let i=0;i<washCount;i++){
+    let c=colors[i%colors.length];
+    let x=w*(.02+rng()*.96), y=h*(.02+rng()*.96);
+    // 불규칙함이 높을수록 색의 중심이 화면 전체로 자연스럽게 흩어진다.
+    x += (rng()-.5)*w*centerDrift;
+    y += (rng()-.5)*h*centerDrift;
+    let r=baseR*(.72+rng()*.62);
+    let sx=.72+rng()*.55*irregular;
+    let sy=.72+rng()*.55*irregular;
+
+    let layer=document.createElement('canvas');
+    layer.width=w;layer.height=h;
+    let lc=layer.getContext('2d');
+    lc.filter=`blur(${blurPx}px)`;
+    let g=lc.createRadialGradient(x,y,0,x,y,r);
+    let a=alphaBase*(.72+rng()*.65);
+    g.addColorStop(0,hexToRgba(c,a));
+    g.addColorStop(.28,hexToRgba(c,a*.78));
+    g.addColorStop(.58,hexToRgba(c,a*.34));
+    g.addColorStop(.82,hexToRgba(c,a*.10));
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    lc.fillStyle=g;
+    lc.save();lc.translate(x,y);lc.scale(sx,sy);lc.translate(-x,-y);
+    lc.fillRect(0,0,w,h);lc.restore();
+    target.drawImage(layer,0,0);
   }
+
+  // 색이 한쪽으로만 뭉치지 않도록 아주 넓은 저농도 '물 번짐'을 추가한다.
+  let veil=document.createRadialGradient(w*.48,h*.5,0,w*.5,h*.5,Math.max(w,h)*.72);
+  veil.addColorStop(0,'rgba(255,255,255,0)');
+  veil.addColorStop(.72,'rgba(255,255,255,0)');
+  veil.addColorStop(1,'rgba(255,255,255,.035)');
+  target.fillStyle=veil;target.fillRect(0,0,w,h);
+
+  // 기존의 점 형태 질감 대신 아주 약한 종이결만 남긴다.
   if(state.bg.watercolorTexture){
-    let dots=Math.round(w*h/18000), opacity=.035+.025*irregular;
-    target.globalAlpha=opacity;for(let i=0;i<dots;i++){let x=rng()*w,y=rng()*h,r=.3+rng()*1.5;target.fillStyle=i%2?'#FFFFFF':'#6B5A78';target.beginPath();target.arc(x,y,r,0,Math.PI*2);target.fill()}
+    let dots=Math.round(w*h/30000), opacity=.012+.010*(1-irregular*.35);
+    target.globalAlpha=opacity;
+    for(let i=0;i<dots;i++){
+      let x=rng()*w,y=rng()*h,r=.25+rng()*1.1;
+      target.fillStyle=i%2?'#FFFFFF':'#8A7C90';
+      target.beginPath();target.arc(x,y,r,0,Math.PI*2);target.fill();
+    }
     target.globalAlpha=1;
   }
   target.restore()
