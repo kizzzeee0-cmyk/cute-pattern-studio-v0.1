@@ -100,3 +100,5 @@ input[type="text"]{border:1px solid var(--line);background:#fbfaff;border-radius
 .exclude-chip:hover{background:#fdeaf0}
 
 .vignette-box{margin-top:10px;padding:10px;border:1px solid #ece6f8;border-radius:12px;background:#fbf9ff}.vignette-box .color-row{margin-top:8px}.vignette-box label{display:block;margin-top:9px}.vignette-box input[type=range]{width:100%}
+
+.watercolor-style-buttons{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:4px 0 8px}.watercolor-style-buttons .mini-btn{padding:6px 3px;font-size:10px;white-space:nowrap}.watercolor-style-buttons .mini-btn:hover{border-color:#9b87f0;background:#f8f5ff}

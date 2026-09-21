@@ -111,6 +111,22 @@
               </label>
             </div>
             <div id="watercolorControls" class="conditional" style="display:none">
+              <label>수채화 스타일
+                <select id="watercolorStyle">
+                  <option value="mist">안개빛 블렌드 · 아주 은은하게</option>
+                  <option value="cloud">구름 물감 · 부드러운 얼룩 번짐</option>
+                  <option value="bloom">번짐 레이어 · 물감이 겹쳐지는 느낌</option>
+                  <option value="aqua">아쿠아 워시 · 한쪽에 맑게 퍼지는 느낌</option>
+                  <option value="pearl">밀키 펄 · 흰 물감이 섞인 듯한 느낌</option>
+                </select>
+              </label>
+              <div class="watercolor-style-buttons">
+                <button type="button" class="mini-btn" data-watercolor-style="mist">안개빛</button>
+                <button type="button" class="mini-btn" data-watercolor-style="cloud">구름</button>
+                <button type="button" class="mini-btn" data-watercolor-style="bloom">번짐</button>
+                <button type="button" class="mini-btn" data-watercolor-style="aqua">아쿠아</button>
+                <button type="button" class="mini-btn" data-watercolor-style="pearl">밀키</button>
+              </div>
               <label>물감 번짐 <span id="watercolorSpreadVal">62%</span>
                 <input id="watercolorSpread" type="range" min="10" max="100" value="62" />
               </label>
@@ -121,7 +137,7 @@
                 <input id="watercolorIrregular" type="range" min="0" max="100" value="72" />
               </label>
               <label class="switch-row compact"><input id="watercolorTexture" type="checkbox" checked /> 종이/물감 질감 추가</label>
-              <div class="micro-copy">색이 직선으로 갈리지 않고 여러 색의 물감 얼룩이 서로 번지듯 섞여. 색상 2~6개를 추가하면 더 자연스러운 수채화 느낌이 나.</div>
+              <div class="micro-copy">도형이 보이는 얼룩보다 색이 물에 풀려 서로 스며드는 느낌을 우선해. 스타일을 바꿔가며 같은 색 조합도 여러 분위기로 만들 수 있어.</div>
             </div>
             <div class="vignette-box">
               <div class="section-title-row"><strong>컬러 비네트</strong><label class="switch-row compact"><input id="vignetteEnabled" type="checkbox" /> 사용</label></div>
