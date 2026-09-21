@@ -95,12 +95,13 @@
           <section class="control-section">
             <div class="section-title-row">
               <h2>배경</h2>
-              <label class="switch-row"><input id="transparentBg" type="checkbox" /> 투명 배경</label>
+              <div class="inline-row small-gap"><label class="switch-row"><input id="transparentBg" type="checkbox" /> 투명 배경</label><label class="switch-row"><input id="backgroundOnly" type="checkbox" /> 배경만 송출</label></div>
             </div>
             <label>배경 모드
               <select id="bgMode">
                 <option value="solid">단색</option>
                 <option value="linear">그라데이션</option>
+                <option value="watercolor">수채화 그라데이션</option>
               </select>
             </label>
             <div class="color-grid compact-grid" id="bgColorGrid"></div>
@@ -108,6 +109,19 @@
               <label>그라데이션 각도 <span id="gradientAngleVal"></span>
                 <input id="gradientAngle" type="range" min="0" max="360" value="135" />
               </label>
+            </div>
+            <div id="watercolorControls" class="conditional" style="display:none">
+              <label>물감 번짐 <span id="watercolorSpreadVal">62%</span>
+                <input id="watercolorSpread" type="range" min="10" max="100" value="62" />
+              </label>
+              <label>물감 크기 <span id="watercolorScaleVal">58%</span>
+                <input id="watercolorScale" type="range" min="15" max="100" value="58" />
+              </label>
+              <label>불규칙함 <span id="watercolorIrregularVal">72%</span>
+                <input id="watercolorIrregular" type="range" min="0" max="100" value="72" />
+              </label>
+              <label class="switch-row compact"><input id="watercolorTexture" type="checkbox" checked /> 종이/물감 질감 추가</label>
+              <div class="micro-copy">색이 직선으로 갈리지 않고 여러 색의 물감 얼룩이 서로 번지듯 섞여. 색상 2~6개를 추가하면 더 자연스러운 수채화 느낌이 나.</div>
             </div>
             <div class="vignette-box">
               <div class="section-title-row"><strong>컬러 비네트</strong><label class="switch-row compact"><input id="vignetteEnabled" type="checkbox" /> 사용</label></div>
