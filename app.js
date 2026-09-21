@@ -119,7 +119,7 @@ function normalizeAiSuggestion(suggestion,index=0){
   let safe=suggestion&&typeof suggestion==='object'?clone(suggestion):{};
   let layers=(safe.layers||[]).slice(0,MAX_LAYERS).map((layer,i)=>normalizeAiLayer(layer,i));
   if(!layers.length)layers=[normalizeAiLayer({presetId:'pastel-checker'},0)];
-  let bg={transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28},...(safe.bg||{})};
+  let bg={transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorDefinition:52,watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28},...(safe.bg||{})};
   bg.transparent=!!bg.transparent;
   bg.mode=bg.mode==='linear'?'linear':'solid';
   bg.colors=[bg.colors?.[0]||defaultBg[0],bg.colors?.[1]||bg.colors?.[0]||defaultBg[1]];
@@ -243,7 +243,7 @@ function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show
 function categories(){return ['전체',...new Set(PE.presets.map(p=>p.category))]}
 function getPreset(id){return PE.presets.find(p=>p.id===id)||PE.presets[0]}
 function defaultLayer(i,presetId='pastel-checker',enabled=true){return {enabled,name:i===0?'기본 레이어':`추가 레이어 ${i}`,sourceType:'builtin',presetId,assetId:'',renderMode:'motif',colors:normalizeColors(['#FFF9FC','#F5B9D4','#B9D7FF','#BFAAF2','#E4C57A']),size:i===0?72:58,gap:i===0?24:28,jitter:i===0?18:22,rotation:0,stroke:4,opacity:i===0?100:78,detail:45,seed:Math.floor(Math.random()*1e9),svgColorMode:'original',randomSize:true,randomAngle:true,randomPosition:true,offsetX:0,offsetY:0,checkerToneMode:false,checkerToneBase:'#AFC3FF'}}
-function makeInitialState(){return {bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28}},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
+function makeInitialState(){return {bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorDefinition:52,watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28}},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
 let favorites=new Set();
 let myPresets=[];
 let userAssets=[];
@@ -255,7 +255,7 @@ function loadLocal(){
   try{userAssets=JSON.parse(localStorage.getItem(STORAGE.assets)||'[]')||[]}catch{}
   try{let saved=JSON.parse(localStorage.getItem(STORAGE.state)||'null');if(saved)state=mergeState(saved)}catch{}
 }
-function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:normalizeColors(l.colors||defaultLayer(i).colors)}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';merged.bg.colors=[merged.bg.colors?.[0]||defaultBg[0],merged.bg.colors?.[1]||merged.bg.colors?.[0]||defaultBg[1]];merged.bg.gradientAngle=clampInt(merged.bg.gradientAngle,0,360,135);merged.bg.backgroundOnly=!!merged.bg.backgroundOnly;merged.bg.watercolorSpread=clampInt(merged.bg.watercolorSpread,10,100,62);merged.bg.watercolorScale=clampInt(merged.bg.watercolorScale,15,100,58);merged.bg.watercolorIrregular=clampInt(merged.bg.watercolorIrregular,0,100,72);merged.bg.watercolorTexture=merged.bg.watercolorTexture!==false;merged.bg.watercolorStyle=['mist','cloud','bloom','aqua','pearl'].includes(merged.bg.watercolorStyle)?merged.bg.watercolorStyle:'mist';merged.bg.watercolorSeed=clampInt(merged.bg.watercolorSeed,0,999999999,47291);merged.bg.vignette={enabled:!!merged.bg.vignette?.enabled,color:normalizeHexLike(merged.bg.vignette?.color||'#6F55C9','#6F55C9'),range:clampInt(merged.bg.vignette?.range,0,100,72),strength:clampInt(merged.bg.vignette?.strength,0,100,28),softness:clampInt(merged.bg.vignette?.softness,0,100,28)};syncBgGradientState(merged.bg);merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`;if(layer.randomSize===undefined)layer.randomSize=true;if(layer.randomAngle===undefined)layer.randomAngle=true;if(layer.randomPosition===undefined)layer.randomPosition=true;if(layer.offsetX===undefined)layer.offsetX=0;if(layer.offsetY===undefined)layer.offsetY=0;if(layer.checkerToneMode===undefined)layer.checkerToneMode=false;if(!layer.checkerToneBase)layer.checkerToneBase=(layer.colors&&layer.colors[1])||'#AFC3FF';layer.colors=normalizeColors(layer.colors)});return merged}
+function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:normalizeColors(l.colors||defaultLayer(i).colors)}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';merged.bg.colors=[merged.bg.colors?.[0]||defaultBg[0],merged.bg.colors?.[1]||merged.bg.colors?.[0]||defaultBg[1]];merged.bg.gradientAngle=clampInt(merged.bg.gradientAngle,0,360,135);merged.bg.backgroundOnly=!!merged.bg.backgroundOnly;merged.bg.watercolorSpread=clampInt(merged.bg.watercolorSpread,10,100,62);merged.bg.watercolorScale=clampInt(merged.bg.watercolorScale,15,100,58);merged.bg.watercolorIrregular=clampInt(merged.bg.watercolorIrregular,0,100,72);merged.bg.watercolorTexture=merged.bg.watercolorTexture!==false;merged.bg.watercolorStyle=['mist','cloud','bloom','aqua','pearl','blotch','wash','corner'].includes(merged.bg.watercolorStyle)?merged.bg.watercolorStyle:'mist';merged.bg.watercolorDefinition=clampInt(merged.bg.watercolorDefinition,0,100,52);merged.bg.watercolorSeed=clampInt(merged.bg.watercolorSeed,0,999999999,47291);merged.bg.vignette={enabled:!!merged.bg.vignette?.enabled,color:normalizeHexLike(merged.bg.vignette?.color||'#6F55C9','#6F55C9'),range:clampInt(merged.bg.vignette?.range,0,100,72),strength:clampInt(merged.bg.vignette?.strength,0,100,28),softness:clampInt(merged.bg.vignette?.softness,0,100,28)};syncBgGradientState(merged.bg);merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`;if(layer.randomSize===undefined)layer.randomSize=true;if(layer.randomAngle===undefined)layer.randomAngle=true;if(layer.randomPosition===undefined)layer.randomPosition=true;if(layer.offsetX===undefined)layer.offsetX=0;if(layer.offsetY===undefined)layer.offsetY=0;if(layer.checkerToneMode===undefined)layer.checkerToneMode=false;if(!layer.checkerToneBase)layer.checkerToneBase=(layer.colors&&layer.colors[1])||'#AFC3FF';layer.colors=normalizeColors(layer.colors)});return merged}
 function persistAll(){localStorage.setItem(STORAGE.favorites,JSON.stringify([...favorites]));localStorage.setItem(STORAGE.presets,JSON.stringify(myPresets));localStorage.setItem(STORAGE.assets,JSON.stringify(stripAssetCache(userAssets)));localStorage.setItem(STORAGE.state,JSON.stringify(stripStateForSave(state)))}
 function stripStateForSave(s){let copy=clone(s);return copy}
 function stripAssetCache(arr){return arr.map(a=>{let c={...a};delete c._img;delete c._cacheKey;return c})}
@@ -283,69 +283,103 @@ function drawWatercolorBackground(target,w,h){
   let stops=normalizeGradientStops(state.bg.gradientStops,state.bg.colors), colors=stops.map(x=>x.color).filter(Boolean);
   if(!colors.length)colors=[defaultBg[0],defaultBg[1]];
   while(colors.length<2)colors.push(colors[0]);
-  let style=['mist','cloud','bloom','aqua','pearl'].includes(state.bg.watercolorStyle)?state.bg.watercolorStyle:'mist';
-  let rng=mulberry32(state.bg.watercolorSeed||47291), spread=(state.bg.watercolorSpread??62)/100, scale=(state.bg.watercolorScale??58)/100, irregular=(state.bg.watercolorIrregular??72)/100;
+  let style=['mist','cloud','bloom','aqua','pearl','blotch','wash','corner'].includes(state.bg.watercolorStyle)?state.bg.watercolorStyle:'mist';
+  let rng=mulberry32(state.bg.watercolorSeed||47291);
+  let spread=(state.bg.watercolorSpread??62)/100, scale=(state.bg.watercolorScale??58)/100, irregular=(state.bg.watercolorIrregular??72)/100;
+  let definition=(state.bg.watercolorDefinition??52)/100;
+  // 스타일마다 '모양/구성' 자체가 달라지도록 설정. blur 하나만 바꾸는 방식이 아님.
   const cfg={
-    mist:{count:22+Math.round(spread*16),r:.38+.28*scale,blur:.075+.065*spread,alpha:.075,white:.055,drift:.16+.18*irregular},
-    cloud:{count:28+Math.round(spread*20),r:.22+.22*scale,blur:.035+.055*spread,alpha:.095,white:.025,drift:.24+.26*irregular},
-    bloom:{count:34+Math.round(spread*24),r:.18+.20*scale,blur:.025+.045*spread,alpha:.105,white:.02,drift:.28+.32*irregular},
-    aqua:{count:24+Math.round(spread*18),r:.26+.28*scale,blur:.045+.055*spread,alpha:.105,white:.10,drift:.20+.25*irregular},
-    pearl:{count:18+Math.round(spread*14),r:.40+.30*scale,blur:.07+.07*spread,alpha:.065,white:.16,drift:.12+.16*irregular}
+    mist:{count:18+Math.round(spread*10),r:.42+.28*scale,blur:.095-.025*definition,alpha:.095,white:.035,drift:.12+.15*irregular},
+    cloud:{count:18+Math.round(spread*13),r:.30+.30*scale,blur:.060-.025*definition,alpha:.125,white:.018,drift:.18+.22*irregular},
+    bloom:{count:26+Math.round(spread*18),r:.16+.22*scale,blur:.040-.018*definition,alpha:.135,white:.012,drift:.25+.28*irregular},
+    aqua:{count:20+Math.round(spread*12),r:.25+.32*scale,blur:.055-.022*definition,alpha:.125,white:.085,drift:.16+.18*irregular},
+    pearl:{count:16+Math.round(spread*10),r:.44+.30*scale,blur:.105-.025*definition,alpha:.080,white:.20,drift:.10+.12*irregular},
+    blotch:{count:20+Math.round(spread*16),r:.20+.22*scale,blur:.045-.028*definition,alpha:.155,white:.00,drift:.20+.30*irregular},
+    wash:{count:12+Math.round(spread*8),r:.34+.34*scale,blur:.070-.028*definition,alpha:.115,white:.025,drift:.08+.12*irregular},
+    corner:{count:18+Math.round(spread*12),r:.30+.28*scale,blur:.060-.022*definition,alpha:.120,white:.055,drift:.12+.20*irregular}
   }[style];
 
-  // 기본색은 아주 연하게 깔고, 위에 서로 겹치는 '젖은 물감'을 넓게 쌓는다.
   target.clearRect(0,0,w,h);
   target.fillStyle=colors[0];target.fillRect(0,0,w,h);
   let wash=document.createElement('canvas');wash.width=w;wash.height=h;
   let wc=wash.getContext('2d');
-  wc.globalCompositeOperation='source-over';
   let baseR=Math.min(w,h)*cfg.r;
-  let blurPx=Math.max(6,Math.min(w,h)*cfg.blur);
-  let count=cfg.count;
-  for(let i=0;i<count;i++){
-    let c=colors[i%colors.length];
-    // 색이 한 줄로 이어지지 않고 화면 안에서 자연스럽게 서로 겹치도록 분산
-    let x=w*(.05+rng()*.90), y=h*(.05+rng()*.90);
-    if(style==='aqua') y=h*(.38+rng()*.58);
-    if(style==='pearl'){x=w*(.12+rng()*.76);y=h*(.08+rng()*.84)}
+  let blurPx=Math.max(3,Math.min(w,h)*cfg.blur);
+
+  for(let i=0;i<cfg.count;i++){
+    let c=colors[i%colors.length], x,y;
+    if(style==='aqua'){
+      x=w*(.02+rng()*.78); y=h*(.18+rng()*.80);
+    }else if(style==='corner'){
+      let corner=i%4;
+      x=(corner===1||corner===3)?w*(.58+rng()*.48):w*(-.08+rng()*.50);
+      y=(corner>=2)?h*(.58+rng()*.48):h*(-.08+rng()*.50);
+    }else if(style==='wash'){
+      x=w*(.04+rng()*.92); y=h*(.05+rng()*.90);
+    }else if(style==='bloom'){
+      x=w*(.18+rng()*.64); y=h*(.18+rng()*.64);
+    }else{
+      x=w*(.02+rng()*.96); y=h*(.02+rng()*.96);
+    }
     x+=(rng()-.5)*w*cfg.drift; y+=(rng()-.5)*h*cfg.drift;
-    let r=baseR*(.60+rng()*.85), sx=.72+rng()*(.55+irregular*.45), sy=.72+rng()*(.55+irregular*.45);
-    let a=cfg.alpha*(.62+rng()*.68)*(0.82+spread*.28);
-    // 여러 겹의 아주 부드러운 원형 번짐을 겹쳐 경계가 도형처럼 보이지 않게 함
+    let r=baseR*(.58+rng()*.88), sx=.62+rng()*(.48+irregular*.52), sy=.62+rng()*(.48+irregular*.52);
+    let a=cfg.alpha*(.68+rng()*.62)*(0.72+spread*.40)*(0.65+definition*.55);
+
     let g=wc.createRadialGradient(x,y,0,x,y,r);
     g.addColorStop(0,hexToRgba(c,a));
-    g.addColorStop(.20,hexToRgba(c,a*.92));
-    g.addColorStop(.48,hexToRgba(c,a*.54));
-    g.addColorStop(.72,hexToRgba(c,a*.18));
+    g.addColorStop(.18,hexToRgba(c,a*.92));
+    g.addColorStop(.42,hexToRgba(c,a*.62));
+    g.addColorStop(.68,hexToRgba(c,a*.26));
     g.addColorStop(1,'rgba(255,255,255,0)');
-    wc.save();wc.translate(x,y);wc.scale(sx,sy);wc.translate(-x,-y);wc.fillStyle=g;wc.fillRect(x-r*1.2,y-r*1.2,r*2.4,r*2.4);wc.restore();
+    wc.save();wc.translate(x,y);wc.rotate((rng()-.5)*Math.PI);wc.scale(sx,sy);wc.translate(-x,-y);wc.fillStyle=g;wc.fillRect(x-r*1.35,y-r*1.35,r*2.7,r*2.7);wc.restore();
+
+    // 얼룩형 스타일은 중심 가장자리의 농도 차이를 한 겹 더 남긴다.
+    if(style==='blotch' || style==='bloom'){
+      let rr=r*(.62+rng()*.30), aa=a*(style==='blotch'?.34:.24);
+      let edge=wc.createRadialGradient(x+rr*.08,y-rr*.04,rr*.10,x,y,rr);
+      edge.addColorStop(0,'rgba(255,255,255,0)');
+      edge.addColorStop(.68,hexToRgba(c,aa*.18));
+      edge.addColorStop(.88,hexToRgba(c,aa));
+      edge.addColorStop(1,'rgba(255,255,255,0)');
+      wc.save();wc.translate(x,y);wc.rotate((rng()-.5)*1.8);wc.scale(.8+rng()*.5,.8+rng()*.5);wc.translate(-x,-y);wc.fillStyle=edge;wc.fillRect(x-rr*1.4,y-rr*1.4,rr*2.8,rr*2.8);wc.restore();
+    }
   }
-  // 한 번만 크게 흐려 전체가 '물에 젖은 종이'처럼 이어지게 한다.
+
+  // 워시 스타일은 붓질처럼 길게 겹친 색을 추가한다.
+  if(style==='wash'){
+    let strokes=7+Math.round(spread*5);
+    for(let i=0;i<strokes;i++){
+      let c=colors[(i+1)%colors.length], x=w*(-.15+rng()*1.2), y=h*(-.1+rng()*1.2);
+      let rw=Math.min(w,h)*(.42+rng()*.50), rh=Math.min(w,h)*(.10+rng()*.16);
+      let g=wc.createRadialGradient(x,y,0,x,y,rw);
+      let a=.12*(.65+definition*.55);
+      g.addColorStop(0,hexToRgba(c,a));g.addColorStop(.45,hexToRgba(c,a*.58));g.addColorStop(1,'rgba(255,255,255,0)');
+      wc.save();wc.translate(x,y);wc.rotate(-.35+rng()*.7);wc.scale(1,.65+rng()*.7);wc.translate(-x,-y);wc.fillStyle=g;wc.fillRect(x-rw,y-rw*.45,rw*2,rw);wc.restore();
+    }
+  }
+
   let blurred=document.createElement('canvas');blurred.width=w;blurred.height=h;let bc=blurred.getContext('2d');
-  bc.filter=`blur(${blurPx}px)`;bc.drawImage(wash,0,0);target.globalAlpha=1;target.drawImage(blurred,0,0);
+  bc.filter=`blur(${blurPx}px)`;bc.drawImage(wash,0,0);target.drawImage(blurred,0,0);
 
-  // 스타일별로 아주 넓은 흰 물빛을 추가. 선명한 도형 대신 색이 빠진 듯한 영역을 만든다.
   if(cfg.white>0){
-    let white=document.createRadialGradient(w*.50,h*(style==='aqua'?.48:.50),0,w*.50,h*.50,Math.max(w,h)*(.45+.20*scale));
-    white.addColorStop(0,`rgba(255,255,255,${cfg.white})`);white.addColorStop(.55,`rgba(255,255,255,${cfg.white*.42})`);white.addColorStop(1,'rgba(255,255,255,0)');
-    target.fillStyle=white;target.fillRect(0,0,w,h);
+    let gx=style==='aqua'?.60:style==='pearl'?.50:.50, gy=style==='aqua'?.42:.50;
+    let white=target.createRadialGradient(w*gx,h*gy,0,w*gx,h*gy,Math.max(w,h)*(.38+.24*scale));
+    white.addColorStop(0,`rgba(255,255,255,${cfg.white})`);white.addColorStop(.55,`rgba(255,255,255,${cfg.white*.38})`);white.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=white;target.fillRect(0,0,w,h);
   }
-
   if(style==='bloom'){
-    // 물감이 겹친 자리의 아주 약한 농도 차이만 남겨 수채화 번짐의 깊이를 준다.
-    let bloom=target.createRadialGradient(w*.18,h*.82,0,w*.18,h*.82,Math.max(w,h)*.48);
-    bloom.addColorStop(0,hexToRgba(colors[1]||colors[0],.055));bloom.addColorStop(.55,hexToRgba(colors[2]||colors[0],.025));bloom.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=bloom;target.fillRect(0,0,w,h);
+    let bloom=target.createRadialGradient(w*.22,h*.78,0,w*.22,h*.78,Math.max(w,h)*.46);
+    bloom.addColorStop(0,hexToRgba(colors[1]||colors[0],.10*(.7+definition*.5)));bloom.addColorStop(.55,hexToRgba(colors[2]||colors[0],.045));bloom.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=bloom;target.fillRect(0,0,w,h);
   }
-
   if(style==='aqua'){
-    // 참고 이미지처럼 한쪽에 물감이 조금 더 모이고 반대편은 맑게 비워지는 구성
-    let edge=target.createLinearGradient(0,h, w*.82, h*.08);edge.addColorStop(0,hexToRgba(colors[0],.09));edge.addColorStop(.55,hexToRgba(colors[1]||colors[0],.035));edge.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=edge;target.fillRect(0,0,w,h);
+    let edge=target.createLinearGradient(0,h,w*.90,h*.05);edge.addColorStop(0,hexToRgba(colors[0],.12));edge.addColorStop(.48,hexToRgba(colors[1]||colors[0],.05));edge.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=edge;target.fillRect(0,0,w,h);
   }
-
+  if(style==='corner'){
+    let edge=target.createRadialGradient(w*.08,h*.88,0,w*.08,h*.88,Math.max(w,h)*.65);edge.addColorStop(0,hexToRgba(colors[1]||colors[0],.13));edge.addColorStop(.5,hexToRgba(colors[0],.045));edge.addColorStop(1,'rgba(255,255,255,0)');target.fillStyle=edge;target.fillRect(0,0,w,h);
+  }
   if(state.bg.watercolorTexture){
-    // 질감은 점이 보이지 않을 정도로만 아주 약하게.
-    let dots=Math.round(w*h/60000), opacity=.006+.006*(1-irregular*.25);target.globalAlpha=opacity;
-    for(let i=0;i<dots;i++){let x=rng()*w,y=rng()*h,r=.35+rng()*1.2;target.fillStyle=i%2?'#FFFFFF':'#9A8FA3';target.beginPath();target.arc(x,y,r,0,Math.PI*2);target.fill()}
+    // 미세한 종이결만 남기고 눈에 띄는 점은 만들지 않는다.
+    let dots=Math.round(w*h/90000), opacity=.004+.004*(1-irregular*.2);target.globalAlpha=opacity;
+    for(let i=0;i<dots;i++){let x=rng()*w,y=rng()*h,r=.25+rng()*.8;target.fillStyle=i%2?'#FFFFFF':'#8D8496';target.beginPath();target.arc(x,y,r,0,Math.PI*2);target.fill()}
     target.globalAlpha=1;
   }
 }
@@ -543,7 +577,7 @@ function renderSavedPresets(){let wrap=$('#savedPresetList');wrap.innerHTML='';i
 function saveCurrentPreset(){let name=prompt('저장할 프리셋 이름을 입력해줘.','내 패턴 프리셋');if(!name)return;myPresets.unshift({id:uid('preset'),name:name.trim()||'내 프리셋',savedAt:Date.now(),state:clone(stripStateForSave(state))});myPresets=myPresets.slice(0,40);persistAll();renderSavedPresets();toast('현재 설정을 내 프리셋에 저장했어.')}
 
 function setupPalettes(){/* reserved for future UI विस्तार */}
-function syncGlobalControls(){renderBgColorInputs();$('#bgMode').value=state.bg.mode;$('#transparentBg').checked=state.bg.transparent;$('#gradientAngle').value=state.bg.gradientAngle;$('#gradientAngleVal').textContent=`${state.bg.gradientAngle}°`;$('#gradientControls').style.display=state.bg.mode==='linear'&&!state.bg.transparent?'block':'none';$('#watercolorControls').style.display=state.bg.mode==='watercolor'&&!state.bg.transparent?'block':'none';$('#backgroundOnly').checked=!!state.bg.backgroundOnly;$('#watercolorSpread').value=state.bg.watercolorSpread??62;$('#watercolorSpreadVal').textContent=`${state.bg.watercolorSpread??62}%`;$('#watercolorScale').value=state.bg.watercolorScale??58;$('#watercolorScaleVal').textContent=`${state.bg.watercolorScale??58}%`;$('#watercolorIrregular').value=state.bg.watercolorIrregular??72;$('#watercolorIrregularVal').textContent=`${state.bg.watercolorIrregular??72}%`;$('#watercolorTexture').checked=state.bg.watercolorTexture!==false;if($('#watercolorStyle'))$('#watercolorStyle').value=state.bg.watercolorStyle||'mist';let v=state.bg.vignette||{};if($('#vignetteEnabled'))$('#vignetteEnabled').checked=!!v.enabled;if($('#vignetteColor'))$('#vignetteColor').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteColorText'))$('#vignetteColorText').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteRange'))$('#vignetteRange').value=v.range??72;if($('#vignetteRangeVal'))$('#vignetteRangeVal').textContent=`${v.range??72}%`;if($('#vignetteStrength'))$('#vignetteStrength').value=v.strength??28;if($('#vignetteStrengthVal'))$('#vignetteStrengthVal').textContent=`${v.strength??28}%`;if($('#vignetteSoftness'))$('#vignetteSoftness').value=v.softness??28;if($('#vignetteSoftnessVal'))$('#vignetteSoftnessVal').textContent=`${v.softness??28}%`;if($('#vignetteControls'))$('#vignetteControls').style.display=v.enabled?'block':'none';$('#exportW').value=state.exportW;$('#exportH').value=state.exportH;$('#tileW').value=state.tileW;$('#tileH').value=state.tileH}
+function syncGlobalControls(){renderBgColorInputs();$('#bgMode').value=state.bg.mode;$('#transparentBg').checked=state.bg.transparent;$('#gradientAngle').value=state.bg.gradientAngle;$('#gradientAngleVal').textContent=`${state.bg.gradientAngle}°`;$('#gradientControls').style.display=state.bg.mode==='linear'&&!state.bg.transparent?'block':'none';$('#watercolorControls').style.display=state.bg.mode==='watercolor'&&!state.bg.transparent?'block':'none';$('#backgroundOnly').checked=!!state.bg.backgroundOnly;$('#watercolorSpread').value=state.bg.watercolorSpread??62;$('#watercolorSpreadVal').textContent=`${state.bg.watercolorSpread??62}%`;$('#watercolorScale').value=state.bg.watercolorScale??58;$('#watercolorScaleVal').textContent=`${state.bg.watercolorScale??58}%`;$('#watercolorIrregular').value=state.bg.watercolorIrregular??72;$('#watercolorIrregularVal').textContent=`${state.bg.watercolorIrregular??72}%`;if($('#watercolorDefinition'))$('#watercolorDefinition').value=state.bg.watercolorDefinition??52;if($('#watercolorDefinitionVal'))$('#watercolorDefinitionVal').textContent=`${state.bg.watercolorDefinition??52}%`;$('#watercolorTexture').checked=state.bg.watercolorTexture!==false;if($('#watercolorStyle'))$('#watercolorStyle').value=state.bg.watercolorStyle||'mist';let v=state.bg.vignette||{};if($('#vignetteEnabled'))$('#vignetteEnabled').checked=!!v.enabled;if($('#vignetteColor'))$('#vignetteColor').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteColorText'))$('#vignetteColorText').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteRange'))$('#vignetteRange').value=v.range??72;if($('#vignetteRangeVal'))$('#vignetteRangeVal').textContent=`${v.range??72}%`;if($('#vignetteStrength'))$('#vignetteStrength').value=v.strength??28;if($('#vignetteStrengthVal'))$('#vignetteStrengthVal').textContent=`${v.strength??28}%`;if($('#vignetteSoftness'))$('#vignetteSoftness').value=v.softness??28;if($('#vignetteSoftnessVal'))$('#vignetteSoftnessVal').textContent=`${v.softness??28}%`;if($('#vignetteControls'))$('#vignetteControls').style.display=v.enabled?'block':'none';$('#exportW').value=state.exportW;$('#exportH').value=state.exportH;$('#tileW').value=state.tileW;$('#tileH').value=state.tileH}
 function setZoom(v){zoom=clamp(v,.3,1.6);$('#zoomText').textContent=Math.round(zoom*100)+'%';canvas.style.width=`min(${72*zoom}vh, ${78*zoom}vw)`}
 function renderCirclePreview(){if(!circleCtx||!circleCanvas)return;let w=circleCanvas.width,h=circleCanvas.height,r=Math.min(w,h)/2-4;circleCtx.clearRect(0,0,w,h);circleCtx.save();circleCtx.beginPath();circleCtx.arc(w/2,h/2,r,0,Math.PI*2);circleCtx.closePath();circleCtx.clip();circleCtx.drawImage(canvas,0,0,w,h);circleCtx.restore();circleCtx.save();circleCtx.beginPath();circleCtx.arc(w/2,h/2,r,0,Math.PI*2);circleCtx.lineWidth=8;circleCtx.strokeStyle='rgba(255,255,255,.96)';circleCtx.stroke();circleCtx.beginPath();circleCtx.arc(w/2,h/2,r,0,Math.PI*2);circleCtx.lineWidth=1.5;circleCtx.strokeStyle='rgba(210,198,240,.95)';circleCtx.stroke();circleCtx.restore();}
 function randomizeAll(){let palette=palettePresets[Math.floor(Math.random()*palettePresets.length)];state.bg.colors=[palette[0],palette[1]];state.bg.gradientStops=buildGradientStopsFromColors([palette[0],palette[1]]);state.layers.forEach((layer,i)=>{let candidates=PE.presets.filter(p=>(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!$('#checkOnly')?.checked||checkPresetOnly(p)));let pool=candidates.length?candidates:PE.presets;let p=pool[Math.floor(Math.random()*Math.max(1,pool.length))];layer.sourceType='builtin';layer.presetId=p.id;let d=PE.defaults[p.id]||{};Object.assign(layer,d);layer.colors=normalizeColors(shuffle(palette.concat()).slice(0,4));layer.colors[4]=suggestLineColor(layer.colors);layer.size=clamp((d.size??layer.size)+(i*10),12,220);layer.gap=clamp((d.gap??layer.gap)+Math.floor(Math.random()*30),0,140);layer.jitter=clamp((d.jitter??20)+Math.floor(Math.random()*40),0,100);layer.rotation=Math.floor(-18+Math.random()*36);layer.opacity=clamp(100-i*18,20,100);layer.detail=Math.floor(25+Math.random()*70);layer.enabled=i===0?true:(Math.random()>.25);layer.randomSize=true;layer.randomAngle=true;layer.randomPosition=true;layer.offsetX=0;layer.offsetY=0;layer.checkerToneMode=false;layer.checkerToneBase=layer.colors[1];layer.seed=Math.floor(Math.random()*1e9)});persistAll();syncAll();toast('배경과 레이어 패턴을 랜덤으로 조합했어.')}
@@ -573,6 +607,7 @@ function bindGlobalControls(){
   $('#watercolorSpread').oninput=e=>{state.bg.watercolorSpread=+e.target.value;$('#watercolorSpreadVal').textContent=`${e.target.value}%`;persistAll();renderMain()};
   $('#watercolorScale').oninput=e=>{state.bg.watercolorScale=+e.target.value;$('#watercolorScaleVal').textContent=`${e.target.value}%`;persistAll();renderMain()};
   $('#watercolorIrregular').oninput=e=>{state.bg.watercolorIrregular=+e.target.value;$('#watercolorIrregularVal').textContent=`${e.target.value}%`;persistAll();renderMain()};
+  $('#watercolorDefinition').oninput=e=>{state.bg.watercolorDefinition=+e.target.value;$('#watercolorDefinitionVal').textContent=`${e.target.value}%`;persistAll();renderMain()};
   $('#watercolorStyle').onchange=e=>{state.bg.watercolorStyle=e.target.value;persistAll();renderMain()};
   document.querySelectorAll('[data-watercolor-style]').forEach(btn=>btn.onclick=()=>{state.bg.watercolorStyle=btn.dataset.watercolorStyle;persistAll();syncGlobalControls();renderMain()});
   $('#watercolorTexture').onchange=e=>{state.bg.watercolorTexture=e.target.checked;persistAll();renderMain()};

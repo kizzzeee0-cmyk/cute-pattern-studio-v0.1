@@ -118,6 +118,9 @@
                   <option value="bloom">번짐 레이어 · 물감이 겹쳐지는 느낌</option>
                   <option value="aqua">아쿠아 워시 · 한쪽에 맑게 퍼지는 느낌</option>
                   <option value="pearl">밀키 펄 · 흰 물감이 섞인 듯한 느낌</option>
+                  <option value="blotch">소프트 얼룩 · 흐릿한 물감 얼룩이 보이는 느낌</option>
+                  <option value="wash">브러시 워시 · 넓은 붓질이 겹치는 느낌</option>
+                  <option value="corner">코너 워시 · 모서리에 물감이 모이는 느낌</option>
                 </select>
               </label>
               <div class="watercolor-style-buttons">
@@ -126,6 +129,9 @@
                 <button type="button" class="mini-btn" data-watercolor-style="bloom">번짐</button>
                 <button type="button" class="mini-btn" data-watercolor-style="aqua">아쿠아</button>
                 <button type="button" class="mini-btn" data-watercolor-style="pearl">밀키</button>
+                <button type="button" class="mini-btn" data-watercolor-style="blotch">얼룩</button>
+                <button type="button" class="mini-btn" data-watercolor-style="wash">워시</button>
+                <button type="button" class="mini-btn" data-watercolor-style="corner">코너</button>
               </div>
               <label>물감 번짐 <span id="watercolorSpreadVal">62%</span>
                 <input id="watercolorSpread" type="range" min="10" max="100" value="62" />
@@ -136,8 +142,11 @@
               <label>불규칙함 <span id="watercolorIrregularVal">72%</span>
                 <input id="watercolorIrregular" type="range" min="0" max="100" value="72" />
               </label>
+              <label>얼룩 존재감 <span id="watercolorDefinitionVal">52%</span>
+                <input id="watercolorDefinition" type="range" min="0" max="100" value="52" />
+              </label>
               <label class="switch-row compact"><input id="watercolorTexture" type="checkbox" checked /> 종이/물감 질감 추가</label>
-              <div class="micro-copy">도형이 보이는 얼룩보다 색이 물에 풀려 서로 스며드는 느낌을 우선해. 스타일을 바꿔가며 같은 색 조합도 여러 분위기로 만들 수 있어.</div>
+              <div class="micro-copy">너무 흐린 블러부터 흐릿한 얼룩, 붓질, 모서리 워시까지 스타일마다 물감의 모양과 배치를 다르게 만들었어. 「얼룩 존재감」으로 흐릿한 얼룩의 윤곽도 조절할 수 있어.</div>
             </div>
             <div class="vignette-box">
               <div class="section-title-row"><strong>컬러 비네트</strong><label class="switch-row compact"><input id="vignetteEnabled" type="checkbox" /> 사용</label></div>
