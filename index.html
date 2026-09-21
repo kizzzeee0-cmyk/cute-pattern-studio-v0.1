@@ -13,7 +13,7 @@
       <div>
         <div class="eyebrow">2000 × 2000 PNG PATTERN MAKER</div>
         <h1>Cute Pattern Studio <span>v1.5.2</span></h1>
-        <p class="subtitle">AI Pattern Designer · 패턴 라이브러리 복구 · 빛/광택 네모 배경 추가</p>
+        <p class="subtitle">AI Pattern Designer · 패턴 라이브러리 · 빛/광택 · 컬러 비네트 배경 효과</p>
       </div>
       <div class="top-actions">
         <button id="randomizeAll" class="ghost">🎲 전체 랜덤</button>
@@ -109,6 +109,17 @@
                 <input id="gradientAngle" type="range" min="0" max="360" value="135" />
               </label>
             </div>
+            <div class="vignette-box">
+              <div class="section-title-row"><strong>컬러 비네트</strong><label class="switch-row compact"><input id="vignetteEnabled" type="checkbox" /> 사용</label></div>
+              <div id="vignetteControls" class="conditional" style="display:none">
+                <div class="color-row"><div class="color-label">비네트 색상</div><input id="vignetteColor" type="color" value="#6F55C9" /><input id="vignetteColorText" type="text" value="#6F55C9" maxlength="7" /></div>
+                <label>비네트 범위 <span id="vignetteRangeVal">72%</span><input id="vignetteRange" type="range" min="0" max="100" value="72" /></label>
+                <label>강도 <span id="vignetteStrengthVal">28%</span><input id="vignetteStrength" type="range" min="0" max="100" value="28" /></label>
+                <label>부드러움 <span id="vignetteSoftnessVal">28%</span><input id="vignetteSoftness" type="range" min="0" max="100" value="28" /></label>
+                <div class="micro-copy">범위가 낮을수록 색이 중앙 쪽까지 들어오고, 높을수록 가장자리 위주로 적용돼. 부드러움으로 색이 퍼지는 폭을 조절할 수 있어.</div>
+                <button id="resetVignetteBtn" class="mini-btn" type="button">비네트 설정 초기화</button>
+              </div>
+            </div>
           </section>
 
           <section class="control-section">
@@ -190,6 +201,7 @@
             <p>① v1.4 안정본 구조로 복구해 패턴 라이브러리 전체 목록과 기존 미리보기 오류 수정</p>
             <p>② 원형 틀 없이 네모 캔버스 전체에 적용되는 썬버스트/글로시 배경 추가</p>
             <p>③ 신규 카테고리 ‘빛·광택’에서 햇살·광택·글로우 배경을 선택 가능</p>
+            <p>④ 원하는 색상과 범위로 가장자리 비네트 효과를 추가 가능</p>
           </section>
         </div>
       </aside>
