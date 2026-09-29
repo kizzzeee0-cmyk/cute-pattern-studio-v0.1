@@ -457,6 +457,61 @@ function colorDistance(a,b){let dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Ma
 function rgbToHex([r,g,b]){return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase()}
 function renderReferencePalette(){let wrap=$('#referencePalette');wrap.innerHTML='';if(!referencePalette.length)return;let box=document.createElement('div');box.className='swatch-pack';let row=document.createElement('div');row.className='swatch-row';referencePalette.forEach(c=>{let s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;row.appendChild(s)});let actions=document.createElement('div');actions.className='preset-actions';let toLayer=document.createElement('button');toLayer.className='mini-btn';toLayer.textContent='현재 레이어에 적용';toLayer.onclick=()=>{let layer=currentLayer();layer.colors=normalizeColors([referencePalette[0],referencePalette[1]||referencePalette[0],referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[4]||referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0]]);layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncLayerUI();renderMain()};let toBg=document.createElement('button');toBg.className='mini-btn';toBg.textContent='배경에 적용';toBg.onclick=()=>{setBgGradientFromPalette(referencePalette);persistAll();syncGlobalControls();renderMain()};let toBoth=document.createElement('button');toBoth.className='mini-btn';toBoth.textContent='배경+현재 레이어';toBoth.onclick=()=>{setBgGradientFromPalette(referencePalette);let layer=currentLayer();layer.colors=normalizeColors([referencePalette[0],referencePalette[1]||referencePalette[0],referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[4]||referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0]]);layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncAll()};actions.append(toLayer,toBg,toBoth);box.append(row,actions);wrap.appendChild(box)}
 
+function designState(){state.design=DE.normalizeState(state.design||DE.defaultState());return state.design}
+function setStudioMode(mode){
+  state.studioMode=mode==='design'?'design':'pattern';persistAll();syncStudioModeUI();
+  if(state.studioMode==='design'){renderDesignBrowser();renderDesignEditor()}else{renderPatternList();syncLayerUI()}
+  renderMain()
+}
+function syncStudioModeUI(){
+  let isDesign=state.studioMode==='design',pb=$('#patternModeBtn'),db=$('#designModeBtn'),pp=$('#patternModePane'),browser=$('#designBrowser'),de=$('#designEditorSection'),le=$('#layerEditorSection'),be=$('#backgroundEditorSection'),search=$('#searchInput');
+  if(pb)pb.classList.toggle('active',!isDesign);if(db)db.classList.toggle('active',isDesign);
+  if(pp)pp.style.display=isDesign?'none':'block';if(browser)browser.style.display=isDesign?'block':'none';
+  if(de)de.style.display=isDesign?'block':'none';if(le)le.style.display=isDesign?'none':'block';if(be)be.style.display=isDesign?'none':'block';
+  if(search)search.style.display=isDesign?'none':'block';
+  if($('#libraryTitle'))$('#libraryTitle').textContent=isDesign?'디자인 배경':'패턴 라이브러리';
+  if($('#patternCount'))$('#patternCount').textContent=isDesign?`${DE.concepts.length}개 컨셉 · ${DE.variants.length}종 세트`:`${PE.presets.length}개 패턴`;
+  if($('#exportTileBtn'))$('#exportTileBtn').style.display=isDesign?'none':'';if($('#exportTileBtn2'))$('#exportTileBtn2').style.display=isDesign?'none':''
+}
+function makeEyeDropperButton(onPick){
+  let b=document.createElement('button');b.type='button';b.className='dropper';b.textContent='💧';b.title='화면에서 색상 추출';
+  b.onclick=async()=>{if(!window.EyeDropper){toast('이 브라우저는 화면 스포이드를 지원하지 않아.');return}try{let r=await new EyeDropper().open();onPick(r.sRGBHex.toUpperCase())}catch{}};return b
+}
+function renderDesignBrowser(){
+  let root=$('#designBrowser');if(!root||!DE)return;let ds=designState(),current=DE.getConcept(ds.conceptId);root.innerHTML='';
+  let intro=document.createElement('div');intro.className='design-browser-title';intro.innerHTML='<strong>컨셉 카테고리</strong><span>완성형 벡터 배경 · 각 세트 5종</span>';root.appendChild(intro);
+  let concepts=document.createElement('div');concepts.className='design-concept-list';
+  DE.concepts.forEach(c=>{let b=document.createElement('button');b.type='button';b.className='design-concept-card'+(c.id===current.id?' active':'');let sw=c.roles.find(r=>r.id===c.anchorRole)?.color||c.defaultMaster;b.innerHTML=`<span class='design-concept-swatch' style='background:${sw}'></span><span><strong>${c.name}</strong><small>${c.desc}</small></span>`;b.onclick=()=>{state.design=DE.defaultState(c.id,'base');state.studioMode='design';persistAll();renderDesignBrowser();renderDesignEditor();syncStudioModeUI();renderMain()};concepts.appendChild(b)});root.appendChild(concepts);
+  let setHead=document.createElement('div');setHead.className='design-browser-title compact';setHead.innerHTML=`<strong>${current.name} 디자인 세트</strong><span>기본 / 구름 리본 / 체크 / 도트버블 / 심플</span>`;root.appendChild(setHead);
+  let grid=document.createElement('div');grid.className='design-variant-grid';
+  DE.variants.forEach(v=>{let card=document.createElement('button');card.type='button';card.className='design-variant-card'+(v.id===ds.variantId?' active':'');let cv=document.createElement('canvas');cv.width=cv.height=180;DE.render(cv.getContext('2d'),180,180,DE.normalizeState({...ds,variantId:v.id}));let st=document.createElement('strong');st.textContent=v.name;let sm=document.createElement('small');sm.textContent=v.desc;card.append(cv,st,sm);card.onclick=()=>{state.design.variantId=v.id;persistAll();renderDesignBrowser();renderDesignEditor();renderMain()};grid.appendChild(card)});root.appendChild(grid)
+}
+function renderDesignEditor(){
+  let root=$('#designEditor');if(!root||!DE)return;let ds=designState(),concept=DE.getConcept(ds.conceptId),palette=DE.roleColors(ds);root.innerHTML='';
+  let top=document.createElement('div');top.className='design-editor-summary';top.innerHTML=`<strong>${concept.name}</strong><span>${DE.getVariant(ds.variantId).name} · 이미지 파일이 아닌 선명한 Canvas 벡터 렌더링</span>`;root.appendChild(top);
+  let mode=document.createElement('div');mode.className='color-mode-tabs';let auto=document.createElement('button'),manual=document.createElement('button');auto.type=manual.type='button';auto.textContent='대표색으로 자동 설정';manual.textContent='개별 색상 지정';auto.className=ds.colorMode!=='individual'?'active':'';manual.className=ds.colorMode==='individual'?'active':'';mode.append(auto,manual);root.appendChild(mode);
+  auto.onclick=()=>{ds.colorMode='auto';persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};
+  manual.onclick=()=>{if(ds.colorMode!=='individual'){ds.roleColors={...DE.roleColors(ds)}}ds.colorMode='individual';persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};
+  if(ds.colorMode!=='individual'){
+    let master=document.createElement('div');master.className='master-color-panel';master.innerHTML='<div class=\'master-label\'><strong>대표색 · Anchor Color</strong><span>선택색을 가장 진한 기준색으로 사용하고, 흰색·크림 영역은 옅은 틴트만 적용해.</span></div>';
+    let row=document.createElement('div');row.className='master-color-row';let picker=document.createElement('input');picker.type='color';picker.value=ds.masterColor;let txt=document.createElement('input');txt.type='text';txt.maxLength=7;txt.value=ds.masterColor;
+    let apply=v=>{ds.masterColor=normalizeHexLike(v,ds.masterColor);picker.value=txt.value=ds.masterColor;persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};picker.oninput=()=>apply(picker.value);txt.onchange=()=>{if(/^#[0-9a-fA-F]{6}$/.test(txt.value))apply(txt.value)};row.append(picker,txt,makeEyeDropperButton(apply));master.appendChild(row);
+    let sw=document.createElement('div');sw.className='master-swatches';MASTER_COLOR_SWATCHES.forEach(c=>{let b=document.createElement('button');b.type='button';b.className='master-swatch';b.style.background=c;b.title=c;b.onclick=()=>apply(c);sw.appendChild(b)});master.appendChild(sw);root.appendChild(master)
+  }
+  let roleHead=document.createElement('div');roleHead.className='section-title-row';roleHead.innerHTML=`<div><h3>세부 색상 설정</h3><div class='control-subtitle'>${ds.colorMode==='individual'?'디자인에 실제 존재하는 요소만 각각 수정해.':'자동 상태에서도 원하는 요소만 개별 유지할 수 있어.'}</div></div>`;root.appendChild(roleHead);
+  let roles=document.createElement('div');roles.className='design-role-list';
+  concept.roles.forEach(role=>{
+    let row=document.createElement('div');row.className='design-role-row';let lab=document.createElement('div');lab.className='design-role-label';lab.textContent=role.label;
+    let picker=document.createElement('input');picker.type='color';let txt=document.createElement('input');txt.type='text';txt.maxLength=7;
+    let isManual=ds.colorMode==='individual',locked=!!(ds.overrides&&ds.overrides[role.id]);let val=isManual?(ds.roleColors[role.id]||role.color):(locked?ds.overrides[role.id]:palette[role.id]);picker.value=normalizeHexLike(val,role.color);txt.value=picker.value;
+    let set=v=>{v=normalizeHexLike(v,picker.value);if(isManual)ds.roleColors[role.id]=v;else{ds.overrides=ds.overrides||{};ds.overrides[role.id]=v}picker.value=txt.value=v;persistAll();renderDesignBrowser();renderMain()};picker.oninput=()=>set(picker.value);txt.onchange=()=>{if(/^#[0-9a-fA-F]{6}$/.test(txt.value))set(txt.value)};
+    let toggle=document.createElement('button');toggle.type='button';toggle.className='mini-btn design-link-btn';
+    if(isManual){toggle.textContent='개별';toggle.disabled=true}else{toggle.textContent=locked?'자동으로 복귀':'개별 유지';toggle.onclick=()=>{ds.overrides=ds.overrides||{};if(locked)delete ds.overrides[role.id];else ds.overrides[role.id]=palette[role.id];persistAll();renderDesignEditor();renderDesignBrowser();renderMain()}};
+    if(!isManual&&!locked){picker.disabled=true;txt.disabled=true}row.append(lab,picker,txt,makeEyeDropperButton(set),toggle);roles.appendChild(row)
+  });root.appendChild(roles);
+  let sliders=document.createElement('div');sliders.className='design-adjust-grid';[['장식 크기','decorationScale',60,150],['장식 밀도','density',50,150]].forEach(spec=>{let label=spec[0],key=spec[1],min=spec[2],max=spec[3],wrap=document.createElement('label');wrap.innerHTML=`<span>${label} <b>${Math.round(ds[key])}%</b></span>`;let input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.value=ds[key];input.oninput=()=>{ds[key]=+input.value;wrap.querySelector('b').textContent=input.value+'%';persistAll();renderDesignBrowser();renderMain()};wrap.appendChild(input);sliders.appendChild(wrap)});root.appendChild(sliders);
+  let reset=document.createElement('button');reset.type='button';reset.className='secondary wide';reset.textContent='이 디자인 색상 초기화';reset.onclick=()=>{state.design=DE.defaultState(ds.conceptId,ds.variantId);persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};root.appendChild(reset)
+}
 function bindGlobalControls(){
   $('#searchInput').oninput=renderPatternList;
   $('#favoriteOnly').onchange=renderPatternList;
