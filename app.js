@@ -502,6 +502,7 @@ function bindGlobalControls(){
 function syncAll(){syncGlobalControls();syncLayerUI();renderMain();renderPatternList();renderAssetList();renderFavoritePreview();renderSavedPresets()}
 
 loadLocal();
+runtimeSelfCheck();
 bindGlobalControls();
 setupCategories();
 setupLayerTabs();
