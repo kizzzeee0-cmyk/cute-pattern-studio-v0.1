@@ -226,27 +226,37 @@ function hashString(str){let h=2166136261>>>0;str=String(str);for(let i=0;i<str.
 function mulberry32(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 async function ensureVisibleAssets(){let needs=[];for(let layer of state.layers){if(layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId){let asset=userAssets.find(v=>v.id===layer.assetId);if(asset)needs.push(ensureAssetImage(asset,layer).catch(()=>null))}}if(needs.length)await Promise.all(needs)}
 let previewRenderToken=0;
-function renderMainNow(){
-  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';drawBackground(ctx,canvas.width,canvas.height);
+function composePreviewFrame(){
+  let frame=document.createElement('canvas');frame.width=canvas.width;frame.height=canvas.height;
+  let fctx=frame.getContext('2d');
+  fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';drawBackground(fctx,frame.width,frame.height);
   if(!state.bg.backgroundOnly) for(let layer of state.layers){
     if(!layer.enabled)continue;
     try{
-      ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
-      if(layer.sourceType==='builtin')PE.render(ctx,canvas.width,canvas.height,layerToPatternState(layer,false),getPreset(layer.presetId),canvas.width/2000);
-      else renderUploadedLayer(ctx,canvas.width,canvas.height,layer,canvas.width/2000,false);
+      fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
+      if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),frame.width/2000);
+      else renderUploadedLayer(fctx,frame.width,frame.height,layer,frame.width/2000,false);
     }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
   }
-  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
-  applyVignette(ctx,canvas.width,canvas.height);
+  fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
+  applyVignette(fctx,frame.width,frame.height);
+  return frame
+}
+function renderMainNow(){
+  const frame=composePreviewFrame();
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='copy';ctx.drawImage(frame,0,0);ctx.globalCompositeOperation='source-over';
   updateSelected();renderCirclePreview()
 }
 function renderMain(){
   const token=++previewRenderToken;
-  // Built-in patterns must repaint synchronously on the same click.
   renderMainNow();
-  // Uploaded assets are the only part that may need async loading.
-  const pending=state.layers.some(layer=>layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId&&userAssets.some(a=>a.id===layer.assetId&&!a._img));
-  if(pending)ensureVisibleAssets().then(()=>{if(token===previewRenderToken)renderMainNow()}).catch(err=>console.error('Asset preload failed:',err));
+  const pending=state.layers.some(layer=>layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId&&userAssets.some(asset=>asset.id===layer.assetId&&!asset._img));
+  if(pending)ensureVisibleAssets().then(()=>{if(token===previewRenderToken)renderMainNow()}).catch(err=>console.error('Asset preload failed:',err))
+}
+function forcePreviewRefresh(){
+  // First repaint in the current event, then again after DOM/control updates.
+  renderMain();
+  requestAnimationFrame(()=>{renderMain();setTimeout(()=>renderMain(),0)})
 }
 function updateSelected(){let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
 function setupCategories(){let wrap=$('#categoryTabs');wrap.innerHTML='';categories().forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===activeCategory?' active':'');b.textContent=c;b.onclick=()=>{activeCategory=c;setupCategories();renderPatternList()};wrap.appendChild(b)})}
@@ -257,7 +267,7 @@ function renderPatternList(){
   let visibleTotal=PE.presets.length-hiddenPatterns.size;$('#patternCount').textContent=$('#showHiddenPatterns')?.checked?`숨긴 패턴 ${hiddenPatterns.size}개 · 현재 ${items.length}개`:`사용 가능 ${visibleTotal}개 · 숨김 ${hiddenPatterns.size}개`;if($('#hiddenPatternCount'))$('#hiddenPatternCount').textContent=hiddenPatterns.size?`${hiddenPatterns.size}개 숨김`:'숨김 없음';
   list.innerHTML='';
   items.forEach(p=>{
-    let b=document.createElement('div');b.className='pattern-card'+(currentLayer().sourceType==='builtin'&&p.id===currentLayer().presetId?' active':'');b.setAttribute('role','button');b.tabIndex=0;
+    let b=document.createElement('div');b.className='pattern-card'+(currentLayer().sourceType==='builtin'&&p.id===currentLayer().presetId?' active':'');b.dataset.presetId=p.id;b.setAttribute('role','button');b.tabIndex=0;
     let fav=document.createElement('button');fav.type='button';fav.className='pattern-fav'+(favorites.has(p.id)?' on':'');fav.textContent=favorites.has(p.id)?'★':'☆';fav.title='즐겨찾기';fav.onclick=e=>{e.stopPropagation();toggleFavorite(p.id)};
     let c=document.createElement('canvas');c.width=c.height=180;
     try{
@@ -273,18 +283,27 @@ function renderPatternList(){
     b.append(fav,hide,c,st,sm);const choose=()=>{if(!hiddenPatterns.has(p.id))selectPatternForActiveLayer(p.id)};b.onclick=choose;b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}};list.appendChild(b)
   })
 }
+function updatePatternSelectionUI(id){document.querySelectorAll('#patternList .pattern-card').forEach(card=>card.classList.toggle('active',card.dataset.presetId===id))}
 function toggleFavorite(id){favorites.has(id)?favorites.delete(id):favorites.add(id);persistAll();renderPatternList();renderFavoritePreview()}
 function toggleHiddenPattern(id){if(hiddenPatterns.has(id)){hiddenPatterns.delete(id);toast('패턴을 라이브러리로 복원했어.')}else{hiddenPatterns.add(id);favorites.delete(id);toast('패턴을 라이브러리에서 숨겼어.')}persistAll();setupCategories();renderPatternList();renderFavoritePreview()}
 function restoreAllHiddenPatterns(){if(!hiddenPatterns.size){toast('숨긴 패턴이 없어.');return}hiddenPatterns.clear();persistAll();setupCategories();renderPatternList();toast('숨긴 패턴을 모두 복원했어.')}
-function selectPatternForActiveLayer(id){let layer=currentLayer(),preset=PE.presets.find(p=>p.id===id);if(!preset)return;let keepColorMode=layer.colorMode||'individual',keepMaster=layer.masterColor||layer.colors?.[1]||'#F59BBC',keepColors=normalizeColors(layer.colors);let base={size:72,gap:24,jitter:0,rotation:0,stroke:4,opacity:100,detail:45,randomSize:true,randomAngle:true,randomPosition:true,offsetX:0,offsetY:0};Object.assign(layer,base,PE.defaults[id]||{});layer.enabled=true;layer.sourceType='builtin';layer.presetId=id;layer.colorMode=keepColorMode;layer.masterColor=keepMaster;layer.colors=keepColors;state.bg.backgroundOnly=false;if(layer.colorMode==='auto')applyMasterTone(layer,layer.masterColor,true);else if(layer.checkerToneMode&&isCheckLikePresetId(id))applyCheckerTonePalette(layer,false);layer.seed=Math.floor(Math.random()*1e9);persistAll();
-  // Critical: paint the center preview BEFORE rebuilding thumbnails/control DOM.
-  renderMain();
+function selectPatternForActiveLayer(id){
+  let layer=currentLayer(),preset=PE.presets.find(p=>p.id===id);if(!preset)return;
+  let keepColorMode=layer.colorMode||'individual',keepMaster=layer.masterColor||layer.colors?.[1]||'#F59BBC',keepColors=normalizeColors(layer.colors);
+  let base={size:72,gap:24,jitter:0,rotation:0,stroke:4,opacity:100,detail:45,randomSize:true,randomAngle:true,randomPosition:true,offsetX:0,offsetY:0};
+  Object.assign(layer,base,PE.defaults[id]||{});
+  layer.enabled=true;layer.sourceType='builtin';layer.presetId=id;layer.colorMode=keepColorMode;layer.masterColor=keepMaster;layer.colors=keepColors;
+  state.bg.backgroundOnly=false;
+  if(layer.colorMode==='auto')applyMasterTone(layer,layer.masterColor,true);
+  else if(layer.checkerToneMode&&isCheckLikePresetId(id))applyCheckerTonePalette(layer,false);
+  layer.seed=Math.floor(Math.random()*1e9);
+  persistAll();
+  updatePatternSelectionUI(id);
+  // Never rebuild dozens of thumbnail canvases on a simple selection click.
+  // Rebuild only the controls, then atomically replace the visible preview frame.
   syncGlobalControls();
   try{syncLayerUI()}catch(err){console.error('Layer editor refresh failed after pattern selection:',err);updateSelected()}
-  // Do not block the preview click with dozens of thumbnail renders.
-  renderPatternListDebounced();
-  // One more frame guarantees the selected pattern remains painted after UI refresh.
-  requestAnimationFrame(()=>renderMain());
+  forcePreviewRefresh();
   toast(`${preset.name} 패턴을 적용했어.`)
 }
 function setupLayerTabs(){let wrap=$('#layerTabs');wrap.innerHTML='';state.layers.forEach((layer,i)=>{let b=document.createElement('button');b.className='layer-tab'+(i===activeLayerIndex?' active':'');b.textContent=`${layer.name}`;b.onclick=()=>{activeLayerIndex=i;setupLayerTabs();syncLayerUI();renderPatternList();renderAssetList();renderMain()};wrap.appendChild(b)});let add=document.createElement('button');add.className='layer-tab';add.textContent='＋ 레이어 추가';add.onclick=()=>addLayer(true);wrap.appendChild(add);$('#activeLayerLabel').textContent=`현재 편집: ${state.layers[activeLayerIndex].name} · 총 ${state.layers.length}개`}
