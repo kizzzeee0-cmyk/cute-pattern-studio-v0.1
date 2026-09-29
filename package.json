@@ -1,6 +1,6 @@
 {
-  "name": "cute-pattern-studio-v1-6-3",
-  "version": "1.6.3",
+  "name": "cute-pattern-studio-v1-6-4",
+  "version": "1.6.4",
   "private": true,
   "scripts": {
     "dev": "wrangler pages dev .",
