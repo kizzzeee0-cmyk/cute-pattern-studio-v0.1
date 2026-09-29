@@ -1,6 +1,5 @@
 
 const PE=window.PatternEngine;
-const DE=window.DesignEngine;
 const $=q=>document.querySelector(q);
 const canvas=$('#previewCanvas'),ctx=canvas.getContext('2d');
 const circleCanvas=$('#circlePreviewCanvas'),circleCtx=circleCanvas?circleCanvas.getContext('2d'):null;
@@ -43,9 +42,31 @@ function mixHex(a,b,ratio=.5){let ca=hexToRgb(a),cb=hexToRgb(b);return rgbToHexO
 function buildLayeredPlaidPalette(baseHex){let master=normalizeHexLike(baseHex,'#6E88C8');return {bgA:mixHex(master,'#FFFFFF',.91),bgB:mixHex(master,'#FFFFFF',.82),wide:mixHex(master,'#FFFFFF',.52),mid:mixHex(master,'#FFFFFF',.30),dark:master,hatch:master}}
 function applyLayeredPlaidMaster(layer,baseHex){let pal=buildLayeredPlaidPalette(baseHex);layer.plaidMaster=normalizeHexLike(baseHex,'#F39BBC');layer.colors=[pal.bgA,pal.wide,pal.mid,pal.dark,pal.hatch];layer.plaidBg2=pal.bgB;layer.plaidHatch=layer.plaidHatch!==false;layer.plaidHatchStrength=layer.plaidHatchStrength??32;return pal}
 const MASTER_COLOR_SWATCHES=['#D94B5E','#E78238','#D4B83A','#4F9866','#4B79C8','#535AA8','#8A5CC2'];
-function buildThemeTonePalette(baseHex,presetId=''){let master=normalizeHexLike(baseHex,'#D94B7A');let bg=mixHex(master,'#FFFFFF',.91),mid=mixHex(master,'#FFFFFF',.43),light=mixHex(master,'#FFFFFF',.72);return [bg,master,mid,light,master]}
+function defaultAnchorProfileForPreset(presetId=''){
+  let preset=PE.presets.find(p=>p.id===presetId),type=preset?.type||'';
+  if(type==='grid'||type==='dashed-grid')return [.96,0,.60,.84,.08];
+  if(['checker','wavy-checker','textured-checker','plaid','layered-fabric-plaid','overlap-check','torn-checker'].includes(type))return [.95,0,.50,.78,.08];
+  if(['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'].includes(type))return [.93,0,.34,.72,.10];
+  return [.95,0,.48,.78,.10]
+}
+function buildAnchorToneProfile(colors,presetId=''){
+  let list=normalizeColors(colors),lum=list.map(c=>luminance(c)),min=Math.min(...lum),den=Math.max(1,255-min);
+  let profile=lum.map(v=>{let t=(v-min)/den;if(v>=238)t=Math.max(t,.92);return clamp(t,0,.97)});
+  if(!profile.some(v=>v<=.02))return defaultAnchorProfileForPreset(presetId);
+  return profile
+}
+function buildThemeTonePalette(baseHex,presetId='',profile=null){
+  let master=normalizeHexLike(baseHex,'#D94B7A'),tone=(Array.isArray(profile)&&profile.length>=5?profile:defaultAnchorProfileForPreset(presetId)).slice(0,5);
+  return tone.map(t=>mixHex(master,'#FFFFFF',clamp(Number(t)||0,0,.975)))
+}
 function syncCanvasBackgroundToMaster(palette){if(activeLayerIndex!==0||state.bg.transparent)return;let bg=palette[0];state.bg.colors[0]=bg;if(state.bg.mode==='solid'){state.bg.gradientStops=buildGradientStopsFromColors([bg,state.bg.colors[1]||bg])}else if(Array.isArray(state.bg.gradientStops)&&state.bg.gradientStops.length){state.bg.gradientStops[0].color=bg}syncBgGradientState(state.bg)}
-function applyMasterTone(layer,baseHex,syncBg=true){let master=normalizeHexLike(baseHex,layer.masterColor||'#F59BBC');layer.masterColor=master;layer.colorMode='auto';if(layer.presetId==='layered-fabric-plaid'){applyLayeredPlaidMaster(layer,master);layer.masterColor=master}else{layer.colors=buildThemeTonePalette(master,layer.presetId)}if(syncBg)syncCanvasBackgroundToMaster(layer.colors);return layer.colors}
+function applyMasterTone(layer,baseHex,syncBg=true){
+  let master=normalizeHexLike(baseHex,layer.masterColor||'#F59BBC');layer.masterColor=master;layer.colorMode='auto';
+  if(!Array.isArray(layer.anchorToneProfile)||layer.anchorToneProfile.length<5)layer.anchorToneProfile=defaultAnchorProfileForPreset(layer.presetId);
+  if(layer.presetId==='layered-fabric-plaid'){applyLayeredPlaidMaster(layer,master);layer.masterColor=master}
+  else{layer.colors=buildThemeTonePalette(master,layer.presetId,layer.anchorToneProfile)}
+  if(syncBg)syncCanvasBackgroundToMaster(layer.colors);return layer.colors
+}
 function luminance(hex){let {r,g,b}=hexToRgb(hex);return .2126*r+.7152*g+.0722*b}
 function suggestLineColor(colors){let c=normalizeColors(colors);let candidate=mixHex(c[1],c[2],.55);let {h,s,l}=rgbToHsl(hexToRgb(candidate));return hslToHex(h,Math.min(.5,Math.max(.15,s*.65)),Math.max(.30,Math.min(.50,l*.56)))}
 function generateAutoPalettes(baseHex){let {h,s,l}=rgbToHsl(hexToRgb(baseHex));let softS=Math.max(.28,Math.min(.72,s||.45));let softL=Math.max(.55,Math.min(.78,l||.68));let out=[
@@ -62,7 +83,7 @@ function renderPaletteCard(parent,item){let card=document.createElement('div');c
 function renderColorRecommendationPanels(){let curated=$('#curatedPaletteList'),auto=$('#autoPaletteList');if(!curated||!auto)return;curated.innerHTML='<div class="muted mini-copy">함께 쓰면 예쁜 조합 프리셋</div>';auto.innerHTML='<div class="muted mini-copy">기준 색상으로 자동 생성한 추천 팔레트</div>';curatedHarmonyPresets.forEach(item=>renderPaletteCard(curated,item));let base=$('#baseColorInput')?.value||currentLayer().colors[1]||'#F5B9D4';generateAutoPalettes(base).forEach(item=>renderPaletteCard(auto,item))}
 
 
-function runtimeSelfCheck(){let problems=[];if(typeof clampInt!=='function')problems.push('clampInt');if(typeof renderMain!=='function')problems.push('renderMain');if(!window.PatternEngine)problems.push('PatternEngine');if(!window.DesignEngine)problems.push('DesignEngine');if(problems.length)console.error('Cute Pattern Studio runtime check failed:',problems);return problems.length===0}
+function runtimeSelfCheck(){let problems=[];if(typeof clampInt!=='function')problems.push('clampInt');if(typeof renderMain!=='function')problems.push('renderMain');if(!window.PatternEngine)problems.push('PatternEngine');if(problems.length)console.error('Cute Pattern Studio runtime check failed:',problems);return problems.length===0}
 function uid(prefix='id'){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
@@ -72,7 +93,7 @@ function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show
 function categories(){return ['전체',...new Set(PE.presets.map(p=>p.category))]}
 function getPreset(id){return PE.presets.find(p=>p.id===id)||PE.presets[0]}
 function defaultLayer(i,presetId='pastel-checker',enabled=true){return {enabled,name:i===0?'기본 레이어':`추가 레이어 ${i}`,sourceType:'builtin',presetId,assetId:'',renderMode:'motif',colors:buildThemeTonePalette('#F59BBC',presetId),size:i===0?72:58,gap:i===0?24:28,jitter:i===0?18:22,rotation:0,stroke:4,opacity:i===0?100:78,detail:45,seed:Math.floor(Math.random()*1e9),svgColorMode:'original',randomSize:true,randomAngle:true,randomPosition:true,offsetX:0,offsetY:0,checkerToneMode:false,checkerToneBase:'#AFC3FF',colorMode:'auto',masterColor:'#F59BBC'}}
-function makeInitialState(){return {studioMode:'pattern',design:DE?DE.defaultState('sky-cat','base'):null,bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorDefinition:52,watercolorSparkle:28,watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28}},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
+function makeInitialState(){return {bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorDefinition:52,watercolorSparkle:28,watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28}},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
 let favorites=new Set();
 let deletedPatterns=new Set();
 let myPresets=[];
@@ -96,7 +117,7 @@ function loadLocal(){
   try{userAssets=JSON.parse(localStorage.getItem(STORAGE.assets)||'[]')||[]}catch{}
   try{let saved=JSON.parse(localStorage.getItem(STORAGE.state)||'null');if(saved)state=mergeState(saved)}catch{}
 }
-function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.studioMode=saved.studioMode==='design'?'design':'pattern';merged.design=DE?DE.normalizeState(saved.design||base.design):null;merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:normalizeColors(l.colors||defaultLayer(i).colors)}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';if(!Number.isFinite(+merged.layers[0].opacity)||+merged.layers[0].opacity<=0)merged.layers[0].opacity=100;merged.bg.colors=[merged.bg.colors?.[0]||defaultBg[0],merged.bg.colors?.[1]||merged.bg.colors?.[0]||defaultBg[1]];merged.bg.gradientAngle=clampInt(merged.bg.gradientAngle,0,360,135);merged.bg.backgroundOnly=!!merged.bg.backgroundOnly;merged.bg.watercolorSpread=clampInt(merged.bg.watercolorSpread,10,100,62);merged.bg.watercolorScale=clampInt(merged.bg.watercolorScale,15,100,58);merged.bg.watercolorIrregular=clampInt(merged.bg.watercolorIrregular,0,100,72);merged.bg.watercolorTexture=merged.bg.watercolorTexture!==false;merged.bg.watercolorStyle=['mist','cloud','bloom','aqua','pearl','blotch','wash','corner','aquaMilk','aquaSparkle','aquaFrost','wateryCloud'].includes(merged.bg.watercolorStyle)?merged.bg.watercolorStyle:'mist';merged.bg.watercolorDefinition=clampInt(merged.bg.watercolorDefinition,0,100,52);merged.bg.watercolorSparkle=clampInt(merged.bg.watercolorSparkle,0,100,28);merged.bg.watercolorSeed=clampInt(merged.bg.watercolorSeed,0,999999999,47291);merged.bg.vignette={enabled:!!merged.bg.vignette?.enabled,color:normalizeHexLike(merged.bg.vignette?.color||'#6F55C9','#6F55C9'),range:clampInt(merged.bg.vignette?.range,0,100,72),strength:clampInt(merged.bg.vignette?.strength,0,100,28),softness:clampInt(merged.bg.vignette?.softness,0,100,28)};syncBgGradientState(merged.bg);merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`;if(layer.sourceType==='builtin'&&!PE.presets.some(p=>p.id===layer.presetId))layer.presetId='pastel-checker';if(layer.randomSize===undefined)layer.randomSize=true;if(layer.randomAngle===undefined)layer.randomAngle=true;if(layer.randomPosition===undefined)layer.randomPosition=true;if(layer.offsetX===undefined)layer.offsetX=0;if(layer.offsetY===undefined)layer.offsetY=0;if(layer.checkerToneMode===undefined)layer.checkerToneMode=false;if(!layer.checkerToneBase)layer.checkerToneBase=(layer.colors&&layer.colors[1])||'#AFC3FF';if(!layer.colorMode)layer.colorMode='individual';if(!layer.masterColor)layer.masterColor=(layer.colors&&layer.colors[1])||'#F59BBC';if(layer.presetId==='dashed-grid'){let d=PE.defaults['dashed-grid']||{};['dashedLineColor','dashedLineOpacity','dashedLineWidth','dashLength','dashGap','gridX','gridY'].forEach(k=>{if(layer[k]===undefined)layer[k]=d[k]})}layer.colors=normalizeColors(layer.colors)});return merged}
+function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:normalizeColors(l.colors||defaultLayer(i).colors)}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';if(!Number.isFinite(+merged.layers[0].opacity)||+merged.layers[0].opacity<=0)merged.layers[0].opacity=100;merged.bg.colors=[merged.bg.colors?.[0]||defaultBg[0],merged.bg.colors?.[1]||merged.bg.colors?.[0]||defaultBg[1]];merged.bg.gradientAngle=clampInt(merged.bg.gradientAngle,0,360,135);merged.bg.backgroundOnly=!!merged.bg.backgroundOnly;merged.bg.watercolorSpread=clampInt(merged.bg.watercolorSpread,10,100,62);merged.bg.watercolorScale=clampInt(merged.bg.watercolorScale,15,100,58);merged.bg.watercolorIrregular=clampInt(merged.bg.watercolorIrregular,0,100,72);merged.bg.watercolorTexture=merged.bg.watercolorTexture!==false;merged.bg.watercolorStyle=['mist','cloud','bloom','aqua','pearl','blotch','wash','corner','aquaMilk','aquaSparkle','aquaFrost','wateryCloud'].includes(merged.bg.watercolorStyle)?merged.bg.watercolorStyle:'mist';merged.bg.watercolorDefinition=clampInt(merged.bg.watercolorDefinition,0,100,52);merged.bg.watercolorSparkle=clampInt(merged.bg.watercolorSparkle,0,100,28);merged.bg.watercolorSeed=clampInt(merged.bg.watercolorSeed,0,999999999,47291);merged.bg.vignette={enabled:!!merged.bg.vignette?.enabled,color:normalizeHexLike(merged.bg.vignette?.color||'#6F55C9','#6F55C9'),range:clampInt(merged.bg.vignette?.range,0,100,72),strength:clampInt(merged.bg.vignette?.strength,0,100,28),softness:clampInt(merged.bg.vignette?.softness,0,100,28)};syncBgGradientState(merged.bg);merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`;if(layer.sourceType==='builtin'&&!PE.presets.some(p=>p.id===layer.presetId))layer.presetId='pastel-checker';if(layer.randomSize===undefined)layer.randomSize=true;if(layer.randomAngle===undefined)layer.randomAngle=true;if(layer.randomPosition===undefined)layer.randomPosition=true;if(layer.offsetX===undefined)layer.offsetX=0;if(layer.offsetY===undefined)layer.offsetY=0;if(layer.checkerToneMode===undefined)layer.checkerToneMode=false;if(!layer.checkerToneBase)layer.checkerToneBase=(layer.colors&&layer.colors[1])||'#AFC3FF';if(!layer.colorMode)layer.colorMode='individual';if(!layer.masterColor)layer.masterColor=(layer.colors&&layer.colors[1])||'#F59BBC';if(!Array.isArray(layer.anchorToneProfile)||layer.anchorToneProfile.length<5)layer.anchorToneProfile=defaultAnchorProfileForPreset(layer.presetId);if(layer.presetId==='dashed-grid'){let d=PE.defaults['dashed-grid']||{};['dashedLineColor','dashedLineOpacity','dashedLineWidth','dashLength','dashGap','gridX','gridY'].forEach(k=>{if(layer[k]===undefined)layer[k]=d[k]})}layer.colors=normalizeColors(layer.colors)});return merged}
 function persistAll(){localStorage.setItem(STORAGE.favorites,JSON.stringify([...favorites]));localStorage.setItem(STORAGE.deletedPatterns,JSON.stringify([...deletedPatterns]));localStorage.removeItem(STORAGE.hiddenPatterns);localStorage.setItem(STORAGE.presets,JSON.stringify(myPresets));localStorage.setItem(STORAGE.assets,JSON.stringify(stripAssetCache(userAssets)));localStorage.setItem(STORAGE.state,JSON.stringify(stripStateForSave(state)))}
 function stripStateForSave(s){let copy=clone(s);return copy}
 function stripAssetCache(arr){return arr.map(a=>{let c={...a};delete c._img;delete c._cacheKey;return c})}
@@ -243,18 +264,14 @@ function composePreviewFrame(){
   let frame=document.createElement('canvas');frame.width=canvas.width;frame.height=canvas.height;
   let fctx=frame.getContext('2d');
   fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
-  if(state.studioMode==='design'&&DE){
-    DE.render(fctx,frame.width,frame.height,state.design);
-  }else{
-    drawBackground(fctx,frame.width,frame.height);
-    if(!state.bg.backgroundOnly) for(let layer of state.layers){
-      if(!layer.enabled)continue;
-      try{
-        fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
-        if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),frame.width/2000);
-        else renderUploadedLayer(fctx,frame.width,frame.height,layer,frame.width/2000,false);
-      }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
-    }
+  drawBackground(fctx,frame.width,frame.height);
+  if(!state.bg.backgroundOnly) for(let layer of state.layers){
+    if(!layer.enabled)continue;
+    try{
+      fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
+      if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),frame.width/2000);
+      else renderUploadedLayer(fctx,frame.width,frame.height,layer,frame.width/2000,false);
+    }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
   }
   fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
   applyVignette(fctx,frame.width,frame.height);
@@ -268,7 +285,7 @@ function renderMainNow(){
 function renderMain(){
   const token=++previewRenderToken;
   renderMainNow();
-  const pending=state.studioMode!=='design'&&state.layers.some(layer=>layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId&&userAssets.some(asset=>asset.id===layer.assetId&&!asset._img));
+  const pending=state.layers.some(layer=>layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId&&userAssets.some(asset=>asset.id===layer.assetId&&!asset._img));
   if(pending)ensureVisibleAssets().then(()=>{if(token===previewRenderToken)renderMainNow()}).catch(err=>console.error('Asset preload failed:',err))
 }
 function forcePreviewRefresh(){
@@ -276,7 +293,7 @@ function forcePreviewRefresh(){
   renderMain();
   requestAnimationFrame(()=>{renderMain();setTimeout(()=>renderMain(),0)})
 }
-function updateSelected(){if(state.studioMode==='design'&&DE){let c=DE.getConcept(state.design.conceptId),v=DE.getVariant(state.design.variantId);$('#selectedCategory').textContent='디자인 배경 · '+c.name;$('#selectedName').textContent=v.name;$('#selectedDesc').textContent=c.desc+' · 선명한 벡터 렌더링';return}let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
+function updateSelected(){let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
 function setupCategories(){let wrap=$('#categoryTabs');wrap.innerHTML='';categories().forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===activeCategory?' active':'');b.textContent=c;b.onclick=()=>{activeCategory=c;setupCategories();renderPatternList()};wrap.appendChild(b)})}
 function filteredPresets(){let q=$('#searchInput').value.trim().toLowerCase(),checksOnly=$('#checkOnly')?.checked;return PE.presets.filter(p=>(activeCategory==='전체'||p.category===activeCategory)&&(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!checksOnly||checkPresetOnly(p))&&(!q||`${p.name} ${p.category} ${p.desc} ${p.id}`.toLowerCase().includes(q)))}
 function thumbnailLayerForPreset(p){let layer={...currentLayer(),presetId:p.id,sourceType:'builtin'};let d=PE.defaults[p.id]||{};Object.assign(layer,d);return layer}
@@ -300,7 +317,7 @@ function selectPatternForActiveLayer(id){
   let keepColorMode=layer.colorMode||'individual',keepMaster=layer.masterColor||layer.colors?.[1]||'#F59BBC',keepColors=normalizeColors(layer.colors);
   let base={size:72,gap:24,jitter:0,rotation:0,stroke:4,opacity:100,detail:45,randomSize:true,randomAngle:true,randomPosition:true,offsetX:0,offsetY:0};
   Object.assign(layer,base,PE.defaults[id]||{});
-  layer.enabled=true;layer.sourceType='builtin';layer.presetId=id;layer.colorMode=keepColorMode;layer.masterColor=keepMaster;layer.colors=keepColors;
+  layer.enabled=true;layer.sourceType='builtin';layer.presetId=id;layer.colorMode=keepColorMode;layer.masterColor=keepMaster;layer.colors=keepColors;layer.anchorToneProfile=defaultAnchorProfileForPreset(id);
   state.bg.backgroundOnly=false;
 
   // Commit the actual selection first. A color helper must never be able to cancel a click.
@@ -388,7 +405,7 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
   let colorHead=document.createElement('div');colorHead.className='section-title-row';colorHead.innerHTML='<div><h3>색상 설정</h3><div class="control-subtitle">디자인 구조는 그대로 두고 색만 바꿔.</div></div>';colorBox.appendChild(colorHead);
   let mode=document.createElement('div');mode.className='color-mode-tabs';let autoBtn=document.createElement('button'),manualBtn=document.createElement('button');autoBtn.type=manualBtn.type='button';autoBtn.textContent='대표색으로 자동 설정';manualBtn.textContent='개별 색상 직접 설정';autoBtn.className=layer.colorMode!=='individual'?'active':'';manualBtn.className=layer.colorMode==='individual'?'active':'';mode.append(autoBtn,manualBtn);colorBox.appendChild(mode);
   if(layer.colorMode!=='individual'){let master=document.createElement('div');master.className='master-color-panel';let lab=document.createElement('div');lab.className='master-label';lab.innerHTML='<strong>대표 색상 · Anchor Color</strong><span>선택한 색상을 가장 진한 기준색으로 사용하고, 나머지는 기존 밝기 관계를 유지한 틴트로 자동 생성해.</span>';let row=document.createElement('div');row.className='master-color-row';let picker=document.createElement('input');picker.type='color';picker.value=normalizeHexLike(layer.masterColor||layer.colors[1]||'#F59BBC','#F59BBC');let txt=document.createElement('input');txt.type='text';txt.maxLength=7;txt.value=picker.value.toUpperCase();let apply=function(v){v=normalizeHexLike(v,picker.value);picker.value=v;txt.value=v;applyMasterTone(layer,v,true);persistAll();renderPatternListDebounced();syncGlobalControls();renderMain()};picker.oninput=function(){apply(picker.value)};txt.onchange=function(){if(/^#[0-9a-fA-F]{6}$/.test(txt.value))apply(txt.value)};row.append(picker,txt,makeEyeDropperButton(apply));let sw=document.createElement('div');sw.className='master-swatches';MASTER_COLOR_SWATCHES.forEach(function(c){let b=document.createElement('button');b.type='button';b.className='master-swatch';b.style.background=c;b.title=c;b.onclick=function(){apply(c)};sw.appendChild(b)});master.append(lab,row,sw);colorBox.appendChild(master)}else{let note=document.createElement('div');note.className='individual-note';note.textContent='캔버스 배경과 패턴에 사용되는 색을 각각 직접 지정할 수 있어.';colorBox.appendChild(note);if(activeLayerIndex===0){let bgRow=document.createElement('div');bgRow.className='color-row actual-bg-row';let bgLab=document.createElement('div');bgLab.className='color-label';bgLab.textContent='캔버스 배경';let bgPicker=document.createElement('input');bgPicker.type='color';bgPicker.value=state.bg.colors[0]||'#FFFFFF';let bgText=document.createElement('input');bgText.type='text';bgText.maxLength=7;bgText.value=bgPicker.value.toUpperCase();let setBg=function(v){v=normalizeHexLike(v,bgPicker.value);state.bg.colors[0]=v;bgPicker.value=v;bgText.value=v;syncBgGradientState(state.bg);persistAll();renderMain()};bgPicker.oninput=function(){setBg(bgPicker.value)};bgText.onchange=function(){if(/^#[0-9a-fA-F]{6}$/.test(bgText.value))setBg(bgText.value)};bgRow.append(bgLab,bgPicker,bgText);colorBox.appendChild(bgRow)}colorBox.appendChild(renderColorInputs(layer.colors,()=>{persistAll();let asset=userAssets.find(v=>v.id===layer.assetId);if(asset&&asset.kind==='svg'){asset._img=null;ensureAssetImage(asset,layer).then(renderMain)}renderPatternListDebounced();renderAssetList();renderMain()}))}
-  autoBtn.onclick=function(){layer.colorMode='auto';applyMasterTone(layer,layer.masterColor||layer.colors[1]||'#F59BBC',true);persistAll();renderLayerEditor();syncGlobalControls();renderPatternListDebounced();renderMain()};manualBtn.onclick=function(){layer.colorMode='individual';persistAll();renderLayerEditor();renderMain()};top.appendChild(colorBox);
+  autoBtn.onclick=function(){if(layer.colorMode==='individual')layer.anchorToneProfile=buildAnchorToneProfile(layer.colors,layer.presetId);layer.colorMode='auto';applyMasterTone(layer,layer.masterColor||layer.colors[1]||'#F59BBC',true);persistAll();renderLayerEditor();syncGlobalControls();renderPatternListDebounced();renderMain()};manualBtn.onclick=function(){layer.colorMode='individual';persistAll();renderLayerEditor();renderMain()};top.appendChild(colorBox);
   if(layer.sourceType==='builtin'&&layer.presetId==='layered-fabric-plaid'&&layer.colorMode==='individual'){
     if(!layer.plaidMaster)layer.plaidMaster='#F39BBC';if(!layer.plaidBg2)layer.plaidBg2='#FFEAF2';if(layer.plaidHatch===undefined)layer.plaidHatch=true;if(layer.plaidHatchStrength===undefined)layer.plaidHatchStrength=32;
     let box=document.createElement('div');box.className='layer-editor-card';box.innerHTML='<div class="section-title-row"><h3>플래드 세부 색상</h3></div><div class="control-subtitle">플래드가 추가로 사용하는 두 번째 바탕색과 해칭을 직접 조절해.</div>';
@@ -471,34 +488,23 @@ function syncGlobalControls(){renderBgColorInputs();$('#bgMode').value=state.bg.
 function setZoom(v){zoom=clamp(v,.3,1.6);$('#zoomText').textContent=Math.round(zoom*100)+'%';canvas.style.width=`min(${72*zoom}vh, ${78*zoom}vw)`}
 function renderCirclePreview(){if(!circleCtx||!circleCanvas)return;let w=circleCanvas.width,h=circleCanvas.height,r=Math.min(w,h)/2-4;circleCtx.clearRect(0,0,w,h);circleCtx.save();circleCtx.beginPath();circleCtx.arc(w/2,h/2,r,0,Math.PI*2);circleCtx.closePath();circleCtx.clip();circleCtx.drawImage(canvas,0,0,w,h);circleCtx.restore();circleCtx.save();circleCtx.beginPath();circleCtx.arc(w/2,h/2,r,0,Math.PI*2);circleCtx.lineWidth=8;circleCtx.strokeStyle='rgba(255,255,255,.96)';circleCtx.stroke();circleCtx.beginPath();circleCtx.arc(w/2,h/2,r,0,Math.PI*2);circleCtx.lineWidth=1.5;circleCtx.strokeStyle='rgba(210,198,240,.95)';circleCtx.stroke();circleCtx.restore();}
 function randomizeAll(){
-  if(state.studioMode==='design'&&DE){
-    let concepts=DE.concepts,variants=DE.variants,c=concepts[Math.floor(Math.random()*concepts.length)],v=variants[Math.floor(Math.random()*variants.length)];
-    state.design=DE.defaultState(c.id,v.id);
-    let quick=MASTER_COLOR_SWATCHES[Math.floor(Math.random()*MASTER_COLOR_SWATCHES.length)];state.design.masterColor=quick;
-    persistAll();renderDesignBrowser();renderDesignEditor();renderMain();toast('디자인 컨셉과 대표색을 랜덤으로 바꿨어.');return
-  }
 let palette=palettePresets[Math.floor(Math.random()*palettePresets.length)];state.bg.colors=[palette[0],palette[1]];state.bg.gradientStops=buildGradientStopsFromColors([palette[0],palette[1]]);state.layers.forEach((layer,i)=>{let candidates=PE.presets.filter(p=>(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!$('#checkOnly')?.checked||checkPresetOnly(p)));let pool=candidates.length?candidates:PE.presets;let p=pool[Math.floor(Math.random()*Math.max(1,pool.length))];layer.sourceType='builtin';layer.presetId=p.id;let d=PE.defaults[p.id]||{};Object.assign(layer,d);layer.colors=normalizeColors(shuffle(palette.concat()).slice(0,4));layer.colors[4]=suggestLineColor(layer.colors);layer.size=clamp((d.size??layer.size)+(i*10),12,220);layer.gap=clamp((d.gap??layer.gap)+Math.floor(Math.random()*30),0,140);layer.jitter=clamp((d.jitter??20)+Math.floor(Math.random()*40),0,100);layer.rotation=Math.floor(-18+Math.random()*36);layer.opacity=clamp(100-i*18,20,100);layer.detail=Math.floor(25+Math.random()*70);layer.enabled=i===0?true:(Math.random()>.25);layer.randomSize=true;layer.randomAngle=true;layer.randomPosition=true;layer.offsetX=0;layer.offsetY=0;layer.checkerToneMode=false;layer.checkerToneBase=layer.colors[1];layer.seed=Math.floor(Math.random()*1e9)});persistAll();syncAll();toast('배경과 레이어 패턴을 랜덤으로 조합했어.')
 }
 async function exportPNG(seamless=false){
-  if(state.studioMode==='design')seamless=false;
   let w=clamp(+($('#exportW').value)||2000,256,6000),h=clamp(+($('#exportH').value)||2000,256,6000);
   if(seamless){w=clamp(+($('#tileW').value)||512,64,4000);h=clamp(+($('#tileH').value)||512,64,4000)}
   state.exportW=w;state.exportH=h;if(seamless){state.tileW=w;state.tileH=h}persistAll();
   let out=document.createElement('canvas');out.width=w;out.height=h;let octx=out.getContext('2d');
-  if(state.studioMode==='design'&&DE){
-    DE.render(octx,w,h,state.design);
-  }else{
-    drawBackground(octx,w,h);
-    if(!state.bg.backgroundOnly) for(let layer of state.layers){
-      if(!layer.enabled)continue;
-      if(layer.sourceType==='builtin'){PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),w/2000)}
-      else{let asset=userAssets.find(v=>v.id===layer.assetId);if(asset){await ensureAssetImage(asset,layer).catch(()=>null);renderUploadedLayer(octx,w,h,layer,w/2000,seamless)}}
-    }
+  drawBackground(octx,w,h);
+  if(!state.bg.backgroundOnly) for(let layer of state.layers){
+    if(!layer.enabled)continue;
+    if(layer.sourceType==='builtin'){PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),w/2000)}
+    else{let asset=userAssets.find(v=>v.id===layer.assetId);if(asset){await ensureAssetImage(asset,layer).catch(()=>null);renderUploadedLayer(octx,w,h,layer,w/2000,seamless)}}
   }
   applyVignette(octx,w,h);
   let blob=await new Promise(r=>out.toBlob(r,'image/png'));if(!blob){toast('PNG 생성에 실패했어.');return}
   let link=document.createElement('a');link.href=URL.createObjectURL(blob);
-  link.download=state.studioMode==='design'?('cute-design-'+state.design.conceptId+'-'+state.design.variantId+'-'+w+'x'+h+'.png'):(seamless?('cute-pattern-seamless-'+w+'x'+h+'.png'):('cute-pattern-'+w+'x'+h+'.png'));
+  link.download=seamless?('cute-pattern-seamless-'+w+'x'+h+'.png'):('cute-pattern-'+w+'x'+h+'.png');
   link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1500);toast(w+'×'+h+' PNG를 저장했어.')
 }
 
@@ -508,64 +514,20 @@ function colorDistance(a,b){let dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Ma
 function rgbToHex([r,g,b]){return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase()}
 function renderReferencePalette(){let wrap=$('#referencePalette');wrap.innerHTML='';if(!referencePalette.length)return;let box=document.createElement('div');box.className='swatch-pack';let row=document.createElement('div');row.className='swatch-row';referencePalette.forEach(c=>{let s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;row.appendChild(s)});let actions=document.createElement('div');actions.className='preset-actions';let toLayer=document.createElement('button');toLayer.className='mini-btn';toLayer.textContent='현재 레이어에 적용';toLayer.onclick=()=>{let layer=currentLayer();layer.colors=normalizeColors([referencePalette[0],referencePalette[1]||referencePalette[0],referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[4]||referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0]]);layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncLayerUI();renderMain()};let toBg=document.createElement('button');toBg.className='mini-btn';toBg.textContent='배경에 적용';toBg.onclick=()=>{setBgGradientFromPalette(referencePalette);persistAll();syncGlobalControls();renderMain()};let toBoth=document.createElement('button');toBoth.className='mini-btn';toBoth.textContent='배경+현재 레이어';toBoth.onclick=()=>{setBgGradientFromPalette(referencePalette);let layer=currentLayer();layer.colors=normalizeColors([referencePalette[0],referencePalette[1]||referencePalette[0],referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[4]||referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0]]);layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncAll()};actions.append(toLayer,toBg,toBoth);box.append(row,actions);wrap.appendChild(box)}
 
-function designState(){state.design=DE.normalizeState(state.design||DE.defaultState());return state.design}
-function setStudioMode(mode){
-  state.studioMode=mode==='design'?'design':'pattern';persistAll();syncStudioModeUI();
-  if(state.studioMode==='design'){renderDesignBrowser();renderDesignEditor()}else{renderPatternList();syncLayerUI()}
-  renderMain()
-}
-function syncStudioModeUI(){
-  let isDesign=state.studioMode==='design',pb=$('#patternModeBtn'),db=$('#designModeBtn'),pp=$('#patternModePane'),browser=$('#designBrowser'),de=$('#designEditorSection'),le=$('#layerEditorSection'),be=$('#backgroundEditorSection'),search=$('#searchInput');
-  if(pb)pb.classList.toggle('active',!isDesign);if(db)db.classList.toggle('active',isDesign);
-  if(pp)pp.style.display=isDesign?'none':'block';if(browser)browser.style.display=isDesign?'block':'none';
-  if(de)de.style.display=isDesign?'block':'none';if(le)le.style.display=isDesign?'none':'block';if(be)be.style.display=isDesign?'none':'block';
-  if(search)search.style.display=isDesign?'none':'block';
-  if($('#libraryTitle'))$('#libraryTitle').textContent=isDesign?'디자인 배경':'패턴 라이브러리';
-  if($('#patternCount'))$('#patternCount').textContent=isDesign?`${DE.concepts.length}개 컨셉 · ${DE.variants.length}종 세트`:`${PE.presets.length}개 패턴`;
-  if($('#exportTileBtn'))$('#exportTileBtn').style.display=isDesign?'none':'';if($('#exportTileBtn2'))$('#exportTileBtn2').style.display=isDesign?'none':''
-}
 function makeEyeDropperButton(onPick){
   let b=document.createElement('button');b.type='button';b.className='dropper';b.textContent='💧';b.title='화면에서 색상 추출';
   b.onclick=async()=>{if(!window.EyeDropper){toast('이 브라우저는 화면 스포이드를 지원하지 않아.');return}try{let r=await new EyeDropper().open();onPick(r.sRGBHex.toUpperCase())}catch{}};return b
 }
-function renderDesignBrowser(){
-  let root=$('#designBrowser');if(!root||!DE)return;let ds=designState(),current=DE.getConcept(ds.conceptId);root.innerHTML='';
-  let intro=document.createElement('div');intro.className='design-browser-title';intro.innerHTML='<strong>컨셉 카테고리</strong><span>완성형 벡터 배경 · 각 세트 5종</span>';root.appendChild(intro);
-  let concepts=document.createElement('div');concepts.className='design-concept-list';
-  DE.concepts.forEach(c=>{let b=document.createElement('button');b.type='button';b.className='design-concept-card'+(c.id===current.id?' active':'');let sw=c.roles.find(r=>r.id===c.anchorRole)?.color||c.defaultMaster;b.innerHTML=`<span class='design-concept-swatch' style='background:${sw}'></span><span><strong>${c.name}</strong><small>${c.desc}</small></span>`;b.onclick=()=>{state.design=DE.defaultState(c.id,'base');state.studioMode='design';persistAll();renderDesignBrowser();renderDesignEditor();syncStudioModeUI();renderMain()};concepts.appendChild(b)});root.appendChild(concepts);
-  let setHead=document.createElement('div');setHead.className='design-browser-title compact';setHead.innerHTML=`<strong>${current.name} 디자인 세트</strong><span>기본 / 구름 리본 / 체크 / 도트버블 / 심플</span>`;root.appendChild(setHead);
-  let grid=document.createElement('div');grid.className='design-variant-grid';
-  DE.variants.forEach(v=>{let card=document.createElement('button');card.type='button';card.className='design-variant-card'+(v.id===ds.variantId?' active':'');let cv=document.createElement('canvas');cv.width=cv.height=180;DE.render(cv.getContext('2d'),180,180,DE.normalizeState({...ds,variantId:v.id}));let st=document.createElement('strong');st.textContent=v.name;let sm=document.createElement('small');sm.textContent=v.desc;card.append(cv,st,sm);card.onclick=()=>{state.design.variantId=v.id;persistAll();renderDesignBrowser();renderDesignEditor();renderMain()};grid.appendChild(card)});root.appendChild(grid)
-}
-function renderDesignEditor(){
-  let root=$('#designEditor');if(!root||!DE)return;let ds=designState(),concept=DE.getConcept(ds.conceptId),palette=DE.roleColors(ds);root.innerHTML='';
-  let top=document.createElement('div');top.className='design-editor-summary';top.innerHTML=`<strong>${concept.name}</strong><span>${DE.getVariant(ds.variantId).name} · 이미지 파일이 아닌 선명한 Canvas 벡터 렌더링</span>`;root.appendChild(top);
-  let mode=document.createElement('div');mode.className='color-mode-tabs';let auto=document.createElement('button'),manual=document.createElement('button');auto.type=manual.type='button';auto.textContent='대표색으로 자동 설정';manual.textContent='개별 색상 지정';auto.className=ds.colorMode!=='individual'?'active':'';manual.className=ds.colorMode==='individual'?'active':'';mode.append(auto,manual);root.appendChild(mode);
-  auto.onclick=()=>{ds.colorMode='auto';persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};
-  manual.onclick=()=>{if(ds.colorMode!=='individual'){ds.roleColors={...DE.roleColors(ds)}}ds.colorMode='individual';persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};
-  if(ds.colorMode!=='individual'){
-    let master=document.createElement('div');master.className='master-color-panel';master.innerHTML='<div class=\'master-label\'><strong>대표색 · Anchor Color</strong><span>선택색을 가장 진한 기준색으로 사용하고, 흰색·크림 영역은 옅은 틴트만 적용해.</span></div>';
-    let row=document.createElement('div');row.className='master-color-row';let picker=document.createElement('input');picker.type='color';picker.value=ds.masterColor;let txt=document.createElement('input');txt.type='text';txt.maxLength=7;txt.value=ds.masterColor;
-    let apply=v=>{ds.masterColor=normalizeHexLike(v,ds.masterColor);picker.value=txt.value=ds.masterColor;persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};picker.oninput=()=>apply(picker.value);txt.onchange=()=>{if(/^#[0-9a-fA-F]{6}$/.test(txt.value))apply(txt.value)};row.append(picker,txt,makeEyeDropperButton(apply));master.appendChild(row);
-    let sw=document.createElement('div');sw.className='master-swatches';MASTER_COLOR_SWATCHES.forEach(c=>{let b=document.createElement('button');b.type='button';b.className='master-swatch';b.style.background=c;b.title=c;b.onclick=()=>apply(c);sw.appendChild(b)});master.appendChild(sw);root.appendChild(master)
-  }
-  let roleHead=document.createElement('div');roleHead.className='section-title-row';roleHead.innerHTML=`<div><h3>세부 색상 설정</h3><div class='control-subtitle'>${ds.colorMode==='individual'?'디자인에 실제 존재하는 요소만 각각 수정해.':'자동 상태에서도 원하는 요소만 개별 유지할 수 있어.'}</div></div>`;root.appendChild(roleHead);
-  let roles=document.createElement('div');roles.className='design-role-list';
-  concept.roles.forEach(role=>{
-    let row=document.createElement('div');row.className='design-role-row';let lab=document.createElement('div');lab.className='design-role-label';lab.textContent=role.label;
-    let picker=document.createElement('input');picker.type='color';let txt=document.createElement('input');txt.type='text';txt.maxLength=7;
-    let isManual=ds.colorMode==='individual',locked=!!(ds.overrides&&ds.overrides[role.id]);let val=isManual?(ds.roleColors[role.id]||role.color):(locked?ds.overrides[role.id]:palette[role.id]);picker.value=normalizeHexLike(val,role.color);txt.value=picker.value;
-    let set=v=>{v=normalizeHexLike(v,picker.value);if(isManual)ds.roleColors[role.id]=v;else{ds.overrides=ds.overrides||{};ds.overrides[role.id]=v}picker.value=txt.value=v;persistAll();renderDesignBrowser();renderMain()};picker.oninput=()=>set(picker.value);txt.onchange=()=>{if(/^#[0-9a-fA-F]{6}$/.test(txt.value))set(txt.value)};
-    let toggle=document.createElement('button');toggle.type='button';toggle.className='mini-btn design-link-btn';
-    if(isManual){toggle.textContent='개별';toggle.disabled=true}else{toggle.textContent=locked?'자동으로 복귀':'개별 유지';toggle.onclick=()=>{ds.overrides=ds.overrides||{};if(locked)delete ds.overrides[role.id];else ds.overrides[role.id]=palette[role.id];persistAll();renderDesignEditor();renderDesignBrowser();renderMain()}};
-    if(!isManual&&!locked){picker.disabled=true;txt.disabled=true}row.append(lab,picker,txt,makeEyeDropperButton(set),toggle);roles.appendChild(row)
-  });root.appendChild(roles);
-  let sliders=document.createElement('div');sliders.className='design-adjust-grid';[['장식 크기','decorationScale',60,150],['장식 밀도','density',50,150]].forEach(spec=>{let label=spec[0],key=spec[1],min=spec[2],max=spec[3],wrap=document.createElement('label');wrap.innerHTML=`<span>${label} <b>${Math.round(ds[key])}%</b></span>`;let input=document.createElement('input');input.type='range';input.min=min;input.max=max;input.value=ds[key];input.oninput=()=>{ds[key]=+input.value;wrap.querySelector('b').textContent=input.value+'%';persistAll();renderDesignBrowser();renderMain()};wrap.appendChild(input);sliders.appendChild(wrap)});root.appendChild(sliders);
-  let reset=document.createElement('button');reset.type='button';reset.className='secondary wide';reset.textContent='이 디자인 색상 초기화';reset.onclick=()=>{state.design=DE.defaultState(ds.conceptId,ds.variantId);persistAll();renderDesignEditor();renderDesignBrowser();renderMain()};root.appendChild(reset)
+function bindPatternWheelScroll(){
+  let list=$('#patternList');if(!list)return;
+  list.addEventListener('wheel',e=>{
+    if(Math.abs(e.deltaY)<Math.abs(e.deltaX))return;
+    let max=list.scrollHeight-list.clientHeight;if(max<=0)return;
+    let before=list.scrollTop;list.scrollTop+=e.deltaY;
+    if(list.scrollTop!==before)e.preventDefault()
+  },{passive:false})
 }
 function bindGlobalControls(){
-  if($('#patternModeBtn'))$('#patternModeBtn').onclick=()=>setStudioMode('pattern');
-  if($('#designModeBtn'))$('#designModeBtn').onclick=()=>setStudioMode('design');
   $('#searchInput').oninput=renderPatternList;
   $('#favoriteOnly').onchange=renderPatternList;
   $('#checkOnly').onchange=renderPatternList;
@@ -597,7 +559,7 @@ function bindGlobalControls(){
   $('#vignetteSoftness').oninput=e=>{state.bg.vignette=state.bg.vignette||{};state.bg.vignette.softness=+e.target.value;$('#vignetteSoftnessVal').textContent=`${e.target.value}%`;persistAll();renderMain()};
   $('#resetVignetteBtn').onclick=()=>{state.bg.vignette={enabled:false,color:'#6F55C9',range:72,strength:28,softness:28};persistAll();syncGlobalControls();renderMain()};
   $('#randomizeAll').onclick=randomizeAll;
-  $('#resetBtn').onclick=()=>{if(!confirm('현재 설정을 초기화할까?'))return;if(state.studioMode==='design'&&DE){let c=state.design?.conceptId||'sky-cat',v=state.design?.variantId||'base';state.design=DE.defaultState(c,v);persistAll();renderDesignBrowser();renderDesignEditor();renderMain();toast('현재 디자인을 기본 색상으로 되돌렸어.');return}state=makeInitialState();activeLayerIndex=0;persistAll();syncAll();toast('초기 상태로 되돌렸어.')};
+  $('#resetBtn').onclick=()=>{if(!confirm('현재 설정을 초기화할까?'))return;state=makeInitialState();activeLayerIndex=0;persistAll();syncAll();toast('초기 상태로 되돌렸어.')};
   $('#savePresetBtn').onclick=saveCurrentPreset;
   $('#duplicateLayerBtn').onclick=()=>addLayer(true);
   $('#exportBtn').onclick=()=>exportPNG(false);
@@ -611,11 +573,12 @@ function bindGlobalControls(){
   $('#tileW').oninput=e=>{state.tileW=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
   $('#tileH').oninput=e=>{state.tileH=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
 }
-function syncAll(){syncGlobalControls();syncStudioModeUI();syncLayerUI();if(state.studioMode==='design'){renderDesignBrowser();renderDesignEditor()}else{renderPatternList()}renderMain();renderAssetList();renderFavoritePreview();renderSavedPresets()}
+function syncAll(){syncGlobalControls();syncLayerUI();renderPatternList();renderMain();renderAssetList();renderFavoritePreview();renderSavedPresets()}
 
 loadLocal();
 runtimeSelfCheck();
 bindGlobalControls();
+bindPatternWheelScroll();
 setupCategories();
 setupLayerTabs();
 syncAll();
