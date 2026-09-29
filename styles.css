@@ -102,3 +102,65 @@ input[type="text"]{border:1px solid var(--line);background:#fbfaff;border-radius
 .vignette-box{margin-top:10px;padding:10px;border:1px solid #ece6f8;border-radius:12px;background:#fbf9ff}.vignette-box .color-row{margin-top:8px}.vignette-box label{display:block;margin-top:9px}.vignette-box input[type=range]{width:100%}
 
 .watercolor-style-buttons{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:4px 0 8px}.watercolor-style-buttons .mini-btn{padding:6px 3px;font-size:10px;white-space:nowrap}.watercolor-style-buttons .mini-btn:hover{border-color:#9b87f0;background:#f8f5ff}
+
+
+/* v1.6.0 — clean soft UI inspired by the supplied reference */
+:root{
+  --bg:#fffafb;--panel:#fffdfd;--ink:#262127;--muted:#81777d;--line:#f0dde4;
+  --accent:#f187aa;--accent-strong:#e96894;--accent-soft:#fff0f5;--accent-pale:#fff7fa;
+  --shadow:0 10px 28px rgba(175,102,130,.08);--radius:18px;
+}
+body{background:linear-gradient(135deg,#fffdfd 0%,#fff7fa 48%,#fffdfb 100%);color:var(--ink)}
+.app-shell{padding:14px}
+.topbar{background:rgba(255,255,255,.82);border:1px solid #f4e5ea;border-radius:18px;padding:14px 18px;box-shadow:0 8px 24px rgba(186,112,140,.06);margin-bottom:12px}
+.eyebrow{color:#b58b9b}.topbar h1 span{background:#fff0f5;color:#d8628c}.subtitle{color:#8d7c84}
+button.primary{background:#ef82a7;box-shadow:0 7px 18px rgba(239,130,167,.22)}
+button.secondary{background:#fff;border:1px solid #efcbd8;color:#d96c93;box-shadow:none}
+button.ghost{background:#fff;border-color:#efdee5}
+.workspace{grid-template-columns:390px minmax(560px,1fr) 430px;gap:12px;max-width:1920px}
+.panel{border:1px solid #f2e2e8;background:rgba(255,255,255,.94);box-shadow:var(--shadow);border-radius:18px}
+.pattern-panel,.control-panel,.preview-panel{height:calc(100vh - 112px)}
+.panel-head{padding:16px 16px 8px}.panel-head h2,.control-section h2,.mini-section h3{font-size:16px}
+input[type=search],select,input[type=number],input[type=text],textarea{background:#fff;border-color:#eadde2;border-radius:9px}
+input[type=range]{accent-color:#ef82a7}
+.tabs{padding:6px 12px 10px}.tab{background:#fff;border-color:#eddde3}.tab.active{background:#fff0f5;border-color:#f2b5ca;color:#d65f89}
+.layer-tab.active,.source-type-row button.active{background:#fff0f5!important;border-color:#f2b5ca!important;color:#d65f89!important}
+.pattern-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:5px 12px 14px;height:calc(100% - 306px)}
+.pattern-card{border-color:#efdee4;border-radius:13px;padding:7px;background:#fff;box-shadow:none}
+.pattern-card:hover{border-color:#f0b9cc;background:#fffafd}
+.pattern-card.active{border-color:#ef82a7;box-shadow:0 0 0 2px rgba(239,130,167,.13)}
+.pattern-card canvas{border-radius:8px;background:#fffafb}
+.pattern-fav{right:8px;top:8px;border-color:#eddde3;background:rgba(255,255,255,.92)}
+.pattern-fav.on{background:#fff4bd;border-color:#f1d678}
+.pattern-hide{position:absolute;right:8px;top:38px;z-index:2;width:25px;height:25px;padding:0;border-radius:8px;border:1px solid #efdee4;background:rgba(255,255,255,.94);color:#a98995;font-size:15px;line-height:23px}
+.pattern-hide:hover{background:#fff0f5;color:#d65f89}
+.pattern-manage-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-top:8px;padding:8px 10px;background:#fff8fa;border:1px solid #f3e4e9;border-radius:12px}
+.preview-toolbar{padding:14px 16px;border-bottom-color:#f1e3e8}
+.pill{background:#fff0f5;color:#d65f89}
+.canvas-stage{padding:18px;background:#fff9fb;background-image:linear-gradient(45deg,#fff1f5 25%,transparent 25%),linear-gradient(-45deg,#fff1f5 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#fff1f5 75%),linear-gradient(-45deg,transparent 75%,#fff1f5 75%);background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0}
+.canvas-stage canvas{width:min(76vh,82vw);border-radius:10px;box-shadow:0 12px 32px rgba(177,101,129,.12)}
+.preview-extras{border-top-color:#f1e3e8;padding:12px 16px}.profile-preview-card{background:#fff8fa;border-color:#f0e1e6}
+.control-scroll{padding:4px 14px 20px}.control-section{border-bottom-color:#f0e3e7;padding:14px 0}
+.layer-editor-card{background:#fffafa;border-color:#f0e0e6;border-radius:14px;padding:11px}
+.theme-color-box{border:1px solid #efdfe5;border-radius:14px;background:#fff;padding:12px;display:grid;gap:10px}
+.theme-color-box h3{margin:0;font-size:14px}
+.color-mode-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid #eadde2;border-radius:10px;overflow:hidden;background:#faf7f8}
+.color-mode-tabs button{border-radius:0;background:transparent;color:#62575d;font-size:11px;padding:10px 8px}
+.color-mode-tabs button+button{border-left:1px solid #eadde2}
+.color-mode-tabs button.active{background:#ef82a7;color:#fff;font-weight:800}
+.master-color-panel{display:grid;gap:10px;padding:2px}
+.master-label{display:grid;gap:3px}.master-label strong{font-size:12px}.master-label span,.individual-note{font-size:10px;color:#8c7d84;line-height:1.45}
+.master-color-row{display:grid;grid-template-columns:58px 1fr;gap:10px;align-items:center}
+.master-color-row input[type=color]{width:58px;height:48px;border:1px solid #efcbd8;border-radius:10px;padding:0;background:#fff;overflow:hidden}
+.master-color-row input[type=text]{height:48px;font-size:13px;font-weight:700}
+.master-swatches{display:flex;gap:9px;flex-wrap:wrap}
+.master-swatch{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid #fff;box-shadow:0 0 0 1px #eadde2}
+.master-swatch:hover{transform:scale(1.06)}
+.actual-bg-row{padding:8px;background:#fff8fa;border:1px solid #f2e3e8;border-radius:10px}
+.color-row{grid-template-columns:32px 1fr 34px}.color-row input[type=color]{width:32px;height:32px;border-color:#eadde2}
+.mini-btn{background:#fff;border-color:#eadde2;border-radius:8px}.mini-btn:hover{background:#fff5f8;border-color:#f0bfd0}
+.switch-row input{accent-color:#ef82a7}
+.info-box{background:#fff8fa;border-color:#f1dfe6!important}
+.toast{background:#3b3035}
+@media(max-width:1500px){.workspace{grid-template-columns:340px minmax(430px,1fr) 390px}}
+@media(max-width:1120px){.workspace{display:block}.pattern-panel,.preview-panel,.control-panel{height:auto}.pattern-list{height:auto;max-height:460px}}
