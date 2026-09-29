@@ -1,5 +1,6 @@
 
 const PE=window.PatternEngine;
+const DE=window.DesignEngine;
 const $=q=>document.querySelector(q);
 const canvas=$('#previewCanvas'),ctx=canvas.getContext('2d');
 const circleCanvas=$('#circlePreviewCanvas'),circleCtx=circleCanvas?circleCanvas.getContext('2d'):null;
@@ -15,7 +16,7 @@ const curatedHarmonyPresets=[
   {name:'피치 크림',note:'복숭아 + 코랄 + 바닐라',colors:['#FFF8F2','#F6C2B1','#FFE0CC','#F3D27B','#D7A080']},
   {name:'세이지 체크',note:'세이지 + 아이보리 + 부드러운 라인',colors:['#FBFCF8','#A8B4A3','#D8DED3','#F2E6D0','#8F9889']}
 ];
-const STORAGE={state:'cps-v151-state',favorites:'cps-v151-favorites',presets:'cps-v151-presets',assets:'cps-v151-assets',hiddenPatterns:'cps-v160-hidden-patterns'};
+const STORAGE={state:'cps-v151-state',favorites:'cps-v151-favorites',presets:'cps-v151-presets',assets:'cps-v151-assets',hiddenPatterns:'cps-v160-hidden-patterns',deletedPatterns:'cps-v200-deleted-patterns'};
 const MAX_LAYERS=8;
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/장식색'],['선 색','체크 외곽선/그리드 선']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
@@ -39,10 +40,10 @@ function rgbToHsl({r,g,b}){r/=255;g/=255;b/=255;let max=Math.max(r,g,b),min=Math
 function hslToRgb(h,s,l){h=((h%360)+360)%360;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}return {r:(r+m)*255,g:(g+m)*255,b:(b+m)*255}}
 function hslToHex(h,s,l){return rgbToHexObj(hslToRgb(h,s,l))}
 function mixHex(a,b,ratio=.5){let ca=hexToRgb(a),cb=hexToRgb(b);return rgbToHexObj({r:ca.r*(1-ratio)+cb.r*ratio,g:ca.g*(1-ratio)+cb.g*ratio,b:ca.b*(1-ratio)+cb.b*ratio})}
-function buildLayeredPlaidPalette(baseHex){let q=rgbToHsl(hexToRgb(baseHex)),h=q.h,s=q.s,sat=Math.max(.22,Math.min(.72,s||.45));return {bgA:hslToHex(h,sat*.12,.985),bgB:hslToHex(h,sat*.20,.955),wide:hslToHex(h,sat*.58,.82),mid:hslToHex(h,sat*.68,.74),dark:hslToHex(h,sat*.74,.61),hatch:hslToHex(h,sat*.52,.70)}}
+function buildLayeredPlaidPalette(baseHex){let master=normalizeHexLike(baseHex,'#6E88C8');return {bgA:mixHex(master,'#FFFFFF',.91),bgB:mixHex(master,'#FFFFFF',.82),wide:mixHex(master,'#FFFFFF',.52),mid:mixHex(master,'#FFFFFF',.30),dark:master,hatch:master}}
 function applyLayeredPlaidMaster(layer,baseHex){let pal=buildLayeredPlaidPalette(baseHex);layer.plaidMaster=normalizeHexLike(baseHex,'#F39BBC');layer.colors=[pal.bgA,pal.wide,pal.mid,pal.dark,pal.hatch];layer.plaidBg2=pal.bgB;layer.plaidHatch=layer.plaidHatch!==false;layer.plaidHatchStrength=layer.plaidHatchStrength??32;return pal}
-const MASTER_COLOR_SWATCHES=['#F59BBC','#F5B59F','#F2D36F','#9EDCC7','#91C9EE','#B9A7EE','#B9B9BD'];
-function buildThemeTonePalette(baseHex,presetId=''){let q=rgbToHsl(hexToRgb(normalizeHexLike(baseHex,'#F59BBC'))),h=q.h,s=Math.max(.28,Math.min(.82,q.s||.55)),l=Math.max(.48,Math.min(.78,q.l||.68));let isGlow=['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'].includes(presetId);if(isGlow)return [hslToHex(h,s*.10,.985),hslToHex(h,Math.min(.86,s*.92),Math.min(.80,l+.06)),hslToHex(h,Math.min(.70,s*.66),.92),hslToHex(h,Math.min(.90,s),Math.max(.48,l-.15)),hslToHex(h,Math.min(.55,s*.55),.72)];return [hslToHex(h,s*.10,.985),hslToHex(h,Math.min(.82,s*.86),Math.min(.82,l+.04)),hslToHex(h,Math.min(.62,s*.58),.90),hslToHex(h,Math.min(.88,s*.94),Math.max(.54,l-.10)),hslToHex(h,Math.min(.58,s*.62),Math.max(.38,l-.24))]}
+const MASTER_COLOR_SWATCHES=['#D94B5E','#E78238','#D4B83A','#4F9866','#4B79C8','#535AA8','#8A5CC2'];
+function buildThemeTonePalette(baseHex,presetId=''){let master=normalizeHexLike(baseHex,'#D94B7A');let bg=mixHex(master,'#FFFFFF',.91),mid=mixHex(master,'#FFFFFF',.43),light=mixHex(master,'#FFFFFF',.72);return [bg,master,mid,light,master]}
 function syncCanvasBackgroundToMaster(palette){if(activeLayerIndex!==0||state.bg.transparent)return;let bg=palette[0];state.bg.colors[0]=bg;if(state.bg.mode==='solid'){state.bg.gradientStops=buildGradientStopsFromColors([bg,state.bg.colors[1]||bg])}else if(Array.isArray(state.bg.gradientStops)&&state.bg.gradientStops.length){state.bg.gradientStops[0].color=bg}syncBgGradientState(state.bg)}
 function applyMasterTone(layer,baseHex,syncBg=true){let master=normalizeHexLike(baseHex,layer.masterColor||'#F59BBC');layer.masterColor=master;layer.colorMode='auto';if(layer.presetId==='layered-fabric-plaid'){applyLayeredPlaidMaster(layer,master);layer.masterColor=master}else{layer.colors=buildThemeTonePalette(master,layer.presetId)}if(syncBg)syncCanvasBackgroundToMaster(layer.colors);return layer.colors}
 function luminance(hex){let {r,g,b}=hexToRgb(hex);return .2126*r+.7152*g+.0722*b}
@@ -71,9 +72,9 @@ function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show
 function categories(){return ['전체',...new Set(PE.presets.map(p=>p.category))]}
 function getPreset(id){return PE.presets.find(p=>p.id===id)||PE.presets[0]}
 function defaultLayer(i,presetId='pastel-checker',enabled=true){return {enabled,name:i===0?'기본 레이어':`추가 레이어 ${i}`,sourceType:'builtin',presetId,assetId:'',renderMode:'motif',colors:buildThemeTonePalette('#F59BBC',presetId),size:i===0?72:58,gap:i===0?24:28,jitter:i===0?18:22,rotation:0,stroke:4,opacity:i===0?100:78,detail:45,seed:Math.floor(Math.random()*1e9),svgColorMode:'original',randomSize:true,randomAngle:true,randomPosition:true,offsetX:0,offsetY:0,checkerToneMode:false,checkerToneBase:'#AFC3FF',colorMode:'auto',masterColor:'#F59BBC'}}
-function makeInitialState(){return {bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorDefinition:52,watercolorSparkle:28,watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28}},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
+function makeInitialState(){return {studioMode:'pattern',design:DE?DE.defaultState('sky-cat','base'):null,bg:{transparent:false,mode:'solid',colors:[...defaultBg],gradientAngle:135,gradientStops:buildGradientStopsFromColors(defaultBg),backgroundOnly:false,watercolorSpread:62,watercolorScale:58,watercolorIrregular:72,watercolorTexture:true,watercolorStyle:'mist',watercolorDefinition:52,watercolorSparkle:28,watercolorSeed:47291,vignette:{enabled:false,color:'#6F55C9',range:72,strength:28,softness:28}},exportW:2000,exportH:2000,tileW:512,tileH:512,layers:[defaultLayer(0,'pastel-checker',true)]}}
 let favorites=new Set();
-let hiddenPatterns=new Set();
+let deletedPatterns=new Set();
 let myPresets=[];
 let userAssets=[];
 let state=makeInitialState();
