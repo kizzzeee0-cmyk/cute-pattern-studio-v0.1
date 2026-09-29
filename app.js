@@ -242,14 +242,19 @@ let previewRenderToken=0;
 function composePreviewFrame(){
   let frame=document.createElement('canvas');frame.width=canvas.width;frame.height=canvas.height;
   let fctx=frame.getContext('2d');
-  fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';drawBackground(fctx,frame.width,frame.height);
-  if(!state.bg.backgroundOnly) for(let layer of state.layers){
-    if(!layer.enabled)continue;
-    try{
-      fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
-      if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),frame.width/2000);
-      else renderUploadedLayer(fctx,frame.width,frame.height,layer,frame.width/2000,false);
-    }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
+  fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
+  if(state.studioMode==='design'&&DE){
+    DE.render(fctx,frame.width,frame.height,state.design);
+  }else{
+    drawBackground(fctx,frame.width,frame.height);
+    if(!state.bg.backgroundOnly) for(let layer of state.layers){
+      if(!layer.enabled)continue;
+      try{
+        fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
+        if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),frame.width/2000);
+        else renderUploadedLayer(fctx,frame.width,frame.height,layer,frame.width/2000,false);
+      }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
+    }
   }
   fctx.setTransform(1,0,0,1,0,0);fctx.globalAlpha=1;fctx.globalCompositeOperation='source-over';
   applyVignette(fctx,frame.width,frame.height);
@@ -263,7 +268,7 @@ function renderMainNow(){
 function renderMain(){
   const token=++previewRenderToken;
   renderMainNow();
-  const pending=state.layers.some(layer=>layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId&&userAssets.some(asset=>asset.id===layer.assetId&&!asset._img));
+  const pending=state.studioMode!=='design'&&state.layers.some(layer=>layer.enabled&&layer.sourceType==='uploaded'&&layer.assetId&&userAssets.some(asset=>asset.id===layer.assetId&&!asset._img));
   if(pending)ensureVisibleAssets().then(()=>{if(token===previewRenderToken)renderMainNow()}).catch(err=>console.error('Asset preload failed:',err))
 }
 function forcePreviewRefresh(){
@@ -271,7 +276,7 @@ function forcePreviewRefresh(){
   renderMain();
   requestAnimationFrame(()=>{renderMain();setTimeout(()=>renderMain(),0)})
 }
-function updateSelected(){let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
+function updateSelected(){if(state.studioMode==='design'&&DE){let c=DE.getConcept(state.design.conceptId),v=DE.getVariant(state.design.variantId);$('#selectedCategory').textContent='디자인 배경 · '+c.name;$('#selectedName').textContent=v.name;$('#selectedDesc').textContent=c.desc+' · 선명한 벡터 렌더링';return}let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
 function setupCategories(){let wrap=$('#categoryTabs');wrap.innerHTML='';categories().forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===activeCategory?' active':'');b.textContent=c;b.onclick=()=>{activeCategory=c;setupCategories();renderPatternList()};wrap.appendChild(b)})}
 function filteredPresets(){let q=$('#searchInput').value.trim().toLowerCase(),checksOnly=$('#checkOnly')?.checked,manageHidden=$('#showHiddenPatterns')?.checked;return PE.presets.filter(p=>(manageHidden?hiddenPatterns.has(p.id):!hiddenPatterns.has(p.id))&&(activeCategory==='전체'||p.category===activeCategory)&&(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!checksOnly||checkPresetOnly(p))&&(!q||`${p.name} ${p.category} ${p.desc} ${p.id}`.toLowerCase().includes(q)))}
 function thumbnailLayerForPreset(p){let layer={...currentLayer(),presetId:p.id,sourceType:'builtin'};let d=PE.defaults[p.id]||{};Object.assign(layer,d);return layer}
