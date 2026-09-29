@@ -56,7 +56,7 @@
     let gridX=Math.max(8,(s.gridX??180)*scale);
     let gridY=Math.max(8,(s.gridY??180)*scale);
     let rot=(s.rotation||0)*Math.PI/180;
-    let ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale;
+    let ox=0,oy=0;
     let extra=Math.hypot(w,h);
     ctx.save();
     ctx.globalAlpha=(s.opacity??100)/100*lineOpacity;
