@@ -180,3 +180,21 @@ input[type=range]{accent-color:#ef82a7}
   #patternModePane{min-height:560px}
   .pattern-list{max-height:none;min-height:280px}
 }
+
+/* v2.0.2 · category strip restore */
+#categoryTabs{
+  display:flex;
+  flex:0 0 auto;
+  min-height:44px;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:6px 14px 10px;
+  background:rgba(255,255,255,.96);
+  border-top:1px solid #f3e8ec;
+  border-bottom:1px solid #f0e1e6;
+  scrollbar-width:thin;
+}
+#categoryTabs .tab{flex:0 0 auto}
+#patternModePane>.mini-section.no-border,
+#patternModePane>.asset-section{flex:0 0 auto}
