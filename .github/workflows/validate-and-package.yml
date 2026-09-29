@@ -1,0 +1,40 @@
+name: Validate and Package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app.js
+          node --check patterns.js
+          node --check designs.js
+      - name: Validate v2 wiring
+        run: |
+          grep -q 'designs.js?v=2.0.0' index.html
+          grep -q 'app.js?v=2.0.0' index.html
+          grep -q '점선 체크 / Dashed Grid' patterns.js
+          grep -q 'window.DesignEngine' designs.js
+          ! grep -q 'showHiddenPatterns' index.html
+      - name: Package source
+        run: |
+          mkdir -p dist/cute-pattern-studio-v2.0.0
+          cp index.html styles.css app.js patterns.js designs.js package.json README.md dist/cute-pattern-studio-v2.0.0/
+          cd dist
+          zip -r cute-pattern-studio-v2.0.0.zip cute-pattern-studio-v2.0.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cute-pattern-studio-v2.0.0
+          path: dist/cute-pattern-studio-v2.0.0.zip
+          if-no-files-found: error
