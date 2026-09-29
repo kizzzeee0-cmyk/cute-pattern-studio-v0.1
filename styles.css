@@ -164,3 +164,75 @@ input[type=range]{accent-color:#ef82a7}
 .toast{background:#3b3035}
 @media(max-width:1500px){.workspace{grid-template-columns:340px minmax(430px,1fr) 390px}}
 @media(max-width:1120px){.workspace{display:block}.pattern-panel,.preview-panel,.control-panel{height:auto}.pattern-list{height:auto;max-height:460px}}
+
+
+/* v2.0.0 · Pattern / Design Background */
+.library-mode-tabs{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px 4px;
+}
+.library-mode-tabs button{
+  border:1px solid #eedee5;background:#fff9fb;color:#8d7580;border-radius:12px;
+  padding:10px 8px;font-weight:700;cursor:pointer;transition:.16s ease;
+}
+.library-mode-tabs button:hover{background:#fff1f6;border-color:#f2bdd0}
+.library-mode-tabs button.active{
+  background:linear-gradient(180deg,#ff8bad,#f4779e);border-color:#ee789f;color:#fff;
+  box-shadow:0 5px 14px rgba(234,105,147,.16);
+}
+.design-browser{padding:10px 12px 18px}
+.design-browser-title{display:flex;justify-content:space-between;align-items:end;gap:8px;margin:6px 0 10px}
+.design-browser-title strong{font-size:13px;color:#4e4248}
+.design-browser-title span{font-size:10px;color:#aa929b}
+.design-browser-title.compact{margin-top:16px}
+.design-concept-list{display:grid;gap:8px}
+.design-concept-card{
+  width:100%;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center;text-align:left;
+  border:1px solid #f0e0e6;background:#fff;border-radius:13px;padding:9px;cursor:pointer;
+}
+.design-concept-card:hover{border-color:#efb4c8;background:#fff9fb}
+.design-concept-card.active{border-color:#ef83a8;box-shadow:0 0 0 2px rgba(239,131,168,.11);background:#fff8fb}
+.design-concept-card strong,.design-concept-card small{display:block}
+.design-concept-card strong{font-size:12px;margin-bottom:2px;color:#51444a}
+.design-concept-card small{font-size:9px;color:#a18c94;line-height:1.35}
+.design-concept-swatch{width:32px;height:32px;border-radius:10px;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px #eadce2}
+.design-variant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.design-variant-card{
+  min-width:0;border:1px solid #eee0e5;border-radius:13px;padding:5px;background:#fff;text-align:left;cursor:pointer;
+}
+.design-variant-card:hover{border-color:#f0afc5;background:#fffafd}
+.design-variant-card.active{border-color:#f0749d;box-shadow:0 0 0 2px rgba(240,116,157,.12)}
+.design-variant-card canvas{display:block;width:100%;aspect-ratio:1;border-radius:9px;background:#faf8fb}
+.design-variant-card strong{display:block;font-size:10px;margin:6px 2px 2px;color:#594a50}
+.design-variant-card small{display:block;font-size:8.5px;color:#a38d96;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.design-editor-summary{
+  display:grid;gap:3px;padding:11px 12px;margin-bottom:10px;border:1px solid #f0e0e6;
+  background:#fff9fb;border-radius:13px;
+}
+.design-editor-summary strong{font-size:13px;color:#55464d}
+.design-editor-summary span{font-size:9.5px;color:#a28b95}
+.design-role-list{display:grid;gap:7px;margin-top:8px}
+.design-role-row{
+  display:grid;grid-template-columns:minmax(88px,1fr) 38px minmax(82px,1fr) 34px auto;
+  gap:6px;align-items:center;padding:7px 8px;border:1px solid #f1e5e9;background:#fff;border-radius:11px;
+}
+.design-role-label{font-size:10px;color:#66545c;font-weight:700;line-height:1.2}
+.design-role-row input[type="color"]{width:36px;height:31px;padding:2px;border-radius:8px}
+.design-role-row input[type="text"]{min-width:0;font-size:10px;padding:7px 6px}
+.design-role-row input:disabled{opacity:.52;cursor:not-allowed}
+.design-link-btn{white-space:nowrap;font-size:9px;padding:6px 7px}
+.design-adjust-grid{display:grid;gap:10px;margin-top:12px;padding:11px;border:1px solid #f1e2e7;background:#fffafb;border-radius:12px}
+.design-adjust-grid label{display:grid;gap:5px}
+.design-adjust-grid span{display:flex;justify-content:space-between;font-size:10px;color:#705e66}
+.design-adjust-grid input[type="range"]{width:100%}
+#designEditor .master-color-panel{margin:10px 0}
+#designEditor .section-title-row{margin-top:13px}
+#designEditor .color-mode-tabs{margin-bottom:8px}
+#patternModePane{min-width:0}
+@media(max-width:1120px){
+  .design-role-row{grid-template-columns:minmax(78px,1fr) 36px minmax(72px,1fr) 32px auto}
+}
+@media(max-width:760px){
+  .design-variant-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .design-role-row{grid-template-columns:1fr 38px 1fr 34px;grid-template-areas:"label picker text drop" "label action action action"}
+  .design-role-label{grid-area:label}.design-link-btn{grid-area:action;justify-self:end}
+}
