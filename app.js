@@ -61,9 +61,11 @@ function renderPaletteCard(parent,item){let card=document.createElement('div');c
 function renderColorRecommendationPanels(){let curated=$('#curatedPaletteList'),auto=$('#autoPaletteList');if(!curated||!auto)return;curated.innerHTML='<div class="muted mini-copy">함께 쓰면 예쁜 조합 프리셋</div>';auto.innerHTML='<div class="muted mini-copy">기준 색상으로 자동 생성한 추천 팔레트</div>';curatedHarmonyPresets.forEach(item=>renderPaletteCard(curated,item));let base=$('#baseColorInput')?.value||currentLayer().colors[1]||'#F5B9D4';generateAutoPalettes(base).forEach(item=>renderPaletteCard(auto,item))}
 
 
+function runtimeSelfCheck(){let problems=[];if(typeof clampInt!=='function')problems.push('clampInt');if(typeof renderMain!=='function')problems.push('renderMain');if(!window.PatternEngine)problems.push('PatternEngine');if(problems.length)console.error('Cute Pattern Studio runtime check failed:',problems);return problems.length===0}
 function uid(prefix='id'){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function clampInt(value,min,max,fallback=min){let n=Number(value);if(!Number.isFinite(n))n=Number(fallback);if(!Number.isFinite(n))n=min;return Math.round(clamp(n,min,max))}
 function shuffle(a){let out=[...a];for(let i=out.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out}
 function toast(msg){let el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),1800)}
 function categories(){return ['전체',...new Set(PE.presets.map(p=>p.category))]}
@@ -294,16 +296,26 @@ function selectPatternForActiveLayer(id){
   Object.assign(layer,base,PE.defaults[id]||{});
   layer.enabled=true;layer.sourceType='builtin';layer.presetId=id;layer.colorMode=keepColorMode;layer.masterColor=keepMaster;layer.colors=keepColors;
   state.bg.backgroundOnly=false;
-  if(layer.colorMode==='auto')applyMasterTone(layer,layer.masterColor,true);
-  else if(layer.checkerToneMode&&isCheckLikePresetId(id))applyCheckerTonePalette(layer,false);
+
+  // Commit the actual selection first. A color helper must never be able to cancel a click.
+  updatePatternSelectionUI(id);
+  try{
+    if(layer.colorMode==='auto')applyMasterTone(layer,layer.masterColor,true);
+    else if(layer.checkerToneMode&&isCheckLikePresetId(id))applyCheckerTonePalette(layer,false);
+  }catch(err){
+    console.error('Pattern color setup failed, continuing with selection:',err);
+    layer.colors=normalizeColors(layer.colors);
+  }
+
   layer.seed=Math.floor(Math.random()*1e9);
   persistAll();
-  updatePatternSelectionUI(id);
-  // Never rebuild dozens of thumbnail canvases on a simple selection click.
-  // Rebuild only the controls, then atomically replace the visible preview frame.
+
+  // Render before rebuilding controls, then refresh controls and render once more.
+  renderMain();
   syncGlobalControls();
   try{syncLayerUI()}catch(err){console.error('Layer editor refresh failed after pattern selection:',err);updateSelected()}
-  forcePreviewRefresh();
+  renderMain();
+  requestAnimationFrame(()=>renderMain());
   toast(`${preset.name} 패턴을 적용했어.`)
 }
 function setupLayerTabs(){let wrap=$('#layerTabs');wrap.innerHTML='';state.layers.forEach((layer,i)=>{let b=document.createElement('button');b.className='layer-tab'+(i===activeLayerIndex?' active':'');b.textContent=`${layer.name}`;b.onclick=()=>{activeLayerIndex=i;setupLayerTabs();syncLayerUI();renderPatternList();renderAssetList();renderMain()};wrap.appendChild(b)});let add=document.createElement('button');add.className='layer-tab';add.textContent='＋ 레이어 추가';add.onclick=()=>addLayer(true);wrap.appendChild(add);$('#activeLayerLabel').textContent=`현재 편집: ${state.layers[activeLayerIndex].name} · 총 ${state.layers.length}개`}
