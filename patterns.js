@@ -53,8 +53,9 @@
     let lineWidth=Math.max(.5,(s.dashedLineWidth??2)*scale);
     let dashLength=Math.max(.5,(s.dashLength??9)*scale);
     let dashGap=Math.max(.5,(s.dashGap??12)*scale);
-    let gridX=Math.max(8,(s.gridX??180)*scale);
-    let gridY=Math.max(8,(s.gridY??180)*scale);
+    let overallScale=Math.max(.2,Math.min(2.5,(s.size??180)/180));
+    let gridX=Math.max(8,(s.gridX??180)*overallScale*scale);
+    let gridY=Math.max(8,(s.gridY??180)*overallScale*scale);
     let rot=(s.rotation||0)*Math.PI/180;
     let ox=0,oy=0;
     let extra=Math.hypot(w,h);
