@@ -62,7 +62,7 @@ function renderPaletteCard(parent,item){let card=document.createElement('div');c
 function renderColorRecommendationPanels(){let curated=$('#curatedPaletteList'),auto=$('#autoPaletteList');if(!curated||!auto)return;curated.innerHTML='<div class="muted mini-copy">함께 쓰면 예쁜 조합 프리셋</div>';auto.innerHTML='<div class="muted mini-copy">기준 색상으로 자동 생성한 추천 팔레트</div>';curatedHarmonyPresets.forEach(item=>renderPaletteCard(curated,item));let base=$('#baseColorInput')?.value||currentLayer().colors[1]||'#F5B9D4';generateAutoPalettes(base).forEach(item=>renderPaletteCard(auto,item))}
 
 
-function runtimeSelfCheck(){let problems=[];if(typeof clampInt!=='function')problems.push('clampInt');if(typeof renderMain!=='function')problems.push('renderMain');if(!window.PatternEngine)problems.push('PatternEngine');if(problems.length)console.error('Cute Pattern Studio runtime check failed:',problems);return problems.length===0}
+function runtimeSelfCheck(){let problems=[];if(typeof clampInt!=='function')problems.push('clampInt');if(typeof renderMain!=='function')problems.push('renderMain');if(!window.PatternEngine)problems.push('PatternEngine');if(!window.DesignEngine)problems.push('DesignEngine');if(problems.length)console.error('Cute Pattern Studio runtime check failed:',problems);return problems.length===0}
 function uid(prefix='id'){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
@@ -278,33 +278,23 @@ function forcePreviewRefresh(){
 }
 function updateSelected(){if(state.studioMode==='design'&&DE){let c=DE.getConcept(state.design.conceptId),v=DE.getVariant(state.design.variantId);$('#selectedCategory').textContent='디자인 배경 · '+c.name;$('#selectedName').textContent=v.name;$('#selectedDesc').textContent=c.desc+' · 선명한 벡터 렌더링';return}let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
 function setupCategories(){let wrap=$('#categoryTabs');wrap.innerHTML='';categories().forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===activeCategory?' active':'');b.textContent=c;b.onclick=()=>{activeCategory=c;setupCategories();renderPatternList()};wrap.appendChild(b)})}
-function filteredPresets(){let q=$('#searchInput').value.trim().toLowerCase(),checksOnly=$('#checkOnly')?.checked,manageHidden=$('#showHiddenPatterns')?.checked;return PE.presets.filter(p=>(manageHidden?hiddenPatterns.has(p.id):!hiddenPatterns.has(p.id))&&(activeCategory==='전체'||p.category===activeCategory)&&(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!checksOnly||checkPresetOnly(p))&&(!q||`${p.name} ${p.category} ${p.desc} ${p.id}`.toLowerCase().includes(q)))}
+function filteredPresets(){let q=$('#searchInput').value.trim().toLowerCase(),checksOnly=$('#checkOnly')?.checked;return PE.presets.filter(p=>(activeCategory==='전체'||p.category===activeCategory)&&(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!checksOnly||checkPresetOnly(p))&&(!q||`${p.name} ${p.category} ${p.desc} ${p.id}`.toLowerCase().includes(q)))}
 function thumbnailLayerForPreset(p){let layer={...currentLayer(),presetId:p.id,sourceType:'builtin'};let d=PE.defaults[p.id]||{};Object.assign(layer,d);return layer}
 function renderPatternList(){
   let list=$('#patternList'),items=filteredPresets();
-  let visibleTotal=PE.presets.length-hiddenPatterns.size;$('#patternCount').textContent=$('#showHiddenPatterns')?.checked?`숨긴 패턴 ${hiddenPatterns.size}개 · 현재 ${items.length}개`:`사용 가능 ${visibleTotal}개 · 숨김 ${hiddenPatterns.size}개`;if($('#hiddenPatternCount'))$('#hiddenPatternCount').textContent=hiddenPatterns.size?`${hiddenPatterns.size}개 숨김`:'숨김 없음';
+  if($('#patternCount'))$('#patternCount').textContent=`${PE.presets.length}개 패턴 · 현재 ${items.length}개`;
   list.innerHTML='';
   items.forEach(p=>{
     let b=document.createElement('div');b.className='pattern-card'+(currentLayer().sourceType==='builtin'&&p.id===currentLayer().presetId?' active':'');b.dataset.presetId=p.id;b.setAttribute('role','button');b.tabIndex=0;
     let fav=document.createElement('button');fav.type='button';fav.className='pattern-fav'+(favorites.has(p.id)?' on':'');fav.textContent=favorites.has(p.id)?'★':'☆';fav.title='즐겨찾기';fav.onclick=e=>{e.stopPropagation();toggleFavorite(p.id)};
     let c=document.createElement('canvas');c.width=c.height=180;
-    try{
-      let thumbLayer=thumbnailLayerForPreset(p);
-      PE.render(c.getContext('2d'),180,180,layerToPatternState(thumbLayer,false),p,180/720)
-    }catch(err){
-      console.error('Pattern thumbnail failed:',p.id,err);
-      let x=c.getContext('2d');x.clearRect(0,0,180,180);x.fillStyle='#FAF8FF';x.fillRect(0,0,180,180);x.fillStyle='#8E83A4';x.font='12px sans-serif';x.textAlign='center';x.fillText('미리보기 오류',90,92)
-    }
-    let hide=document.createElement('button');hide.type='button';hide.className='pattern-hide';let isHidden=hiddenPatterns.has(p.id);hide.textContent=isHidden?'↩':'−';hide.title=isHidden?'라이브러리로 복원':'라이브러리에서 숨기기';hide.onclick=e=>{e.stopPropagation();toggleHiddenPattern(p.id)};
-    let st=document.createElement('strong');st.textContent=p.name;
-    let sm=document.createElement('small');sm.textContent=p.desc;
-    b.append(fav,hide,c,st,sm);const choose=()=>{if(!hiddenPatterns.has(p.id))selectPatternForActiveLayer(p.id)};b.onclick=choose;b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}};list.appendChild(b)
+    try{let thumbLayer=thumbnailLayerForPreset(p);PE.render(c.getContext('2d'),180,180,layerToPatternState(thumbLayer,false),p,180/720)}catch(err){console.error('Pattern thumbnail failed:',p.id,err);let x=c.getContext('2d');x.clearRect(0,0,180,180);x.fillStyle='#FAF8FF';x.fillRect(0,0,180,180);x.fillStyle='#8E83A4';x.font='12px sans-serif';x.textAlign='center';x.fillText('미리보기 오류',90,92)}
+    let st=document.createElement('strong');st.textContent=p.name;let sm=document.createElement('small');sm.textContent=p.desc;
+    b.append(fav,c,st,sm);const choose=()=>selectPatternForActiveLayer(p.id);b.onclick=choose;b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}};list.appendChild(b)
   })
 }
 function updatePatternSelectionUI(id){document.querySelectorAll('#patternList .pattern-card').forEach(card=>card.classList.toggle('active',card.dataset.presetId===id))}
 function toggleFavorite(id){favorites.has(id)?favorites.delete(id):favorites.add(id);persistAll();renderPatternList();renderFavoritePreview()}
-function toggleHiddenPattern(id){if(hiddenPatterns.has(id)){hiddenPatterns.delete(id);toast('패턴을 라이브러리로 복원했어.')}else{hiddenPatterns.add(id);favorites.delete(id);toast('패턴을 라이브러리에서 숨겼어.')}persistAll();setupCategories();renderPatternList();renderFavoritePreview()}
-function restoreAllHiddenPatterns(){if(!hiddenPatterns.size){toast('숨긴 패턴이 없어.');return}hiddenPatterns.clear();persistAll();setupCategories();renderPatternList();toast('숨긴 패턴을 모두 복원했어.')}
 function selectPatternForActiveLayer(id){
   let layer=currentLayer(),preset=PE.presets.find(p=>p.id===id);if(!preset)return;
   let keepColorMode=layer.colorMode||'individual',keepMaster=layer.masterColor||layer.colors?.[1]||'#F59BBC',keepColors=normalizeColors(layer.colors);
@@ -471,8 +461,6 @@ function bindGlobalControls(){
   $('#searchInput').oninput=renderPatternList;
   $('#favoriteOnly').onchange=renderPatternList;
   $('#checkOnly').onchange=renderPatternList;
-  if($('#showHiddenPatterns'))$('#showHiddenPatterns').onchange=renderPatternList;
-  if($('#restoreHiddenBtn'))$('#restoreHiddenBtn').onclick=restoreAllHiddenPatterns;
   $('#uploadAssetBtn').onclick=()=>$('#assetInput').click();
   $('#assetDropzone').onclick=()=>$('#assetInput').click();
   ['dragenter','dragover'].forEach(evt=>$('#assetDropzone').addEventListener(evt,e=>{e.preventDefault();$('#assetDropzone').classList.add('dragover')}));
