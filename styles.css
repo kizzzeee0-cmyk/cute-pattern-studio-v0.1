@@ -230,3 +230,18 @@ input[type=range]{accent-color:#ef82a7}
   color:#a28d96;
   padding:7px 2px;
 }
+
+/* v2.0.8 · dual gradient overlay */
+.gradient-overlay-list{display:grid;gap:10px}
+.gradient-overlay-card{display:grid;gap:10px}
+.gradient-overlay-card .section-title-row{align-items:flex-start}
+.gradient-overlay-controls{gap:10px}
+.gradient-overlay-grid{display:grid;gap:10px}
+.overlay-slider-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;font-size:11px}
+.overlay-slider-value{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.overlay-slider-value input[type=number]{width:72px;padding:6px 7px;font-size:11px}
+.gradient-overlay-card .color-row{grid-template-columns:minmax(90px,1fr) 48px minmax(90px,1fr) 38px}
+.gradient-overlay-card select{margin-top:5px}
+@media(max-width:1060px){
+  .gradient-overlay-card .color-row{grid-template-columns:1fr 48px 1fr 38px}
+}
