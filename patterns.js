@@ -157,7 +157,130 @@
     ctx.restore()
   }
 
-  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);ctx.restore()}
+  function graphicRoundedBar(ctx,cx,cy,len,thick,angle,color,alpha=1){
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);ctx.globalAlpha*=alpha;ctx.fillStyle=color;
+    roundRect(ctx,-len/2,-thick/2,len,thick,thick/2);ctx.fill();ctx.restore()
+  }
+  function graphicRing(ctx,cx,cy,r,color,width,alpha=1,dashed=false){
+    ctx.save();ctx.globalAlpha*=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';
+    if(dashed)ctx.setLineDash([Math.max(2,width*1.2),Math.max(4,width*2.3)]);
+    ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.stroke();ctx.restore()
+  }
+  function graphicDotGrid(ctx,cx,cy,cols,rows,gap,r,color,alpha=1){
+    ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;
+    let ox=(cols-1)*gap/2,oy=(rows-1)*gap/2;
+    for(let yy=0;yy<rows;yy++)for(let xx=0;xx<cols;xx++){ctx.beginPath();ctx.arc(cx-ox+xx*gap,cy-oy+yy*gap,r,0,TAU);ctx.fill()}
+    ctx.restore()
+  }
+  function graphicStripedCircle(ctx,cx,cy,r,color,lineWidth,gap,alpha=1,angle=-Math.PI/4){
+    ctx.save();ctx.globalAlpha*=alpha;ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.clip();ctx.translate(cx,cy);ctx.rotate(angle);ctx.translate(-cx,-cy);
+    ctx.strokeStyle=color;ctx.lineWidth=lineWidth;for(let x=cx-r*2;x<=cx+r*2;x+=gap){ctx.beginPath();ctx.moveTo(x,cy-r*2);ctx.lineTo(x,cy+r*2);ctx.stroke()}ctx.restore()
+  }
+  function graphicCheckPatch(ctx,cx,cy,cell,count,color,alpha=1){
+    ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;let start=-(count*cell)/2;
+    for(let y=0;y<count;y++)for(let x=0;x<count;x++)if((x+y)%2===0)ctx.fillRect(cx+start+x*cell,cy+start+y*cell,cell,cell);
+    ctx.restore()
+  }
+  function graphicDiamond(ctx,cx,cy,r,color,alpha=1,outline=false,width=2){
+    ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(cx,cy-r);ctx.lineTo(cx+r,cy);ctx.lineTo(cx,cy+r);ctx.lineTo(cx-r,cy);ctx.closePath();outline?ctx.stroke():ctx.fill();ctx.restore()
+  }
+  function graphicComposition(ctx,w,h,s,scale,opt={}){
+    let q=common(s,scale),rng=mulberry32(q.seed),cols=s.colors||['#FFF','#8EDFD7','#BDEFE8','#FFFFFF','#59CFC2'];
+    let mode=s.graphicMotifMode||'auto',safe=Math.max(.40,Math.min(.80,(s.graphicSafeArea??58)/100));
+    let barScale=Math.max(.55,Math.min(1.8,(s.graphicBarScale??100)/100)),circleScale=Math.max(.55,Math.min(1.8,(s.graphicCircleScale??100)/100));
+    let density=Math.max(.18,Math.min(1,q.detail||.45)),base=Math.min(w,h),layout=opt.layout||'frame',rot=q.rot;
+    let safeRect={x:(w-w*safe)/2,y:(h-h*safe)/2,w:w*safe,h:h*safe};
+    const insideSafe=(x,y,pad=0)=>x>safeRect.x-pad&&x<safeRect.x+safeRect.w+pad&&y>safeRect.y-pad&&y<safeRect.y+safeRect.h+pad;
+    const color=(i=1)=>cols[Math.max(1,Math.min(4,i))]||cols[1]||'#7EDFD4';
+    const rand=(a,b)=>a+(b-a)*rng();
+    const choose=(arr)=>arr[Math.floor(rng()*arr.length)];
+    const permitted=()=>{
+      if(mode==='minimal')return ['bar','line','circle','ring','dotgrid'];
+      if(mode==='sparkle')return ['bar','circle','ring','dotgrid','sparkle','diamond','dashed'];
+      if(mode==='cute')return ['bar','circle','ring','dotgrid','sparkle','diamond','heart','flower','bubble'];
+      if(mode==='geometric')return ['bar','line','circle','ring','dotgrid','stripecircle','check','diamond','dashed'];
+      return ['bar','line','circle','ring','dotgrid','stripecircle','check','sparkle','diamond','dashed','bubble'];
+    };
+    const types=permitted();
+    const pointFor=(index,total)=>{
+      let m=base*(.035+.04*density),edge=base*(.06+.055*density),x=0,y=0;
+      if(layout==='corner'){
+        let corner=index%4;
+        x=(corner===0||corner===2)?rand(-edge,w*.20):rand(w*.80,w+edge);
+        y=(corner<2)?rand(-edge,h*.22):rand(h*.78,h+edge);
+      }else if(layout==='diagonal'){
+        if(index%2===0){x=rand(-edge,w*.42);y=rand(-edge,h*.42)}
+        else{x=rand(w*.58,w+edge);y=rand(h*.58,h+edge)}
+      }else if(layout==='center-space'){
+        let side=index%4;
+        if(side===0){x=rand(-edge,w+edge);y=rand(-edge,h*.14)}
+        if(side===1){x=rand(w*.86,w+edge);y=rand(0,h)}
+        if(side===2){x=rand(-edge,w+edge);y=rand(h*.86,h+edge)}
+        if(side===3){x=rand(-edge,w*.14);y=rand(0,h)}
+      }else if(layout==='scatter'){
+        let side=Math.floor(rng()*4);
+        if(side===0){x=rand(-edge,w+edge);y=rand(-edge,h*.28)}
+        if(side===1){x=rand(w*.72,w+edge);y=rand(0,h)}
+        if(side===2){x=rand(-edge,w+edge);y=rand(h*.72,h+edge)}
+        if(side===3){x=rand(-edge,w*.28);y=rand(0,h)}
+      }else{
+        let side=index%4;
+        if(side===0){x=rand(-edge,w+edge);y=rand(-edge,h*.17)}
+        if(side===1){x=rand(w*.83,w+edge);y=rand(0,h)}
+        if(side===2){x=rand(-edge,w+edge);y=rand(h*.83,h+edge)}
+        if(side===3){x=rand(-edge,w*.17);y=rand(0,h)}
+      }
+      if(insideSafe(x,y,m)){
+        if(x<w/2)x=safeRect.x-m-rand(0,edge);else x=safeRect.x+safeRect.w+m+rand(0,edge);
+        if(y>safeRect.y&&y<safeRect.y+safeRect.h)y=choose([safeRect.y-m-rand(0,edge),safeRect.y+safeRect.h+m+rand(0,edge)]);
+      }
+      return [x,y]
+    };
+    ctx.save();ctx.globalAlpha=q.op;ctx.translate(w/2,h/2);ctx.rotate(rot);ctx.translate(-w/2,-h/2);
+    // soft translucent edge fields
+    let fieldCount=layout==='diagonal'?3:layout==='corner'?4:5;
+    for(let i=0;i<fieldCount;i++){
+      let [x,y]=pointFor(i,fieldCount),r=base*rand(.075,.17)*circleScale;
+      ctx.globalAlpha=q.op*rand(.05,.14);ctx.fillStyle=color(choose([1,2,3]));ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill()
+    }
+    // crisp geometric decorations
+    let count=Math.round((18+28*density)*(layout==='scatter'?1.12:1));
+    for(let i=0;i<count;i++){
+      let [x,y]=pointFor(i,count),sz=base*rand(.012,.055),type=choose(types),c=color(choose([1,2,3,4])),a=rand(.42,.92);
+      if(type==='bar'){graphicRoundedBar(ctx,x,y,sz*rand(3.2,6.5)*barScale,sz*rand(.72,1.25)*barScale,choose([-1,1])*Math.PI/4,c,a)}
+      else if(type==='line'){ctx.save();ctx.globalAlpha*=a;ctx.strokeStyle=c;ctx.lineWidth=Math.max(1,sz*.12);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x-sz*2.5,y+sz*2.5);ctx.lineTo(x+sz*2.5,y-sz*2.5);ctx.stroke();ctx.restore()}
+      else if(type==='circle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*circleScale,0,TAU);ctx.fill();ctx.restore()}
+      else if(type==='bubble'){ctx.save();ctx.globalAlpha*=a*.45;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*1.35*circleScale,0,TAU);ctx.fill();ctx.restore()}
+      else if(type==='ring')graphicRing(ctx,x,y,sz*1.25*circleScale,c,Math.max(1.5,sz*.16),a,rng()>.55)
+      else if(type==='dashed')graphicRing(ctx,x,y,sz*1.8*circleScale,c,Math.max(1.2,sz*.12),a,true)
+      else if(type==='dotgrid')graphicDotGrid(ctx,x,y,choose([4,5,6]),choose([3,4,5]),Math.max(5,sz*.48),Math.max(1.3,sz*.095),c,a)
+      else if(type==='stripecircle')graphicStripedCircle(ctx,x,y,sz*1.8*circleScale,c,Math.max(1.2,sz*.13),Math.max(5,sz*.42),a)
+      else if(type==='check')graphicCheckPatch(ctx,x,y,Math.max(5,sz*.42),choose([4,5]),c,a*.55)
+      else if(type==='sparkle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;sparkle(ctx,x,y,sz*1.1,0);ctx.fill();ctx.restore()}
+      else if(type==='diamond')graphicDiamond(ctx,x,y,sz*.85,c,a,rng()>.55,Math.max(1.2,sz*.12))
+      else if(type==='heart'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;heart(ctx,x,y,sz*.85,0);ctx.fill();ctx.restore()}
+      else if(type==='flower'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;flower(ctx,x,y,sz,5,0);ctx.restore()}
+    }
+    // structured accents per layout so every variant feels intentionally composed
+    let accent=color(4),strong=color(1),weak=color(2);
+    if(layout==='diagonal'){
+      for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.06+k*base*.055,h*.18-k*base*.04,base*.19*barScale,base*.025*barScale,-Math.PI/4,k===0?accent:weak,.72)}
+      for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.94+k*base*.055,h*.82-k*base*.04,base*.19*barScale,base*.025*barScale,-Math.PI/4,k===0?accent:weak,.72)}
+    }else if(layout==='corner'){
+      graphicRing(ctx,w*.08,h*.09,base*.09*circleScale,accent,Math.max(2,base*.004),.75);
+      graphicRing(ctx,w*.92,h*.91,base*.10*circleScale,accent,Math.max(2,base*.004),.75);
+    }else if(layout==='frame'){
+      graphicRing(ctx,w*.06,h*.10,base*.10*circleScale,accent,Math.max(2,base*.004),.7);
+      graphicRing(ctx,w*.94,h*.90,base*.11*circleScale,accent,Math.max(2,base*.004),.7);
+      graphicDotGrid(ctx,w*.08,h*.88,5,4,base*.015,base*.0028,strong,.72);
+      graphicDotGrid(ctx,w*.92,h*.12,5,4,base*.015,base*.0028,strong,.72);
+    }else if(layout==='center-space'){
+      graphicRoundedBar(ctx,w*.07,h*.16,base*.18*barScale,base*.028*barScale,-Math.PI/4,weak,.75);
+      graphicRoundedBar(ctx,w*.93,h*.84,base*.18*barScale,base*.028*barScale,-Math.PI/4,weak,.75);
+    }
+    ctx.restore()
+  }
+  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
 
   const presets=[
     ['pastel-checker','파스텔 체크','체크·도트','깔끔한 기본 체커보드','checker',{}],
@@ -236,6 +359,11 @@
     ['confetti','파스텔 컨페티','키치·낙서','색종이 조각을 흩뿌린 느낌','confetti',{}],
     ['sticker-mix','스티커 믹스','키치·낙서','다양한 미니 도형이 섞인 느낌','doodles',{}],
     ['sprinkles','스프링클','키치·낙서','짧은 선과 도형의 키치 패턴','confetti',{}],
+    ['graphic-corner-focus','그래픽 코너 집중형','그래픽 배경','둥근 막대·원·링·점·스파클을 코너에 집중하고 중앙은 비워 두는 2D 그래픽','graphic-composition',{layout:'corner'}],
+    ['graphic-diagonal-flow','그래픽 사선 흐름형','그래픽 배경','좌상단→우하단 사선 흐름으로 막대·원·점선·패턴 포인트가 이어지는 구성','graphic-composition',{layout:'diagonal'}],
+    ['graphic-frame','그래픽 프레임형','그래픽 배경','화면 가장자리를 따라 원·링·둥근 막대·도트가 둘러싸는 벡터풍 프레임 구성','graphic-composition',{layout:'frame'}],
+    ['graphic-center-space','그래픽 중앙 여백형','그래픽 배경','캐릭터·타이포를 위한 중앙 여백을 넓게 확보하고 주변만 깔끔하게 꾸미는 구성','graphic-composition',{layout:'center-space'}],
+    ['graphic-scatter','그래픽 전체 분산형','그래픽 배경','같은 그래픽 감성으로 외곽 전체에 다양한 도형을 가볍게 분산한 구성','graphic-composition',{layout:'scatter'}],
     ['sunburst-bg','썬버스트 배경','빛·광택','중앙에서 햇살이 퍼지는 네모 배경','sunburst-bg',{}],
     ['soft-sunburst-bg','소프트 썬버스트','빛·광택','부드럽게 퍼지는 파스텔 햇살 배경','soft-sunburst-bg',{}],
     ['glossy-sun-bg','글로시 선샤인','빛·광택','광택 곡선과 반짝이가 들어간 네모 배경','glossy-sun-bg',{}],
@@ -252,6 +380,11 @@
     'groovy-flower':{size:95,gap:34,jitter:28,detail:62},'cherry':{size:76,gap:55,jitter:30},'strawberry':{size:72,gap:50,jitter:30},
     'cloud':{size:84,gap:55,jitter:35},'moonstar':{size:62,gap:48,jitter:45},'smiley':{size:58,gap:48,jitter:32},'raindrop':{size:58,gap:42,jitter:42},
     'doodle':{size:60,gap:48,jitter:55,stroke:4},'confetti':{size:62,gap:26,jitter:70},
+    'graphic-corner-focus':{size:90,gap:22,jitter:18,stroke:3,detail:58,opacity:100,graphicSafeArea:62,graphicBarScale:100,graphicCircleScale:100,graphicMotifMode:'auto'},
+    'graphic-diagonal-flow':{size:90,gap:18,jitter:16,stroke:3,detail:62,opacity:100,graphicSafeArea:58,graphicBarScale:110,graphicCircleScale:95,graphicMotifMode:'geometric'},
+    'graphic-frame':{size:90,gap:20,jitter:14,stroke:3,detail:68,opacity:100,graphicSafeArea:64,graphicBarScale:100,graphicCircleScale:110,graphicMotifMode:'auto'},
+    'graphic-center-space':{size:90,gap:24,jitter:12,stroke:3,detail:50,opacity:100,graphicSafeArea:70,graphicBarScale:95,graphicCircleScale:95,graphicMotifMode:'minimal'},
+    'graphic-scatter':{size:90,gap:18,jitter:22,stroke:3,detail:72,opacity:100,graphicSafeArea:56,graphicBarScale:100,graphicCircleScale:100,graphicMotifMode:'sparkle'},
     'sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:68,opacity:100},'soft-sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:48,opacity:100},'glossy-sun-bg':{size:90,gap:0,jitter:0,stroke:0,detail:54,opacity:100},'sparkle-glow-bg':{size:90,gap:0,jitter:0,stroke:0,detail:58,opacity:100}
   };
   window.PatternEngine={presets,defaults,render};
