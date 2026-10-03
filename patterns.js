@@ -157,126 +157,149 @@
     ctx.restore()
   }
 
-  function graphicRoundedBar(ctx,cx,cy,len,thick,angle,color,alpha=1){
-    ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);ctx.globalAlpha*=alpha;ctx.fillStyle=color;
-    roundRect(ctx,-len/2,-thick/2,len,thick,thick/2);ctx.fill();ctx.restore()
+  function graphicRoundedBar(ctx,cx,cy,len,thick,angle,color,alpha=1,outline=false){
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);ctx.globalAlpha*=alpha;ctx.lineWidth=Math.max(1,thick*.12);ctx.fillStyle=color;ctx.strokeStyle=color;
+    roundRect(ctx,-len/2,-thick/2,len,thick,thick/2);outline?ctx.stroke():ctx.fill();ctx.restore()
   }
   function graphicRing(ctx,cx,cy,r,color,width,alpha=1,dashed=false){
     ctx.save();ctx.globalAlpha*=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';
-    if(dashed)ctx.setLineDash([Math.max(2,width*1.2),Math.max(4,width*2.3)]);
+    if(dashed)ctx.setLineDash([Math.max(2,width*1.1),Math.max(4,width*2.1)]);
     ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.stroke();ctx.restore()
   }
   function graphicDotGrid(ctx,cx,cy,cols,rows,gap,r,color,alpha=1){
-    ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;
-    let ox=(cols-1)*gap/2,oy=(rows-1)*gap/2;
-    for(let yy=0;yy<rows;yy++)for(let xx=0;xx<cols;xx++){ctx.beginPath();ctx.arc(cx-ox+xx*gap,cy-oy+yy*gap,r,0,TAU);ctx.fill()}
-    ctx.restore()
+    ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;let ox=(cols-1)*gap/2,oy=(rows-1)*gap/2;
+    for(let yy=0;yy<rows;yy++)for(let xx=0;xx<cols;xx++){ctx.beginPath();ctx.arc(cx-ox+xx*gap,cy-oy+yy*gap,r,0,TAU);ctx.fill()}ctx.restore()
   }
   function graphicStripedCircle(ctx,cx,cy,r,color,lineWidth,gap,alpha=1,angle=-Math.PI/4){
     ctx.save();ctx.globalAlpha*=alpha;ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.clip();ctx.translate(cx,cy);ctx.rotate(angle);ctx.translate(-cx,-cy);
-    ctx.strokeStyle=color;ctx.lineWidth=lineWidth;for(let x=cx-r*2;x<=cx+r*2;x+=gap){ctx.beginPath();ctx.moveTo(x,cy-r*2);ctx.lineTo(x,cy+r*2);ctx.stroke()}ctx.restore()
+    ctx.strokeStyle=color;ctx.lineWidth=lineWidth;ctx.lineCap='round';for(let x=cx-r*2;x<=cx+r*2;x+=gap){ctx.beginPath();ctx.moveTo(x,cy-r*2);ctx.lineTo(x,cy+r*2);ctx.stroke()}ctx.restore()
   }
   function graphicCheckPatch(ctx,cx,cy,cell,count,color,alpha=1){
     ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;let start=-(count*cell)/2;
-    for(let y=0;y<count;y++)for(let x=0;x<count;x++)if((x+y)%2===0)ctx.fillRect(cx+start+x*cell,cy+start+y*cell,cell,cell);
-    ctx.restore()
+    for(let y=0;y<count;y++)for(let x=0;x<count;x++)if((x+y)%2===0)ctx.fillRect(cx+start+x*cell,cy+start+y*cell,cell,cell);ctx.restore()
   }
   function graphicDiamond(ctx,cx,cy,r,color,alpha=1,outline=false,width=2){
     ctx.save();ctx.globalAlpha*=alpha;ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(cx,cy-r);ctx.lineTo(cx+r,cy);ctx.lineTo(cx,cy+r);ctx.lineTo(cx-r,cy);ctx.closePath();outline?ctx.stroke():ctx.fill();ctx.restore()
   }
+  function graphicDottedLine(ctx,x1,y1,x2,y2,color,width,alpha=1,gap=14){
+    ctx.save();ctx.globalAlpha*=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.setLineDash([Math.max(1,width*.3),Math.max(5,gap)]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore()
+  }
+  function graphicParallelBars(ctx,cx,cy,len,thick,count,gap,angle,color,alpha=1){
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);ctx.globalAlpha*=alpha;ctx.fillStyle=color;
+    let total=(count-1)*gap;for(let i=0;i<count;i++){let yy=-total/2+i*gap;roundRect(ctx,-len/2,yy-thick/2,len,thick,thick/2);ctx.fill()}ctx.restore()
+  }
+  function graphicCapsule(ctx,cx,cy,len,thick,angle,color,alpha=1,variant='fill'){
+    if(variant==='outline')return graphicRoundedBar(ctx,cx,cy,len,thick,angle,color,alpha,true);
+    if(variant==='stripe'){
+      ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);ctx.globalAlpha*=alpha;ctx.beginPath();roundRect(ctx,-len/2,-thick/2,len,thick,thick/2);ctx.clip();
+      ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,thick*.12);for(let x=-len;x<len;x+=thick*.38){ctx.beginPath();ctx.moveTo(x,-thick);ctx.lineTo(x+thick*1.6,thick);ctx.stroke()}ctx.restore();return
+    }
+    graphicRoundedBar(ctx,cx,cy,len,thick,angle,color,alpha,false)
+  }
   function graphicComposition(ctx,w,h,s,scale,opt={}){
     let q=common(s,scale),rng=mulberry32(q.seed),cols=s.colors||['#FFF','#8EDFD7','#BDEFE8','#FFFFFF','#59CFC2'];
-    let mode=s.graphicMotifMode||'auto',safe=Math.max(.40,Math.min(.80,(s.graphicSafeArea??58)/100));
-    let barScale=Math.max(.55,Math.min(1.8,(s.graphicBarScale??100)/100)),circleScale=Math.max(.55,Math.min(1.8,(s.graphicCircleScale??100)/100));
-    let density=Math.max(.18,Math.min(1,q.detail||.45)),base=Math.min(w,h),shapeScale=Math.max(.5,Math.min(1.8,(s.size??90)/90)),layout=opt.layout||'frame',rot=q.rot;
-    let safeRect={x:(w-w*safe)/2,y:(h-h*safe)/2,w:w*safe,h:h*safe};
-    const insideSafe=(x,y,pad=0)=>x>safeRect.x-pad&&x<safeRect.x+safeRect.w+pad&&y>safeRect.y-pad&&y<safeRect.y+safeRect.h+pad;
+    let mode=s.graphicMotifMode||'mixed',safe=Math.max(.38,Math.min(.82,(s.graphicSafeArea??60)/100));
+    let barScale=Math.max(.45,Math.min(2.2,(s.graphicBarScale??100)/100)),circleScale=Math.max(.45,Math.min(2.2,(s.graphicCircleScale??100)/100));
+    let smallScale=Math.max(.4,Math.min(2,(s.graphicSmallScale??100)/100)),largeScale=Math.max(.5,Math.min(2.4,(s.graphicLargeScale??100)/100));
+    let balance=Math.max(0,Math.min(1,(s.graphicBalance??82)/100)),density=Math.max(.12,Math.min(1,q.detail||.45)),base=Math.min(w,h);
+    let shapeScale=Math.max(.42,Math.min(2.2,(s.size??90)/90)),layout=opt.layout||'frame',rot=q.rot;
+    let safeRect={x:(w-w*safe)/2,y:(h-h*safe)/2,w:w*safe,h:h*safe},margin=base*.035;
     const color=(i=1)=>cols[Math.max(1,Math.min(4,i))]||cols[1]||'#7EDFD4';
-    const rand=(a,b)=>a+(b-a)*rng();
-    const choose=(arr)=>arr[Math.floor(rng()*arr.length)];
-    const permitted=()=>{
-      if(mode==='minimal')return ['bar','line','circle','ring','dotgrid'];
-      if(mode==='sparkle')return ['bar','circle','ring','dotgrid','sparkle','diamond','dashed'];
-      if(mode==='cute')return ['bar','circle','ring','dotgrid','sparkle','diamond','heart','flower','bubble'];
-      if(mode==='geometric')return ['bar','line','circle','ring','dotgrid','stripecircle','check','diamond','dashed'];
-      return ['bar','line','circle','ring','dotgrid','stripecircle','check','sparkle','diamond','dashed','bubble'];
+    const rand=(a,b)=>a+(b-a)*rng(),choose=arr=>arr[Math.floor(rng()*arr.length)];
+    const jitter=(amp)=>rand(-amp,amp)*(1-balance);
+    const family=()=>{
+      if(mode==='circles')return ['circle','ring','dashedring','stripecircle','dotgrid','bubble'];
+      if(mode==='bars')return ['bar','capsule','outlinepill','stripepill','parallel','line'];
+      if(mode==='dotted')return ['dottedline','dashedring','dotgrid','ring','diamond','sparkle'];
+      if(mode==='cute')return ['circle','ring','bar','heart','flower','sparkle','bubble','diamond'];
+      if(mode==='geometric')return ['bar','capsule','outlinepill','parallel','line','circle','ring','dotgrid','stripecircle','check','diamond','dottedline'];
+      if(mode==='sparkle')return ['circle','ring','dashedring','dotgrid','sparkle','diamond','dottedline'];
+      if(mode==='minimal')return ['bar','capsule','line','circle','ring','dottedline'];
+      return ['bar','capsule','outlinepill','stripepill','parallel','line','circle','ring','dashedring','dotgrid','stripecircle','check','sparkle','diamond','dottedline','bubble'];
     };
-    const types=permitted();
-    const pointFor=(index,total)=>{
-      let m=base*(.035+.04*density),edge=base*(.06+.055*density),x=0,y=0;
-      if(layout==='corner'){
-        let corner=index%4;
-        x=(corner===0||corner===2)?rand(-edge,w*.20):rand(w*.80,w+edge);
-        y=(corner<2)?rand(-edge,h*.22):rand(h*.78,h+edge);
-      }else if(layout==='diagonal'){
-        if(index%2===0){x=rand(-edge,w*.42);y=rand(-edge,h*.42)}
-        else{x=rand(w*.58,w+edge);y=rand(h*.58,h+edge)}
-      }else if(layout==='center-space'){
-        let side=index%4;
-        if(side===0){x=rand(-edge,w+edge);y=rand(-edge,h*.14)}
-        if(side===1){x=rand(w*.86,w+edge);y=rand(0,h)}
-        if(side===2){x=rand(-edge,w+edge);y=rand(h*.86,h+edge)}
-        if(side===3){x=rand(-edge,w*.14);y=rand(0,h)}
-      }else if(layout==='scatter'){
-        let side=Math.floor(rng()*4);
-        if(side===0){x=rand(-edge,w+edge);y=rand(-edge,h*.28)}
-        if(side===1){x=rand(w*.72,w+edge);y=rand(0,h)}
-        if(side===2){x=rand(-edge,w+edge);y=rand(h*.72,h+edge)}
-        if(side===3){x=rand(-edge,w*.28);y=rand(0,h)}
+    const types=family();
+    const perimeterPoint=(i,total)=>{
+      let side=i%4,slot=Math.floor(i/4),perSide=Math.max(1,Math.ceil(total/4)),t=(slot+1)/(perSide+1),x=0,y=0;
+      let edge=base*(.055+.035*density),jx=w*.035*(1-balance),jy=h*.035*(1-balance);
+      if(layout==='diagonal'){
+        let a=i%2===0;
+        t=(Math.floor(i/2)+1)/(Math.ceil(total/2)+1);
+        x=a?w*(.02+.42*t):w*(.58+.40*t);y=a?h*(.02+.42*t):h*(.58+.40*t);
+      }else if(layout==='corner'){
+        let corner=i%4,u=(Math.floor(i/4)+1)/(Math.ceil(total/4)+1),span=.20;
+        if(corner===0){x=w*(.02+span*u);y=h*(.02+span*(1-u))}
+        if(corner===1){x=w*(.98-span*u);y=h*(.02+span*u)}
+        if(corner===2){x=w*(.98-span*u);y=h*(.98-span*(1-u))}
+        if(corner===3){x=w*(.02+span*u);y=h*(.98-span*u)}
       }else{
-        let side=index%4;
-        if(side===0){x=rand(-edge,w+edge);y=rand(-edge,h*.17)}
-        if(side===1){x=rand(w*.83,w+edge);y=rand(0,h)}
-        if(side===2){x=rand(-edge,w+edge);y=rand(h*.83,h+edge)}
-        if(side===3){x=rand(-edge,w*.17);y=rand(0,h)}
+        if(side===0){x=w*t;y=margin-edge*.30}
+        if(side===1){x=w-margin+edge*.30;y=h*t}
+        if(side===2){x=w*(1-t);y=h-margin+edge*.30}
+        if(side===3){x=margin-edge*.30;y=h*(1-t)}
       }
-      if(insideSafe(x,y,m)){
-        if(x<w/2)x=safeRect.x-m-rand(0,edge);else x=safeRect.x+safeRect.w+m+rand(0,edge);
-        if(y>safeRect.y&&y<safeRect.y+safeRect.h)y=choose([safeRect.y-m-rand(0,edge),safeRect.y+safeRect.h+m+rand(0,edge)]);
-      }
-      return [x,y]
+      x+=jitter(jx);y+=jitter(jy);return [x,y]
+    };
+    const drawShape=(type,x,y,sz,c,a,angle)=>{
+      if(type==='bar')graphicRoundedBar(ctx,x,y,sz*rand(3.2,6.8)*barScale,sz*rand(.62,1.18)*barScale,angle,c,a);
+      else if(type==='capsule')graphicCapsule(ctx,x,y,sz*rand(4.8,8.4)*barScale,sz*rand(.8,1.28)*barScale,angle,c,a,'fill');
+      else if(type==='outlinepill')graphicCapsule(ctx,x,y,sz*rand(4.2,7.2)*barScale,sz*rand(.78,1.15)*barScale,angle,c,a,'outline');
+      else if(type==='stripepill')graphicCapsule(ctx,x,y,sz*rand(4.2,7.2)*barScale,sz*rand(.9,1.3)*barScale,angle,c,a,'stripe');
+      else if(type==='parallel')graphicParallelBars(ctx,x,y,sz*rand(3.2,5.8)*barScale,Math.max(2,sz*.22),choose([2,3,4]),Math.max(5,sz*.34),angle,c,a);
+      else if(type==='line'){ctx.save();ctx.globalAlpha*=a;ctx.strokeStyle=c;ctx.lineWidth=Math.max(1.2,sz*.13);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x-Math.cos(angle)*sz*2.7,y-Math.sin(angle)*sz*2.7);ctx.lineTo(x+Math.cos(angle)*sz*2.7,y+Math.sin(angle)*sz*2.7);ctx.stroke();ctx.restore()}
+      else if(type==='circle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*circleScale,0,TAU);ctx.fill();ctx.restore()}
+      else if(type==='bubble'){ctx.save();ctx.globalAlpha*=a*.45;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*1.4*circleScale,0,TAU);ctx.fill();ctx.restore()}
+      else if(type==='ring')graphicRing(ctx,x,y,sz*1.35*circleScale,c,Math.max(1.5,sz*.16),a,false);
+      else if(type==='dashedring')graphicRing(ctx,x,y,sz*1.7*circleScale,c,Math.max(1.2,sz*.12),a,true);
+      else if(type==='dotgrid')graphicDotGrid(ctx,x,y,choose([4,5,6]),choose([3,4,5]),Math.max(5,sz*.46),Math.max(1.3,sz*.095),c,a);
+      else if(type==='stripecircle')graphicStripedCircle(ctx,x,y,sz*1.9*circleScale,c,Math.max(1.2,sz*.13),Math.max(5,sz*.42),a,angle);
+      else if(type==='check')graphicCheckPatch(ctx,x,y,Math.max(5,sz*.40),choose([4,5]),c,a*.55);
+      else if(type==='sparkle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;sparkle(ctx,x,y,sz*1.15,0);ctx.fill();ctx.restore()}
+      else if(type==='diamond')graphicDiamond(ctx,x,y,sz*.85,c,a,rng()>.55,Math.max(1.2,sz*.12));
+      else if(type==='dottedline'){let len=sz*rand(4.5,8.5);graphicDottedLine(ctx,x-Math.cos(angle)*len/2,y-Math.sin(angle)*len/2,x+Math.cos(angle)*len/2,y+Math.sin(angle)*len/2,c,Math.max(2,sz*.13),a,Math.max(6,sz*.55))}
+      else if(type==='heart'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;heart(ctx,x,y,sz*.82,0);ctx.fill();ctx.restore()}
+      else if(type==='flower'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;flower(ctx,x,y,sz,5,0);ctx.restore()}
     };
     ctx.save();ctx.globalAlpha=q.op;ctx.translate(w/2,h/2);ctx.rotate(rot);ctx.translate(-w/2,-h/2);
-    // soft translucent edge fields
-    let fieldCount=layout==='diagonal'?3:layout==='corner'?4:5;
-    for(let i=0;i<fieldCount;i++){
-      let [x,y]=pointFor(i,fieldCount),r=base*rand(.075,.17)*circleScale*shapeScale;
-      ctx.globalAlpha=q.op*rand(.05,.14);ctx.fillStyle=color(choose([1,2,3]));ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill()
+    // Large translucent shapes use fixed perimeter slots to avoid clumping.
+    let largeCount=layout==='center-space'?6:layout==='corner'?8:10;
+    for(let i=0;i<largeCount;i++){
+      let [x,y]=perimeterPoint(i,largeCount),sz=base*rand(.045,.105)*largeScale*shapeScale,c=color(choose([2,3,4])),a=rand(.08,.20);
+      drawShape(choose(mode==='bars'?['capsule','parallel','bar']:mode==='circles'?['circle','ring','stripecircle']:['circle','capsule','ring','stripecircle']),x,y,sz,c,a,choose([-1,1])*Math.PI/4)
     }
-    // crisp geometric decorations
-    let count=Math.round((18+28*density)*(layout==='scatter'?1.12:1));
+    // Small/medium details are distributed evenly around the perimeter.
+    let count=Math.round(16+24*density);
     for(let i=0;i<count;i++){
-      let [x,y]=pointFor(i,count),sz=base*rand(.012,.055)*shapeScale,type=choose(types),c=color(choose([1,2,3,4])),a=rand(.42,.92);
-      if(type==='bar'){graphicRoundedBar(ctx,x,y,sz*rand(3.2,6.5)*barScale,sz*rand(.72,1.25)*barScale,choose([-1,1])*Math.PI/4,c,a)}
-      else if(type==='line'){ctx.save();ctx.globalAlpha*=a;ctx.strokeStyle=c;ctx.lineWidth=Math.max(1,sz*.12);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x-sz*2.5,y+sz*2.5);ctx.lineTo(x+sz*2.5,y-sz*2.5);ctx.stroke();ctx.restore()}
-      else if(type==='circle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*circleScale,0,TAU);ctx.fill();ctx.restore()}
-      else if(type==='bubble'){ctx.save();ctx.globalAlpha*=a*.45;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*1.35*circleScale,0,TAU);ctx.fill();ctx.restore()}
-      else if(type==='ring')graphicRing(ctx,x,y,sz*1.25*circleScale,c,Math.max(1.5,sz*.16),a,rng()>.55)
-      else if(type==='dashed')graphicRing(ctx,x,y,sz*1.8*circleScale,c,Math.max(1.2,sz*.12),a,true)
-      else if(type==='dotgrid')graphicDotGrid(ctx,x,y,choose([4,5,6]),choose([3,4,5]),Math.max(5,sz*.48),Math.max(1.3,sz*.095),c,a)
-      else if(type==='stripecircle')graphicStripedCircle(ctx,x,y,sz*1.8*circleScale,c,Math.max(1.2,sz*.13),Math.max(5,sz*.42),a)
-      else if(type==='check')graphicCheckPatch(ctx,x,y,Math.max(5,sz*.42),choose([4,5]),c,a*.55)
-      else if(type==='sparkle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;sparkle(ctx,x,y,sz*1.1,0);ctx.fill();ctx.restore()}
-      else if(type==='diamond')graphicDiamond(ctx,x,y,sz*.85,c,a,rng()>.55,Math.max(1.2,sz*.12))
-      else if(type==='heart'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;heart(ctx,x,y,sz*.85,0);ctx.fill();ctx.restore()}
-      else if(type==='flower'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;flower(ctx,x,y,sz,5,0);ctx.restore()}
+      let [x,y]=perimeterPoint(i,count),tier=(i%5===0?1.45:i%3===0?1.12:.82),sz=base*rand(.012,.033)*smallScale*shapeScale*tier;
+      let type=types[i%types.length];if(balance<.75&&rng()>.55)type=choose(types);
+      let c=color(choose([1,2,3,4])),a=rand(.45,.90),angle=(i%2?1:-1)*Math.PI/4+jitter(.18);
+      drawShape(type,x,y,sz,c,a,angle)
     }
-    // structured accents per layout so every variant feels intentionally composed
-    let accent=color(4),strong=color(1),weak=color(2);
+    // Intentional frame accents: each preset feels designed, not randomly piled.
+    let strong=color(1),mid=color(2),white=color(3),accent=color(4);
     if(layout==='diagonal'){
-      for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.06+k*base*.055,h*.18-k*base*.04,base*.19*barScale*shapeScale,base*.025*barScale*shapeScale,-Math.PI/4,k===0?accent:weak,.72)}
-      for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.94+k*base*.055,h*.82-k*base*.04,base*.19*barScale,base*.025*barScale,-Math.PI/4,k===0?accent:weak,.72)}
+      graphicParallelBars(ctx,w*.08,h*.16,base*.18*barScale*shapeScale,base*.010*shapeScale,3,base*.020*shapeScale,-Math.PI/4,mid,.66);
+      graphicParallelBars(ctx,w*.92,h*.84,base*.18*barScale*shapeScale,base*.010*shapeScale,3,base*.020*shapeScale,-Math.PI/4,strong,.66);
+      graphicDottedLine(ctx,w*.05,h*.28,w*.28,h*.05,accent,Math.max(2,base*.003),.65,base*.012);
+      graphicDottedLine(ctx,w*.72,h*.95,w*.95,h*.72,accent,Math.max(2,base*.003),.65,base*.012)
     }else if(layout==='corner'){
-      graphicRing(ctx,w*.08,h*.09,base*.09*circleScale*shapeScale,accent,Math.max(2,base*.004),.75);
-      graphicRing(ctx,w*.92,h*.91,base*.10*circleScale*shapeScale,accent,Math.max(2,base*.004),.75);
+      graphicRing(ctx,w*.08,h*.09,base*.082*circleScale*largeScale,accent,Math.max(2,base*.004),.72);
+      graphicRing(ctx,w*.92,h*.91,base*.092*circleScale*largeScale,accent,Math.max(2,base*.004),.72);
+      graphicCapsule(ctx,w*.09,h*.87,base*.20*barScale*largeScale,base*.026*barScale*largeScale,-Math.PI/4,mid,.58,'fill');
+      graphicCapsule(ctx,w*.91,h*.13,base*.20*barScale*largeScale,base*.026*barScale*largeScale,-Math.PI/4,strong,.58,'fill')
     }else if(layout==='frame'){
-      graphicRing(ctx,w*.06,h*.10,base*.10*circleScale,accent,Math.max(2,base*.004),.7);
-      graphicRing(ctx,w*.94,h*.90,base*.11*circleScale*shapeScale,accent,Math.max(2,base*.004),.7);
-      graphicDotGrid(ctx,w*.08,h*.88,5,4,base*.015,base*.0028,strong,.72);
-      graphicDotGrid(ctx,w*.92,h*.12,5,4,base*.015,base*.0028,strong,.72);
+      graphicRing(ctx,w*.07,h*.10,base*.095*circleScale*largeScale,white,Math.max(2,base*.004),.82);
+      graphicRing(ctx,w*.93,h*.90,base*.105*circleScale*largeScale,accent,Math.max(2,base*.004),.70);
+      graphicDotGrid(ctx,w*.08,h*.87,5,4,base*.015,base*.0028,strong,.72);
+      graphicDotGrid(ctx,w*.92,h*.13,5,4,base*.015,base*.0028,white,.85)
     }else if(layout==='center-space'){
-      graphicRoundedBar(ctx,w*.07,h*.16,base*.18*barScale*shapeScale,base*.028*barScale*shapeScale,-Math.PI/4,weak,.75);
-      graphicRoundedBar(ctx,w*.93,h*.84,base*.18*barScale,base*.028*barScale,-Math.PI/4,weak,.75);
+      graphicCapsule(ctx,w*.08,h*.16,base*.22*barScale*largeScale,base*.030*barScale*largeScale,-Math.PI/4,mid,.62,'fill');
+      graphicCapsule(ctx,w*.92,h*.84,base*.22*barScale*largeScale,base*.030*barScale*largeScale,-Math.PI/4,strong,.62,'fill');
+      graphicDottedLine(ctx,w*.03,h*.73,w*.24,h*.94,accent,Math.max(2,base*.003),.62,base*.012);
+      graphicDottedLine(ctx,w*.76,h*.06,w*.97,h*.27,accent,Math.max(2,base*.003),.62,base*.012)
+    }else{
+      graphicRing(ctx,w*.07,h*.12,base*.08*circleScale*largeScale,accent,Math.max(2,base*.0035),.62);
+      graphicCapsule(ctx,w*.92,h*.18,base*.19*barScale*largeScale,base*.026*barScale*largeScale,-Math.PI/4,mid,.60,'fill');
+      graphicDottedLine(ctx,w*.02,h*.62,w*.20,h*.80,strong,Math.max(2,base*.003),.58,base*.012)
     }
     ctx.restore()
   }
@@ -359,6 +382,11 @@
     ['confetti','파스텔 컨페티','키치·낙서','색종이 조각을 흩뿌린 느낌','confetti',{}],
     ['sticker-mix','스티커 믹스','키치·낙서','다양한 미니 도형이 섞인 느낌','doodles',{}],
     ['sprinkles','스프링클','키치·낙서','짧은 선과 도형의 키치 패턴','confetti',{}],
+    ['graphic-circle-frame','그래픽 원·링 프레임','그래픽 배경','다양한 크기의 원·링·점 원을 가장자리에 균형 있게 배치한 프레임','graphic-composition',{layout:'frame'}],
+    ['graphic-pill-frame','그래픽 롱 캡슐 프레임','그래픽 배경','기다란 둥근 막대와 캡슐을 중심으로 가장자리에 흐름을 만드는 프레임','graphic-composition',{layout:'center-space'}],
+    ['graphic-dotted-frame','그래픽 점선 프레임','그래픽 배경','점선·도트·점 원을 중심으로 가볍고 정돈된 프레임을 만드는 스타일','graphic-composition',{layout:'frame'}],
+    ['graphic-stripe-frame','그래픽 스트라이프 프레임','그래픽 배경','평행 막대·스트라이프 원·긴 선을 섞은 사선형 프레임','graphic-composition',{layout:'diagonal'}],
+    ['graphic-balanced-mix','그래픽 밸런스 믹스','그래픽 배경','큰 요소와 작은 요소를 고르게 분산하고 중앙 여백을 유지하는 혼합 스타일','graphic-composition',{layout:'scatter'}],
     ['graphic-corner-focus','그래픽 코너 집중형','그래픽 배경','둥근 막대·원·링·점·스파클을 코너에 집중하고 중앙은 비워 두는 2D 그래픽','graphic-composition',{layout:'corner'}],
     ['graphic-diagonal-flow','그래픽 사선 흐름형','그래픽 배경','좌상단→우하단 사선 흐름으로 막대·원·점선·패턴 포인트가 이어지는 구성','graphic-composition',{layout:'diagonal'}],
     ['graphic-frame','그래픽 프레임형','그래픽 배경','화면 가장자리를 따라 원·링·둥근 막대·도트가 둘러싸는 벡터풍 프레임 구성','graphic-composition',{layout:'frame'}],
@@ -380,11 +408,16 @@
     'groovy-flower':{size:95,gap:34,jitter:28,detail:62},'cherry':{size:76,gap:55,jitter:30},'strawberry':{size:72,gap:50,jitter:30},
     'cloud':{size:84,gap:55,jitter:35},'moonstar':{size:62,gap:48,jitter:45},'smiley':{size:58,gap:48,jitter:32},'raindrop':{size:58,gap:42,jitter:42},
     'doodle':{size:60,gap:48,jitter:55,stroke:4},'confetti':{size:62,gap:26,jitter:70},
-    'graphic-corner-focus':{size:90,gap:22,jitter:18,stroke:3,detail:58,opacity:100,graphicSafeArea:62,graphicBarScale:100,graphicCircleScale:100,graphicMotifMode:'auto'},
-    'graphic-diagonal-flow':{size:90,gap:18,jitter:16,stroke:3,detail:62,opacity:100,graphicSafeArea:58,graphicBarScale:110,graphicCircleScale:95,graphicMotifMode:'geometric'},
-    'graphic-frame':{size:90,gap:20,jitter:14,stroke:3,detail:68,opacity:100,graphicSafeArea:64,graphicBarScale:100,graphicCircleScale:110,graphicMotifMode:'auto'},
-    'graphic-center-space':{size:90,gap:24,jitter:12,stroke:3,detail:50,opacity:100,graphicSafeArea:70,graphicBarScale:95,graphicCircleScale:95,graphicMotifMode:'minimal'},
-    'graphic-scatter':{size:90,gap:18,jitter:22,stroke:3,detail:72,opacity:100,graphicSafeArea:56,graphicBarScale:100,graphicCircleScale:100,graphicMotifMode:'sparkle'},
+    'graphic-circle-frame':{size:92,gap:20,jitter:0,stroke:3,detail:58,opacity:100,graphicSafeArea:64,graphicBarScale:85,graphicCircleScale:125,graphicSmallScale:95,graphicLargeScale:120,graphicBalance:90,graphicMotifMode:'circles'},
+    'graphic-pill-frame':{size:96,gap:20,jitter:0,stroke:3,detail:56,opacity:100,graphicSafeArea:68,graphicBarScale:135,graphicCircleScale:80,graphicSmallScale:92,graphicLargeScale:125,graphicBalance:90,graphicMotifMode:'bars'},
+    'graphic-dotted-frame':{size:88,gap:20,jitter:0,stroke:3,detail:62,opacity:100,graphicSafeArea:66,graphicBarScale:80,graphicCircleScale:95,graphicSmallScale:100,graphicLargeScale:105,graphicBalance:94,graphicMotifMode:'dotted'},
+    'graphic-stripe-frame':{size:98,gap:18,jitter:0,stroke:3,detail:64,opacity:100,graphicSafeArea:60,graphicBarScale:130,graphicCircleScale:105,graphicSmallScale:95,graphicLargeScale:120,graphicBalance:88,graphicMotifMode:'geometric'},
+    'graphic-balanced-mix':{size:92,gap:20,jitter:0,stroke:3,detail:68,opacity:100,graphicSafeArea:62,graphicBarScale:105,graphicCircleScale:105,graphicSmallScale:100,graphicLargeScale:115,graphicBalance:92,graphicMotifMode:'mixed'},
+    'graphic-corner-focus':{size:90,gap:22,jitter:0,stroke:3,detail:56,opacity:100,graphicSafeArea:64,graphicBarScale:105,graphicCircleScale:105,graphicSmallScale:95,graphicLargeScale:115,graphicBalance:92,graphicMotifMode:'mixed'},
+    'graphic-diagonal-flow':{size:94,gap:18,jitter:0,stroke:3,detail:60,opacity:100,graphicSafeArea:60,graphicBarScale:125,graphicCircleScale:95,graphicSmallScale:95,graphicLargeScale:120,graphicBalance:90,graphicMotifMode:'geometric'},
+    'graphic-frame':{size:92,gap:20,jitter:0,stroke:3,detail:62,opacity:100,graphicSafeArea:66,graphicBarScale:105,graphicCircleScale:115,graphicSmallScale:95,graphicLargeScale:115,graphicBalance:94,graphicMotifMode:'mixed'},
+    'graphic-center-space':{size:90,gap:24,jitter:0,stroke:3,detail:48,opacity:100,graphicSafeArea:72,graphicBarScale:105,graphicCircleScale:95,graphicSmallScale:90,graphicLargeScale:115,graphicBalance:96,graphicMotifMode:'minimal'},
+    'graphic-scatter':{size:90,gap:18,jitter:0,stroke:3,detail:66,opacity:100,graphicSafeArea:60,graphicBarScale:100,graphicCircleScale:100,graphicSmallScale:100,graphicLargeScale:110,graphicBalance:88,graphicMotifMode:'sparkle'},
     'sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:68,opacity:100},'soft-sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:48,opacity:100},'glossy-sun-bg':{size:90,gap:0,jitter:0,stroke:0,detail:54,opacity:100},'sparkle-glow-bg':{size:90,gap:0,jitter:0,stroke:0,detail:58,opacity:100}
   };
   window.PatternEngine={presets,defaults,render};
