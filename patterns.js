@@ -303,7 +303,64 @@
     }
     ctx.restore()
   }
-  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
+  function lovelyPointFor(i,total,layout,rng,w,h,edgeFocus,balance){
+    let base=Math.min(w,h),edge=base*(.025+.16*edgeFocus),jitter=(1-balance)*base*.045;
+    const rand=(a,b)=>a+(b-a)*rng(),j=()=>rand(-jitter,jitter);
+    let x=0,y=0,side=i%4,slot=Math.floor(i/4),perSide=Math.max(1,Math.ceil(total/4)),t=(slot+1)/(perSide+1);
+    if(layout==='corner'){
+      let c=i%4,u=(Math.floor(i/4)+1)/(Math.ceil(total/4)+1),span=.28;
+      if(c===0){x=w*(.02+span*u);y=h*(.02+span*(1-u))}
+      if(c===1){x=w*(.98-span*u);y=h*(.02+span*u)}
+      if(c===2){x=w*(.98-span*u);y=h*(.98-span*(1-u))}
+      if(c===3){x=w*(.02+span*u);y=h*(.98-span*u)}
+    }else if(layout==='top-bottom'){
+      let top=i%2===0,u=(Math.floor(i/2)+1)/(Math.ceil(total/2)+1);x=w*u;y=top?edge:h-edge
+    }else if(layout==='left-right'){
+      let left=i%2===0,u=(Math.floor(i/2)+1)/(Math.ceil(total/2)+1);x=left?edge:w-edge;y=h*u
+    }else if(layout==='scatter'){
+      let band=Math.max(base*.11,edge),attempt=0;
+      do{x=rand(band,w-band);y=rand(band,h-band);attempt++}while(attempt<12&&x>w*.27&&x<w*.73&&y>h*.25&&y<h*.75);
+    }else{
+      if(side===0){x=w*t;y=edge}
+      if(side===1){x=w-edge;y=h*t}
+      if(side===2){x=w*(1-t);y=h-edge}
+      if(side===3){x=edge;y=h*(1-t)}
+    }
+    return [x+j(),y+j()]
+  }
+  function lovelyBubbleFrame(ctx,w,h,s,scale,opt={}){
+    let q=common(s,scale),rng=mulberry32(q.seed),base=Math.min(w,h),layout=opt.layout||'frame',cols=s.colors||['#FFF5F7','#FF7D88','#FFB7BE','#FFFFFF','#F65F73'];
+    let heartCount=Math.max(0,Math.min(60,s.lovelyHeartCount??18)),bubbleCount=Math.max(0,Math.min(50,s.lovelyBubbleCount??14)),sparkleCount=Math.max(0,Math.min(50,s.lovelySparkleCount??14));
+    let hMin=Math.max(.008,(s.lovelyHeartMin??3)/100),hMax=Math.max(hMin,(s.lovelyHeartMax??12)/100),bMin=Math.max(.008,(s.lovelyBubbleMin??3)/100),bMax=Math.max(bMin,(s.lovelyBubbleMax??15)/100);
+    let hAlpha=Math.max(0,Math.min(1,(s.lovelyHeartOpacity??84)/100)),bAlpha=Math.max(0,Math.min(1,(s.lovelyBubbleOpacity??28)/100)),outlineRatio=Math.max(0,Math.min(1,(s.lovelyOutlineRatio??24)/100));
+    let edgeFocus=Math.max(0,Math.min(1,(s.lovelyEdgeFocus??72)/100)),balance=Math.max(0,Math.min(1,(s.lovelyBalance??86)/100)),bubbleOutline=Math.max(.5,(s.lovelyBubbleOutline??3)*scale),highlight=Math.max(0,Math.min(1,(s.lovelyBubbleHighlight??65)/100));
+    let strong=cols[1]||'#FF7D88',mid=cols[2]||'#FFB7BE',white=cols[3]||'#FFFFFF',accent=cols[4]||strong;
+    const rand=(a,b)=>a+(b-a)*rng(),pick=arr=>arr[Math.floor(rng()*arr.length)];
+    ctx.save();ctx.globalAlpha=q.op;ctx.translate(w/2,h/2);ctx.rotate(q.rot);ctx.translate(-w/2,-h/2);
+    for(let i=0;i<bubbleCount;i++){
+      let [x,y]=lovelyPointFor(i,bubbleCount,layout,rng,w,h,edgeFocus,balance),r=base*rand(bMin,bMax),tint=pick([mid,white,cols[0]||white]);
+      ctx.save();ctx.globalAlpha*=bAlpha*rand(.72,1);ctx.fillStyle=tint;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();
+      ctx.globalAlpha*=.75;ctx.strokeStyle=white;ctx.lineWidth=bubbleOutline;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.stroke();
+      if(highlight>0){ctx.globalAlpha*=highlight;ctx.fillStyle=white;ctx.beginPath();ctx.arc(x-r*.32,y-r*.34,Math.max(1.5,r*.10),0,TAU);ctx.fill()}
+      ctx.restore()
+    }
+    for(let i=0;i<heartCount;i++){
+      let [x,y]=lovelyPointFor(i+3,heartCount,layout,rng,w,h,edgeFocus,balance),sz=base*rand(hMin,hMax),outline=rng()<outlineRatio,c=rng()<.24?mid:strong;
+      ctx.save();ctx.globalAlpha*=hAlpha*rand(.76,1);ctx.fillStyle=c;ctx.strokeStyle=c;ctx.lineWidth=Math.max(1.4,sz*.08);heart(ctx,x,y,sz,rand(-.08,.08));
+      outline?ctx.stroke():ctx.fill();ctx.restore()
+    }
+    for(let i=0;i<sparkleCount;i++){
+      let [x,y]=lovelyPointFor(i+7,sparkleCount,layout,rng,w,h,Math.max(.35,edgeFocus*.88),Math.min(1,balance+.05)),sz=base*rand(.006,.020);
+      ctx.save();ctx.globalAlpha*=rand(.62,.95);ctx.fillStyle=i%3===0?accent:white;sparkle(ctx,x,y,sz,0);ctx.fill();ctx.restore()
+    }
+    let dotCount=Math.round(sparkleCount*.7);
+    for(let i=0;i<dotCount;i++){
+      let [x,y]=lovelyPointFor(i+11,dotCount,layout,rng,w,h,edgeFocus,balance),r=base*rand(.0015,.0042);
+      ctx.save();ctx.globalAlpha*=rand(.45,.85);ctx.fillStyle=i%2?white:mid;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();ctx.restore()
+    }
+    ctx.restore()
+  }
+  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);else if(t==='lovely-bubble')lovelyBubbleFrame(ctx,w,h,s,scale,o);ctx.restore()}
 
   const presets=[
     ['pastel-checker','파스텔 체크','체크·도트','깔끔한 기본 체커보드','checker',{}],
@@ -382,6 +439,12 @@
     ['confetti','파스텔 컨페티','키치·낙서','색종이 조각을 흩뿌린 느낌','confetti',{}],
     ['sticker-mix','스티커 믹스','키치·낙서','다양한 미니 도형이 섞인 느낌','doodles',{}],
     ['sprinkles','스프링클','키치·낙서','짧은 선과 도형의 키치 패턴','confetti',{}],
+    ['lovely-heart-bubble-frame','하트·버블 프레임','하트·버블 그래픽','하트와 투명 버블이 가장자리를 따라 자연스럽게 배치되고 중앙은 비워지는 러블리 프레임','lovely-bubble',{layout:'frame'}],
+    ['lovely-heart-corners','하트 코너 집중형','하트·버블 그래픽','큰 하트와 작은 하트·버블이 네 코너에 자연스럽게 모이는 구성','lovely-bubble',{layout:'corner'}],
+    ['lovely-top-bottom','하트·버블 상하 흐름형','하트·버블 그래픽','상단과 하단을 중심으로 하트·버블·반짝이가 흐르는 중앙 여백형 구성','lovely-bubble',{layout:'top-bottom'}],
+    ['lovely-left-right','하트·버블 좌우 흐름형','하트·버블 그래픽','좌우 가장자리에 하트와 버블이 균형 있게 분산되는 구성','lovely-bubble',{layout:'left-right'}],
+    ['lovely-soft-scatter','하트·버블 전체 분산형','하트·버블 그래픽','중앙을 과하게 가리지 않으면서 하트와 버블이 화면 전체에 가볍게 퍼지는 구성','lovely-bubble',{layout:'scatter'}],
+    ['lovely-airy-frame','에어리 하트 버블','하트·버블 그래픽','하트는 적게, 버블과 흰 반짝이는 넉넉하게 배치한 가볍고 맑은 프레임','lovely-bubble',{layout:'frame'}],
     ['graphic-circle-frame','그래픽 원·링 프레임','그래픽 배경','다양한 크기의 원·링·점 원을 가장자리에 균형 있게 배치한 프레임','graphic-composition',{layout:'frame'}],
     ['graphic-pill-frame','그래픽 롱 캡슐 프레임','그래픽 배경','기다란 둥근 막대와 캡슐을 중심으로 가장자리에 흐름을 만드는 프레임','graphic-composition',{layout:'center-space'}],
     ['graphic-dotted-frame','그래픽 점선 프레임','그래픽 배경','점선·도트·점 원을 중심으로 가볍고 정돈된 프레임을 만드는 스타일','graphic-composition',{layout:'frame'}],
@@ -408,6 +471,12 @@
     'groovy-flower':{size:95,gap:34,jitter:28,detail:62},'cherry':{size:76,gap:55,jitter:30},'strawberry':{size:72,gap:50,jitter:30},
     'cloud':{size:84,gap:55,jitter:35},'moonstar':{size:62,gap:48,jitter:45},'smiley':{size:58,gap:48,jitter:32},'raindrop':{size:58,gap:42,jitter:42},
     'doodle':{size:60,gap:48,jitter:55,stroke:4},'confetti':{size:62,gap:26,jitter:70},
+    'lovely-heart-bubble-frame':{size:90,gap:0,jitter:0,stroke:3,detail:58,opacity:100,lovelyHeartCount:20,lovelyHeartMin:3,lovelyHeartMax:12,lovelyHeartOpacity:86,lovelyOutlineRatio:22,lovelyBubbleCount:14,lovelyBubbleMin:3,lovelyBubbleMax:16,lovelyBubbleOpacity:26,lovelyBubbleOutline:3,lovelyBubbleHighlight:70,lovelySparkleCount:16,lovelyEdgeFocus:74,lovelyBalance:88,lovelyAutoHarmony:true},
+    'lovely-heart-corners':{size:90,gap:0,jitter:0,stroke:3,detail:60,opacity:100,lovelyHeartCount:22,lovelyHeartMin:3,lovelyHeartMax:14,lovelyHeartOpacity:88,lovelyOutlineRatio:18,lovelyBubbleCount:12,lovelyBubbleMin:3,lovelyBubbleMax:15,lovelyBubbleOpacity:24,lovelyBubbleOutline:3,lovelyBubbleHighlight:68,lovelySparkleCount:14,lovelyEdgeFocus:80,lovelyBalance:86,lovelyAutoHarmony:true},
+    'lovely-top-bottom':{size:90,gap:0,jitter:0,stroke:3,detail:54,opacity:100,lovelyHeartCount:18,lovelyHeartMin:2,lovelyHeartMax:11,lovelyHeartOpacity:84,lovelyOutlineRatio:25,lovelyBubbleCount:16,lovelyBubbleMin:3,lovelyBubbleMax:17,lovelyBubbleOpacity:25,lovelyBubbleOutline:3,lovelyBubbleHighlight:70,lovelySparkleCount:18,lovelyEdgeFocus:70,lovelyBalance:90,lovelyAutoHarmony:true},
+    'lovely-left-right':{size:90,gap:0,jitter:0,stroke:3,detail:54,opacity:100,lovelyHeartCount:18,lovelyHeartMin:2,lovelyHeartMax:11,lovelyHeartOpacity:84,lovelyOutlineRatio:25,lovelyBubbleCount:16,lovelyBubbleMin:3,lovelyBubbleMax:17,lovelyBubbleOpacity:25,lovelyBubbleOutline:3,lovelyBubbleHighlight:70,lovelySparkleCount:18,lovelyEdgeFocus:70,lovelyBalance:90,lovelyAutoHarmony:true},
+    'lovely-soft-scatter':{size:90,gap:0,jitter:0,stroke:3,detail:62,opacity:100,lovelyHeartCount:24,lovelyHeartMin:2,lovelyHeartMax:9,lovelyHeartOpacity:78,lovelyOutlineRatio:30,lovelyBubbleCount:18,lovelyBubbleMin:2,lovelyBubbleMax:13,lovelyBubbleOpacity:20,lovelyBubbleOutline:2,lovelyBubbleHighlight:62,lovelySparkleCount:20,lovelyEdgeFocus:58,lovelyBalance:82,lovelyAutoHarmony:true},
+    'lovely-airy-frame':{size:90,gap:0,jitter:0,stroke:3,detail:48,opacity:100,lovelyHeartCount:12,lovelyHeartMin:2,lovelyHeartMax:8,lovelyHeartOpacity:74,lovelyOutlineRatio:34,lovelyBubbleCount:22,lovelyBubbleMin:3,lovelyBubbleMax:18,lovelyBubbleOpacity:18,lovelyBubbleOutline:2,lovelyBubbleHighlight:78,lovelySparkleCount:22,lovelyEdgeFocus:76,lovelyBalance:94,lovelyAutoHarmony:true},
     'graphic-circle-frame':{size:92,gap:20,jitter:0,stroke:3,detail:58,opacity:100,graphicSafeArea:64,graphicBarScale:85,graphicCircleScale:125,graphicSmallScale:95,graphicLargeScale:120,graphicBalance:90,graphicMotifMode:'circles'},
     'graphic-pill-frame':{size:96,gap:20,jitter:0,stroke:3,detail:56,opacity:100,graphicSafeArea:68,graphicBarScale:135,graphicCircleScale:80,graphicSmallScale:92,graphicLargeScale:125,graphicBalance:90,graphicMotifMode:'bars'},
     'graphic-dotted-frame':{size:88,gap:20,jitter:0,stroke:3,detail:62,opacity:100,graphicSafeArea:66,graphicBarScale:80,graphicCircleScale:95,graphicSmallScale:100,graphicLargeScale:105,graphicBalance:94,graphicMotifMode:'dotted'},
