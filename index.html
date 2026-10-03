@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f5ff" />
-  <title>Cute Pattern Studio v2.3.4</title>
-  <link rel="stylesheet" href="styles.css?v=2.3.4" />
+  <title>Cute Pattern Studio v2.4.0</title>
+  <link rel="stylesheet" href="styles.css?v=2.4.0" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <div class="eyebrow">2000 × 2000 PATTERN BACKGROUND MAKER</div>
-        <h1>Cute Pattern Studio <span>v2.3.4</span></h1>
+        <h1>Cute Pattern Studio <span>v2.4.0</span></h1>
         <p class="subtitle">반복 패턴 · 점선 체크 · Anchor Color · HEX/스포이드 자유 색상</p>
       </div>
       <div class="top-actions">
@@ -184,14 +184,84 @@
             <div id="gradientOverlayEditor" class="gradient-overlay-list"></div>
           </section>
 
-          <section class="control-section">
+          <section id="referenceColorSection" class="control-section">
             <div class="section-title-row">
-              <h2>참고 이미지 팔레트 추출</h2>
-              <button id="uploadReferenceBtn" class="mini-btn">참고 이미지 불러오기</button>
+              <div>
+                <h2>참고 이미지 스포이드</h2>
+                <p class="micro-copy">이미지를 확대해서 직접 클릭하고, 뽑은 색을 현재 작업의 색상 항목에 바로 적용해.</p>
+              </div>
+              <div class="preset-actions">
+                <button id="uploadReferenceBtn" class="mini-btn" type="button">이미지 선택</button>
+                <button id="replaceReferenceBtn" class="mini-btn" type="button" disabled>교체</button>
+                <button id="deleteReferenceBtn" class="mini-btn" type="button" disabled>삭제</button>
+              </div>
             </div>
             <input id="referenceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-            <div id="referencePreview" class="reference-preview empty">참고 이미지를 불러오면 여기서 색상을 추출해.</div>
-            <div id="referencePalette" class="extracted-palette"></div>
+
+            <div id="referenceDropzone" class="reference-dropzone">
+              <div id="referenceEmpty" class="reference-empty">
+                <strong>JPG / JPEG / PNG / WEBP 이미지를 끌어놓거나 클릭해서 첨부</strong>
+                <span>이미지를 올려도 현재 작업 중인 패턴·레이어·색상 설정은 초기화되지 않아.</span>
+              </div>
+              <div id="referenceViewport" class="reference-viewport" hidden>
+                <canvas id="referenceCanvas"></canvas>
+                <canvas id="referenceMagnifier" class="reference-magnifier" width="120" height="120"></canvas>
+              </div>
+            </div>
+
+            <div id="referenceZoomBar" class="reference-zoom-bar" hidden>
+              <button id="referenceZoomOut" class="mini-btn" type="button">−</button>
+              <input id="referenceZoomRange" type="range" min="25" max="800" value="100" />
+              <button id="referenceZoomIn" class="mini-btn" type="button">＋</button>
+              <span id="referenceZoomText">100%</span>
+              <button id="referenceResetView" class="mini-btn" type="button">화면 맞춤</button>
+              <span class="micro-copy">휠 확대 · 드래그 이동 · 클릭 색상 추출</span>
+            </div>
+
+            <div id="referenceSelectedPanel" class="reference-selected-panel">
+              <div id="referenceSelectedSwatch" class="reference-selected-swatch"></div>
+              <div class="reference-selected-copy">
+                <strong id="referenceSelectedHex">선택한 색상 없음</strong>
+                <span id="referenceSelectedRgb">이미지를 클릭하면 HEX / RGB가 표시돼.</span>
+                <small id="referenceActiveTarget">활성 색상 입력: 없음</small>
+              </div>
+            </div>
+
+            <div class="reference-apply-card">
+              <div class="section-title-row">
+                <h3>추출 색상 적용</h3>
+                <button id="applyReferenceToActive" class="mini-btn" type="button" disabled>현재 활성 색상칸</button>
+              </div>
+              <div class="reference-apply-grid">
+                <button type="button" data-reference-apply="background">배경색</button>
+                <button type="button" data-reference-apply="anchor">대표색 · Anchor</button>
+                <button type="button" data-reference-apply="pattern1">패턴 색상 1</button>
+                <button type="button" data-reference-apply="pattern2">패턴 색상 2</button>
+                <button type="button" data-reference-apply="pattern3">패턴 색상 3</button>
+                <button type="button" data-reference-apply="line">선 / 외곽선</button>
+              </div>
+            </div>
+
+            <div class="reference-palette-block">
+              <div class="section-title-row">
+                <div>
+                  <h3>자동 추출 팔레트</h3>
+                  <p class="micro-copy">서로 너무 비슷한 색은 제외하고 사용하기 좋은 대표색 5개를 우선 표시해.</p>
+                </div>
+              </div>
+              <div id="referencePalette" class="reference-palette-grid"></div>
+            </div>
+
+            <div class="reference-palette-block">
+              <div class="section-title-row">
+                <div>
+                  <h3>최근 추출 색상</h3>
+                  <p class="micro-copy">최근 스포이드 색상 최대 10개를 저장해 두고 다시 사용할 수 있어.</p>
+                </div>
+                <button id="clearRecentReferenceColors" class="mini-btn" type="button">전체 초기화</button>
+              </div>
+              <div id="recentReferenceColors" class="recent-reference-colors"></div>
+            </div>
           </section>
 
           
@@ -224,7 +294,7 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v2.3.4 그래픽 배경 스타일 업데이트</h3>
+            <h3>v2.4.0 참고 이미지 스포이드 업데이트</h3>
             <p>① 완성형 디자인 배경 영역을 제거하고 기존 패턴 편집 중심 구조로 복원</p>
             <p>② 「점선 체크 / Dashed Grid」 추가 · 선 색/투명도/두께/점선 길이·간격/격자 X·Y/회전/오프셋 편집</p>
             <p>③ 대표색은 가장 진한 Anchor Color로 사용 · HEX/컬러 피커/스포이드 자유 지정 + 기존 7색 빠른 선택 유지</p>
@@ -246,6 +316,8 @@
             <p>⑲ 노갭 3톤 체크 해칭 추가 · 두 번째로 진한 영역에만 45° 사선 해칭 적용 · ON/OFF 및 불투명도 조절</p>
             <p>⑳ 노갭 3톤 배경 비침 해칭 · 사선을 위에 그리지 않고 해당 부분을 투명하게 뚫어 실제 배경색이 보이도록 변경</p>
             <p>노갭 3톤 줄별 교차 해칭 · 1줄과 2줄의 사선 방향이 번갈아 반복</p>
+            <p>참고 이미지 업로드 + 이미지 스포이드 · 확대/축소/드래그 이동/픽셀 확대창/HEX·RGB 표시</p>
+            <p>자동 추출 팔레트 5색 + 최근 추출 10색 · 배경/Anchor/패턴 1·2·3/선 색상에 즉시 적용</p>
           </section>
         </div>
       </aside>
@@ -253,7 +325,7 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="patterns.js?v=2.3.4"></script>
-  <script src="app.js?v=2.3.4"></script>
+  <script src="patterns.js?v=2.4.0"></script>
+  <script src="app.js?v=2.4.0"></script>
 </body>
 </html>
