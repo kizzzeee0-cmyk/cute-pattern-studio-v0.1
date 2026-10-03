@@ -52,6 +52,7 @@ function defaultAnchorProfileForPreset(presetId=''){
   let preset=PE.presets.find(p=>p.id===presetId),type=preset?.type||'';
   if(type==='grid'||type==='dashed-grid')return [.96,0,.60,.84,.08];
   if(['checker','wavy-checker','textured-checker','plaid','layered-fabric-plaid','overlap-check','torn-checker'].includes(type))return [.95,0,.50,.78,.08];
+  if(type==='reference-plaid')return [.96,0,.56,.86,.22];
   if(['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'].includes(type))return [.93,0,.34,.72,.10];
   return [.95,0,.48,.78,.10]
 }
@@ -64,6 +65,7 @@ function buildAnchorToneProfile(colors,presetId=''){
 function buildThemeTonePalette(baseHex,presetId='',profile=null){
   let master=normalizeHexLike(baseHex,'#D94B7A'),preset=PE.presets.find(p=>p.id===presetId);
   if(preset?.type==='graphic-composition')return normalizeColors([mixHex(master,'#FFFFFF',.96),master,mixHex(master,'#FFFFFF',.58),'#FFFFFF',mixHex(master,'#FFFFFF',.22)]);
+  if(preset?.type==='reference-plaid')return normalizeColors([mixHex(master,'#FFFFFF',.96),master,mixHex(master,'#FFFFFF',.56),mixHex(master,'#FFFFFF',.86),mixHex(master,'#FFFFFF',.22)]);
   let tone=(Array.isArray(profile)&&profile.length>=5?profile:defaultAnchorProfileForPreset(presetId)).slice(0,5);
   return tone.map(t=>mixHex(master,'#FFFFFF',clamp(Number(t)||0,0,.975)))
 }
@@ -449,6 +451,11 @@ if(uniformShape){
   row.append(lab,picker,txt,makeEyeDropperButton(setShape));colorBox.appendChild(row)
 }else colorBox.appendChild(renderColorInputs(layer.colors,()=>{persistAll();let asset=userAssets.find(v=>v.id===layer.assetId);if(asset&&asset.kind==='svg'){asset._img=null;ensureAssetImage(asset,layer).then(renderMain)}renderPatternListDebounced();renderAssetList();renderMain()}))}
   autoBtn.onclick=function(){if(layer.colorMode==='individual')layer.anchorToneProfile=buildAnchorToneProfile(layer.colors,layer.presetId);layer.colorMode='auto';applyMasterTone(layer,layer.masterColor||layer.colors[1]||'#F59BBC',true);persistAll();renderLayerEditor();syncGlobalControls();renderPatternListDebounced();renderMain()};manualBtn.onclick=function(){layer.colorMode='individual';persistAll();renderLayerEditor();renderMain()};top.appendChild(colorBox);
+  if(layer.sourceType==='builtin'&&PE.presets.find(p=>p.id===layer.presetId)?.type==='reference-plaid'){
+    let note=document.createElement('div');note.className='layer-editor-card';
+    note.innerHTML='<div class="section-title-row"><h3>레퍼런스 플래드 색상 기준</h3></div><div class="control-subtitle">대표색 · Anchor Color는 이 패턴에서 <strong>가장 진한 부분</strong>의 기준색으로 사용돼. 중간톤·연한톤·거의 흰색 영역은 그 색을 기준으로 자동 생성되고, 개별 색상 지정 모드에서는 모든 색을 직접 바꿀 수 있어.</div>';
+    top.appendChild(note)
+  }
   if(layer.sourceType==='builtin'&&layer.presetId==='layered-fabric-plaid'){
     if(!layer.plaidMaster)layer.plaidMaster='#F39BBC';if(!layer.plaidBg2)layer.plaidBg2='#FFEAF2';if(layer.plaidHatch===undefined)layer.plaidHatch=true;if(layer.plaidHatchStrength===undefined)layer.plaidHatchStrength=40;
     let box=document.createElement('div');box.className='layer-editor-card';box.innerHTML='<div class="section-title-row"><h3>플래드 해칭 설정</h3></div><div class="control-subtitle">중간 진함 이상 체크 영역 전체에 45° 미세 사선 해칭을 적용해. 해칭은 완전히 끄거나 불투명도를 0~100%로 조절할 수 있어.</div>';
