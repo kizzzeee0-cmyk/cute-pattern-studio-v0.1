@@ -457,9 +457,9 @@ if(uniformShape){
   if(layer.sourceType==='builtin'&&layer.presetId==='no-gap-tri-check'){
     let d=PE.defaults['no-gap-tri-check']||{};if(layer.triHatch===undefined)layer.triHatch=d.triHatch!==false;if(layer.triHatchStrength===undefined)layer.triHatchStrength=d.triHatchStrength??40;
     let box=document.createElement('div');box.className='layer-editor-card';
-    box.innerHTML='<div class="section-title-row"><h3>노갭 3톤 해칭 설정</h3></div><div class="control-subtitle">3톤 중 <strong>두 번째로 진한 영역</strong>에만 45° 미세 사선 해칭을 적용해. 가장 진한 교차 영역과 가장 연한 배경 영역에는 해칭이 들어가지 않아.</div>';
-    let hatch=document.createElement('label');hatch.className='switch-row';hatch.innerHTML='<input id="triHatchToggle" type="checkbox" '+(layer.triHatch!==false?'checked':'')+'/> 45° 미세 사선 해칭 사용';
-    let hr=sliderRow('해칭 불투명도','triHatchStrength',layer.triHatchStrength??40,0,100,'%',function(v){layer.triHatchStrength=v});
+    box.innerHTML='<div class="section-title-row"><h3>노갭 3톤 해칭 설정</h3></div><div class="control-subtitle">3톤 중 <strong>두 번째로 진한 영역</strong>에만 45° 사선을 넣되, 선을 위에 그리는 방식이 아니라 <strong>그 부분을 투명하게 뚫어서 실제 배경색이 비치게</strong> 만들어. 가장 진한 교차 영역과 가장 연한 배경 영역은 그대로 유지돼.</div>';
+    let hatch=document.createElement('label');hatch.className='switch-row';hatch.innerHTML='<input id="triHatchToggle" type="checkbox" '+(layer.triHatch!==false?'checked':'')+'/> 45° 배경 비침 해칭 사용';
+    let hr=sliderRow('배경 비침 강도','triHatchStrength',layer.triHatchStrength??40,0,100,'%',function(v){layer.triHatchStrength=v});
     box.append(hatch,hr);top.appendChild(box);
     setTimeout(function(){let ht=$('#triHatchToggle');if(ht)ht.onchange=function(e){layer.triHatch=e.target.checked;persistAll();renderPatternListDebounced();renderMain()}},0);
   }
