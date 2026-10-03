@@ -198,33 +198,59 @@
     let gridY=Math.max(8,(s.gridY??180)*overallScale*scale);
     let extraRotation=opt.diamond?45:0,rot=((s.rotation||0)+extraRotation)*Math.PI/180;
     let ox=0,oy=0,extra=Math.hypot(w,h);
+    let heartSize=Math.max(3,(s.dashedHeartSize??14)*overallScale*scale);
+    let heartPadding=Math.max(lineWidth*2.2,(s.dashedHeartGap??4)*overallScale*scale);
+    let heartClearance=heartSize*.72+heartPadding;
+    let every=Math.max(1,Math.round(s.dashedHeartEvery??1));
     ctx.save();
     ctx.translate(w/2,h/2);
     ctx.rotate(rot);
     ctx.translate(-w/2,-h/2);
     let startX=-extra+((((ox%gridX)+gridX)%gridX));
     let startY=-extra+((((oy%gridY)+gridY)%gridY));
+    let xLines=[],yLines=[];
+    for(let x=startX,xi=0;x<w+extra;x+=gridX,xi++)xLines.push({x,xi});
+    for(let y=startY,yi=0;y<h+extra;y+=gridY,yi++)yLines.push({y,yi});
+    const hasHeart=(xi,yi)=>opt.hearts&&((xi+yi)%every===0);
     ctx.globalAlpha=(s.opacity??100)/100*lineOpacity;
     ctx.strokeStyle=lineColor;
     ctx.lineWidth=lineWidth;
     ctx.lineCap='round';
     ctx.lineJoin='round';
     ctx.setLineDash([dashLength,dashGap]);
-    for(let x=startX;x<w+extra;x+=gridX){ctx.beginPath();ctx.moveTo(x,-extra);ctx.lineTo(x,h+extra);ctx.stroke()}
-    for(let y=startY;y<h+extra;y+=gridY){ctx.beginPath();ctx.moveTo(-extra,y);ctx.lineTo(w+extra,y);ctx.stroke()}
+    const strokeVertical=(x,xi)=>{
+      if(!opt.hearts){ctx.beginPath();ctx.moveTo(x,-extra);ctx.lineTo(x,h+extra);ctx.stroke();return}
+      let cursor=-extra;
+      for(const {y,yi} of yLines){
+        if(!hasHeart(xi,yi))continue;
+        let a=y-heartClearance,b=y+heartClearance;
+        if(a>cursor){ctx.beginPath();ctx.moveTo(x,cursor);ctx.lineTo(x,a);ctx.stroke()}
+        cursor=Math.max(cursor,b)
+      }
+      if(cursor<h+extra){ctx.beginPath();ctx.moveTo(x,cursor);ctx.lineTo(x,h+extra);ctx.stroke()}
+    };
+    const strokeHorizontal=(y,yi)=>{
+      if(!opt.hearts){ctx.beginPath();ctx.moveTo(-extra,y);ctx.lineTo(w+extra,y);ctx.stroke();return}
+      let cursor=-extra;
+      for(const {x,xi} of xLines){
+        if(!hasHeart(xi,yi))continue;
+        let a=x-heartClearance,b=x+heartClearance;
+        if(a>cursor){ctx.beginPath();ctx.moveTo(cursor,y);ctx.lineTo(a,y);ctx.stroke()}
+        cursor=Math.max(cursor,b)
+      }
+      if(cursor<w+extra){ctx.beginPath();ctx.moveTo(cursor,y);ctx.lineTo(w+extra,y);ctx.stroke()}
+    };
+    xLines.forEach(({x,xi})=>strokeVertical(x,xi));
+    yLines.forEach(({y,yi})=>strokeHorizontal(y,yi));
     if(opt.hearts){
       let heartColor=s.dashedHeartColor||lineColor;
       let heartOpacity=Math.max(0,Math.min(100,s.dashedHeartOpacity??88))/100;
-      let heartSize=Math.max(3,(s.dashedHeartSize??14)*overallScale*scale);
-      let every=Math.max(1,Math.round(s.dashedHeartEvery??1));
       ctx.setLineDash([]);
       ctx.fillStyle=heartColor;
       ctx.globalAlpha=(s.opacity??100)/100*heartOpacity;
-      let xi=0;
-      for(let x=startX;x<w+extra;x+=gridX,xi++){
-        let yi=0;
-        for(let y=startY;y<h+extra;y+=gridY,yi++){
-          if(((xi+yi)%every)!==0)continue;
+      for(const {x,xi} of xLines){
+        for(const {y,yi} of yLines){
+          if(!hasHeart(xi,yi))continue;
           heart(ctx,x,y,heartSize,-rot);ctx.fill()
         }
       }
@@ -478,7 +504,7 @@
     'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:8,jitter:0,detail:25},
     'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3},
-    'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
+    'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartGap:4,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
     'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
     'hearts':{size:56,gap:46,jitter:28},'bows':{size:64,gap:56,jitter:28},'sparkles':{size:48,gap:40,jitter:34},'kira-sparkle':{size:34,gap:28,jitter:24,detail:68},'tiny-bows':{size:40,gap:30,jitter:18,detail:36},'puff-hearts':{size:44,gap:34,jitter:20,detail:40},'candy-stars':{size:42,gap:32,jitter:24,detail:38},'flowers':{size:68,gap:54,jitter:34},'daisy-dot':{size:42,gap:34,jitter:26,detail:44},
     'groovy-flower':{size:95,gap:34,jitter:28,detail:62},'cherry':{size:76,gap:55,jitter:30},'strawberry':{size:72,gap:50,jitter:30},
