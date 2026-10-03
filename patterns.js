@@ -188,7 +188,7 @@
     let q=common(s,scale),rng=mulberry32(q.seed),cols=s.colors||['#FFF','#8EDFD7','#BDEFE8','#FFFFFF','#59CFC2'];
     let mode=s.graphicMotifMode||'auto',safe=Math.max(.40,Math.min(.80,(s.graphicSafeArea??58)/100));
     let barScale=Math.max(.55,Math.min(1.8,(s.graphicBarScale??100)/100)),circleScale=Math.max(.55,Math.min(1.8,(s.graphicCircleScale??100)/100));
-    let density=Math.max(.18,Math.min(1,q.detail||.45)),base=Math.min(w,h),layout=opt.layout||'frame',rot=q.rot;
+    let density=Math.max(.18,Math.min(1,q.detail||.45)),base=Math.min(w,h),shapeScale=Math.max(.5,Math.min(1.8,(s.size??90)/90)),layout=opt.layout||'frame',rot=q.rot;
     let safeRect={x:(w-w*safe)/2,y:(h-h*safe)/2,w:w*safe,h:h*safe};
     const insideSafe=(x,y,pad=0)=>x>safeRect.x-pad&&x<safeRect.x+safeRect.w+pad&&y>safeRect.y-pad&&y<safeRect.y+safeRect.h+pad;
     const color=(i=1)=>cols[Math.max(1,Math.min(4,i))]||cols[1]||'#7EDFD4';
@@ -240,13 +240,13 @@
     // soft translucent edge fields
     let fieldCount=layout==='diagonal'?3:layout==='corner'?4:5;
     for(let i=0;i<fieldCount;i++){
-      let [x,y]=pointFor(i,fieldCount),r=base*rand(.075,.17)*circleScale;
+      let [x,y]=pointFor(i,fieldCount),r=base*rand(.075,.17)*circleScale*shapeScale;
       ctx.globalAlpha=q.op*rand(.05,.14);ctx.fillStyle=color(choose([1,2,3]));ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill()
     }
     // crisp geometric decorations
     let count=Math.round((18+28*density)*(layout==='scatter'?1.12:1));
     for(let i=0;i<count;i++){
-      let [x,y]=pointFor(i,count),sz=base*rand(.012,.055),type=choose(types),c=color(choose([1,2,3,4])),a=rand(.42,.92);
+      let [x,y]=pointFor(i,count),sz=base*rand(.012,.055)*shapeScale,type=choose(types),c=color(choose([1,2,3,4])),a=rand(.42,.92);
       if(type==='bar'){graphicRoundedBar(ctx,x,y,sz*rand(3.2,6.5)*barScale,sz*rand(.72,1.25)*barScale,choose([-1,1])*Math.PI/4,c,a)}
       else if(type==='line'){ctx.save();ctx.globalAlpha*=a;ctx.strokeStyle=c;ctx.lineWidth=Math.max(1,sz*.12);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x-sz*2.5,y+sz*2.5);ctx.lineTo(x+sz*2.5,y-sz*2.5);ctx.stroke();ctx.restore()}
       else if(type==='circle'){ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz*circleScale,0,TAU);ctx.fill();ctx.restore()}
@@ -264,18 +264,18 @@
     // structured accents per layout so every variant feels intentionally composed
     let accent=color(4),strong=color(1),weak=color(2);
     if(layout==='diagonal'){
-      for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.06+k*base*.055,h*.18-k*base*.04,base*.19*barScale,base*.025*barScale,-Math.PI/4,k===0?accent:weak,.72)}
+      for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.06+k*base*.055,h*.18-k*base*.04,base*.19*barScale*shapeScale,base*.025*barScale*shapeScale,-Math.PI/4,k===0?accent:weak,.72)}
       for(let k=-1;k<=1;k++){graphicRoundedBar(ctx,w*.94+k*base*.055,h*.82-k*base*.04,base*.19*barScale,base*.025*barScale,-Math.PI/4,k===0?accent:weak,.72)}
     }else if(layout==='corner'){
-      graphicRing(ctx,w*.08,h*.09,base*.09*circleScale,accent,Math.max(2,base*.004),.75);
-      graphicRing(ctx,w*.92,h*.91,base*.10*circleScale,accent,Math.max(2,base*.004),.75);
+      graphicRing(ctx,w*.08,h*.09,base*.09*circleScale*shapeScale,accent,Math.max(2,base*.004),.75);
+      graphicRing(ctx,w*.92,h*.91,base*.10*circleScale*shapeScale,accent,Math.max(2,base*.004),.75);
     }else if(layout==='frame'){
       graphicRing(ctx,w*.06,h*.10,base*.10*circleScale,accent,Math.max(2,base*.004),.7);
-      graphicRing(ctx,w*.94,h*.90,base*.11*circleScale,accent,Math.max(2,base*.004),.7);
+      graphicRing(ctx,w*.94,h*.90,base*.11*circleScale*shapeScale,accent,Math.max(2,base*.004),.7);
       graphicDotGrid(ctx,w*.08,h*.88,5,4,base*.015,base*.0028,strong,.72);
       graphicDotGrid(ctx,w*.92,h*.12,5,4,base*.015,base*.0028,strong,.72);
     }else if(layout==='center-space'){
-      graphicRoundedBar(ctx,w*.07,h*.16,base*.18*barScale,base*.028*barScale,-Math.PI/4,weak,.75);
+      graphicRoundedBar(ctx,w*.07,h*.16,base*.18*barScale*shapeScale,base*.028*barScale*shapeScale,-Math.PI/4,weak,.75);
       graphicRoundedBar(ctx,w*.93,h*.84,base*.18*barScale,base*.028*barScale,-Math.PI/4,weak,.75);
     }
     ctx.restore()
