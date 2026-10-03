@@ -15,12 +15,12 @@ const curatedHarmonyPresets=[
   {name:'피치 크림',note:'복숭아 + 코랄 + 바닐라',colors:['#FFF8F2','#F6C2B1','#FFE0CC','#F3D27B','#D7A080']},
   {name:'세이지 체크',note:'세이지 + 아이보리 + 부드러운 라인',colors:['#FBFCF8','#A8B4A3','#D8DED3','#F2E6D0','#8F9889']}
 ];
-const STORAGE={state:'cps-v151-state',favorites:'cps-v151-favorites',presets:'cps-v151-presets',assets:'cps-v151-assets',hiddenPatterns:'cps-v160-hidden-patterns',deletedPatterns:'cps-v200-deleted-patterns'};
+const STORAGE={state:'cps-v151-state',favorites:'cps-v151-favorites',presets:'cps-v151-presets',assets:'cps-v151-assets',hiddenPatterns:'cps-v160-hidden-patterns',deletedPatterns:'cps-v200-deleted-patterns',recentReferenceColors:'cps-v240-recent-reference-colors'};
 const MAX_LAYERS=8;
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/장식색'],['선 색','체크 외곽선/그리드 선']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
 const MAX_BG_STOPS=6;
-let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[];
+let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],recentReferenceColors=[],referenceImage=null,referenceObjectUrl='',referenceSampleCanvas=null,referenceSelectedColor='',referenceSelectedRgb=null,referenceZoom=1,referencePanX=0,referencePanY=0,referenceViewMetrics=null,activeReferenceColorInput=null,activeReferenceColorLabel='',referenceDragState=null;
 
 function normalizeHexLike(value,fallback='#FFFFFF'){return /^#[0-9a-fA-F]{6}$/.test(String(value||'').trim())?String(value).trim().toUpperCase():fallback}
 function buildGradientStopsFromColors(colors){let list=(Array.isArray(colors)?colors:[...defaultBg]).filter(Boolean).map((c,i)=>normalizeHexLike(c,defaultBg[Math.min(i,defaultBg.length-1)]||'#FFFFFF')).slice(0,MAX_BG_STOPS);if(!list.length)list=[defaultBg[0],defaultBg[1]];if(list.length===1)list.push(list[0]);let step=list.length>1?100/(list.length-1):100;return list.map((color,i)=>({color,pos:Math.round(step*i)}))}
@@ -124,6 +124,7 @@ function loadLocal(){
   }catch{deletedPatterns=new Set()}
   try{myPresets=JSON.parse(localStorage.getItem(STORAGE.presets)||'[]')||[]}catch{}
   try{userAssets=JSON.parse(localStorage.getItem(STORAGE.assets)||'[]')||[]}catch{}
+  try{recentReferenceColors=(JSON.parse(localStorage.getItem(STORAGE.recentReferenceColors)||'[]')||[]).filter(c=>/^#[0-9a-fA-F]{6}$/.test(c)).map(c=>c.toUpperCase()).slice(0,10)}catch{recentReferenceColors=[]}
   try{let saved=JSON.parse(localStorage.getItem(STORAGE.state)||'null');if(saved)state=mergeState(saved)}catch{}
 }
 function mergeState(saved){let base=makeInitialState();if(!saved||typeof saved!=='object')return base;let merged={...base,...saved,bg:{...base.bg,...(saved.bg||{})}};merged.gradientOverlays={overlay1:normalizeGradientOverlay(saved.gradientOverlays?.overlay1,1),overlay2:normalizeGradientOverlay(saved.gradientOverlays?.overlay2,2)};merged.layers=(saved.layers||base.layers).slice(0,MAX_LAYERS).map((l,i)=>({...defaultLayer(i),...l,colors:normalizeColors(l.colors||defaultLayer(i).colors)}));if(!merged.layers.length)merged.layers=[defaultLayer(0,'pastel-checker',true)];merged.layers[0].enabled=true;merged.layers[0].name='기본 레이어';if(!Number.isFinite(+merged.layers[0].opacity)||+merged.layers[0].opacity<=0)merged.layers[0].opacity=100;merged.bg.colors=[merged.bg.colors?.[0]||defaultBg[0],merged.bg.colors?.[1]||merged.bg.colors?.[0]||defaultBg[1]];merged.bg.gradientAngle=clampInt(merged.bg.gradientAngle,0,360,135);merged.bg.backgroundOnly=!!merged.bg.backgroundOnly;merged.bg.watercolorSpread=clampInt(merged.bg.watercolorSpread,10,100,62);merged.bg.watercolorScale=clampInt(merged.bg.watercolorScale,15,100,58);merged.bg.watercolorIrregular=clampInt(merged.bg.watercolorIrregular,0,100,72);merged.bg.watercolorTexture=merged.bg.watercolorTexture!==false;merged.bg.watercolorStyle=['mist','cloud','bloom','aqua','pearl','blotch','wash','corner','aquaMilk','aquaSparkle','aquaFrost','wateryCloud'].includes(merged.bg.watercolorStyle)?merged.bg.watercolorStyle:'mist';merged.bg.watercolorDefinition=clampInt(merged.bg.watercolorDefinition,0,100,52);merged.bg.watercolorSparkle=clampInt(merged.bg.watercolorSparkle,0,100,28);merged.bg.watercolorSeed=clampInt(merged.bg.watercolorSeed,0,999999999,47291);merged.bg.vignette={enabled:!!merged.bg.vignette?.enabled,color:normalizeHexLike(merged.bg.vignette?.color||'#6F55C9','#6F55C9'),range:clampInt(merged.bg.vignette?.range,0,100,72),strength:clampInt(merged.bg.vignette?.strength,0,100,28),softness:clampInt(merged.bg.vignette?.softness,0,100,28)};syncBgGradientState(merged.bg);merged.layers.forEach((layer,i)=>{if(i>0&&!layer.name)layer.name=`추가 레이어 ${i}`;if(layer.sourceType==='builtin'&&!PE.presets.some(p=>p.id===layer.presetId))layer.presetId='pastel-checker';if(layer.randomSize===undefined)layer.randomSize=true;if(layer.randomAngle===undefined)layer.randomAngle=true;if(layer.randomPosition===undefined)layer.randomPosition=true;if(isUniformShapePresetId(layer.presetId)){layer.randomSize=false;layer.randomAngle=false;layer.randomPosition=false;}if(layer.offsetX===undefined)layer.offsetX=0;if(layer.offsetY===undefined)layer.offsetY=0;['row1OffsetX','row1OffsetY','row1Angle','row2OffsetX','row2OffsetY','row2Angle'].forEach(k=>{if(layer[k]===undefined)layer[k]=0});if(layer.checkerToneMode===undefined)layer.checkerToneMode=false;if(!layer.checkerToneBase)layer.checkerToneBase=(layer.colors&&layer.colors[1])||'#AFC3FF';if(!layer.colorMode)layer.colorMode='individual';if(!layer.masterColor)layer.masterColor=(layer.colors&&layer.colors[1])||'#F59BBC';if(!Array.isArray(layer.anchorToneProfile)||layer.anchorToneProfile.length<5)layer.anchorToneProfile=defaultAnchorProfileForPreset(layer.presetId);if(layer.presetId==='dashed-grid'){let d=PE.defaults['dashed-grid']||{};['dashedLineColor','dashedLineOpacity','dashedLineWidth','dashLength','dashGap','gridX','gridY'].forEach(k=>{if(layer[k]===undefined)layer[k]=d[k]})}if(layer.presetId==='no-gap-tri-check'){let d=PE.defaults['no-gap-tri-check']||{};if(layer.triHatch===undefined)layer.triHatch=d.triHatch!==false;if(layer.triHatchStrength===undefined)layer.triHatchStrength=d.triHatchStrength??40;if(layer.triHatchAlternate===undefined)layer.triHatchAlternate=d.triHatchAlternate!==false;if(layer.triHatchAlternate===undefined)layer.triHatchAlternate=d.triHatchAlternate!==false}if(isGraphicCompositionPresetId(layer.presetId)){let d=PE.defaults[layer.presetId]||{};if(layer.graphicSafeArea===undefined)layer.graphicSafeArea=d.graphicSafeArea??60;if(layer.graphicBarScale===undefined)layer.graphicBarScale=d.graphicBarScale??100;if(layer.graphicCircleScale===undefined)layer.graphicCircleScale=d.graphicCircleScale??100;if(layer.graphicSmallScale===undefined)layer.graphicSmallScale=d.graphicSmallScale??100;if(layer.graphicLargeScale===undefined)layer.graphicLargeScale=d.graphicLargeScale??110;if(layer.graphicBalance===undefined)layer.graphicBalance=d.graphicBalance??90;if(!layer.graphicMotifMode)layer.graphicMotifMode=d.graphicMotifMode||'mixed'}layer.colors=normalizeColors(layer.colors)});return merged}
@@ -609,11 +610,202 @@ async function exportPNG(seamless=false){
   link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1500);toast(w+'×'+h+' PNG를 저장했어.')
 }
 
-async function handleReferenceFile(file){let dataURL=await readFileAsDataURL(file);let img=await loadImage(dataURL);let prev=$('#referencePreview');prev.innerHTML='';let el=document.createElement('img');el.src=dataURL;prev.classList.remove('empty');prev.appendChild(el);referencePalette=extractPalette(img,6);renderReferencePalette()}
-function extractPalette(img,count=6){let c=document.createElement('canvas');let max=90;let ratio=Math.min(max/img.width,max/img.height,1);c.width=Math.max(16,Math.floor(img.width*ratio));c.height=Math.max(16,Math.floor(img.height*ratio));let x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,c.width,c.height);let data=x.getImageData(0,0,c.width,c.height).data;let buckets=new Map();for(let i=0;i<data.length;i+=4){let a=data[i+3];if(a<180)continue;let r=Math.round(data[i]/32)*32,g=Math.round(data[i+1]/32)*32,b=Math.round(data[i+2]/32)*32;if(r>248&&g>248&&b>248)continue;let key=[clamp(r,0,255),clamp(g,0,255),clamp(b,0,255)].join(',');buckets.set(key,(buckets.get(key)||0)+1)}let ranked=[...buckets.entries()].sort((a,b)=>b[1]-a[1]).map(([k])=>k.split(',').map(Number));let out=[];for(let rgb of ranked){if(out.every(v=>colorDistance(v,rgb)>42)){out.push(rgb);if(out.length>=count)break}}while(out.length<count)out.push([255,244,248]);return out.map(rgbToHex)}
+async function handleReferenceFile(file){
+  if(!file)return;
+  let ok=/^image\/(png|jpeg|webp)$/i.test(file.type||'')||/\.(png|jpe?g|webp)$/i.test(file.name||'');
+  if(!ok){toast('JPG / JPEG / PNG / WEBP 이미지만 첨부할 수 있어.');return}
+  try{
+    if(referenceObjectUrl)URL.revokeObjectURL(referenceObjectUrl);
+    referenceObjectUrl=URL.createObjectURL(file);
+    referenceImage=await loadImage(referenceObjectUrl);
+    referenceZoom=1;referencePanX=0;referencePanY=0;referenceSelectedColor='';referenceSelectedRgb=null;
+    buildReferenceSampleCanvas();
+    referencePalette=extractPalette(referenceImage,5);
+    renderReferenceWorkspace();
+    requestAnimationFrame(()=>drawReferenceCanvas());
+    toast('참고 이미지를 불러왔어. 원하는 부분을 클릭해서 색상을 뽑아봐.')
+  }catch(err){
+    referenceImage=null;referencePalette=[];toast('참고 이미지를 불러오지 못했어.')
+  }
+}
+function clearReferenceImage(){
+  if(referenceObjectUrl){URL.revokeObjectURL(referenceObjectUrl);referenceObjectUrl=''}
+  referenceImage=null;referenceSampleCanvas=null;referencePalette=[];referenceSelectedColor='';referenceSelectedRgb=null;referenceZoom=1;referencePanX=0;referencePanY=0;referenceViewMetrics=null;
+  renderReferenceWorkspace()
+}
+function buildReferenceSampleCanvas(){
+  if(!referenceImage){referenceSampleCanvas=null;return}
+  let maxDim=4096,ratio=Math.min(1,maxDim/Math.max(referenceImage.naturalWidth||referenceImage.width,referenceImage.naturalHeight||referenceImage.height));
+  let c=document.createElement('canvas');c.width=Math.max(1,Math.round((referenceImage.naturalWidth||referenceImage.width)*ratio));c.height=Math.max(1,Math.round((referenceImage.naturalHeight||referenceImage.height)*ratio));
+  let cctx=c.getContext('2d',{willReadFrequently:true});cctx.drawImage(referenceImage,0,0,c.width,c.height);referenceSampleCanvas=c
+}
+function getReferenceViewportSize(){
+  let viewport=$('#referenceViewport');if(!viewport)return {w:0,h:0,dpr:1};
+  let rect=viewport.getBoundingClientRect(),w=Math.max(240,Math.round(rect.width||320)),h=Math.max(220,Math.round(rect.height||300)),dpr=Math.min(2,window.devicePixelRatio||1);return {w,h,dpr}
+}
+function drawReferenceCanvas(){
+  let canvas=$('#referenceCanvas');if(!canvas||!referenceImage)return;
+  let {w,h,dpr}=getReferenceViewportSize();canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);canvas.style.width=w+'px';canvas.style.height=h+'px';
+  let cctx=canvas.getContext('2d');cctx.setTransform(dpr,0,0,dpr,0,0);cctx.clearRect(0,0,w,h);
+  let iw=referenceImage.naturalWidth||referenceImage.width,ih=referenceImage.naturalHeight||referenceImage.height,fit=Math.min((w*.96)/iw,(h*.96)/ih),scale=fit*referenceZoom;
+  let dw=iw*scale,dh=ih*scale,x=(w-dw)/2+referencePanX,y=(h-dh)/2+referencePanY;
+  cctx.imageSmoothingEnabled=true;cctx.imageSmoothingQuality='high';cctx.drawImage(referenceImage,x,y,dw,dh);
+  referenceViewMetrics={w,h,iw,ih,fit,scale,x,y};
+  if($('#referenceZoomRange'))$('#referenceZoomRange').value=Math.round(referenceZoom*100);
+  if($('#referenceZoomText'))$('#referenceZoomText').textContent=Math.round(referenceZoom*100)+'%'
+}
+function referenceCanvasPointToImage(clientX,clientY){
+  let canvas=$('#referenceCanvas'),m=referenceViewMetrics;if(!canvas||!m)return null;
+  let rect=canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top,ix=(x-m.x)/m.scale,iy=(y-m.y)/m.scale;
+  if(ix<0||iy<0||ix>=m.iw||iy>=m.ih)return null;
+  return {ix,iy,x,y}
+}
+function sampleReferencePixel(ix,iy){
+  if(!referenceSampleCanvas||!referenceImage)return null;
+  let iw=referenceImage.naturalWidth||referenceImage.width,ih=referenceImage.naturalHeight||referenceImage.height;
+  let sx=clamp(Math.floor(ix/iw*referenceSampleCanvas.width),0,referenceSampleCanvas.width-1),sy=clamp(Math.floor(iy/ih*referenceSampleCanvas.height),0,referenceSampleCanvas.height-1);
+  let d=referenceSampleCanvas.getContext('2d',{willReadFrequently:true}).getImageData(sx,sy,1,1).data;
+  if(d[3]<10)return null;return {hex:rgbToHex([d[0],d[1],d[2]]),rgb:[d[0],d[1],d[2]],sx,sy}
+}
+function setReferenceZoom(next,anchorClientX=null,anchorClientY=null){
+  if(!referenceImage)return;
+  next=clamp(Number(next)||1,.25,8);
+  let old=referenceViewMetrics,anchor=null;
+  if(old&&anchorClientX!=null&&anchorClientY!=null)anchor=referenceCanvasPointToImage(anchorClientX,anchorClientY);
+  referenceZoom=next;
+  if(anchor&&old){
+    let {w,h}=old,newScale=old.fit*referenceZoom;
+    let canvas=$('#referenceCanvas'),rect=canvas.getBoundingClientRect(),ax=anchorClientX-rect.left,ay=anchorClientY-rect.top;
+    referencePanX=ax-(w-(old.iw*newScale))/2-anchor.ix*newScale;
+    referencePanY=ay-(h-(old.ih*newScale))/2-anchor.iy*newScale
+  }
+  drawReferenceCanvas()
+}
+function resetReferenceView(){referenceZoom=1;referencePanX=0;referencePanY=0;drawReferenceCanvas()}
+function renderReferenceMagnifier(clientX,clientY){
+  let mag=$('#referenceMagnifier'),pt=referenceCanvasPointToImage(clientX,clientY);if(!mag||!pt||!referenceSampleCanvas){if(mag)mag.style.display='none';return}
+  let sampled=sampleReferencePixel(pt.ix,pt.iy);if(!sampled){mag.style.display='none';return}
+  let mc=mag.getContext('2d'),sampleSize=11,half=Math.floor(sampleSize/2),sx=clamp(sampled.sx-half,0,Math.max(0,referenceSampleCanvas.width-sampleSize)),sy=clamp(sampled.sy-half,0,Math.max(0,referenceSampleCanvas.height-sampleSize));
+  mc.clearRect(0,0,mag.width,mag.height);mc.imageSmoothingEnabled=false;mc.drawImage(referenceSampleCanvas,sx,sy,sampleSize,sampleSize,0,0,mag.width,mag.height);
+  mc.strokeStyle='rgba(255,255,255,.95)';mc.lineWidth=3;mc.strokeRect(mag.width/2-7,mag.height/2-7,14,14);mc.strokeStyle='rgba(0,0,0,.75)';mc.lineWidth=1;mc.strokeRect(mag.width/2-7,mag.height/2-7,14,14);
+  let viewport=$('#referenceViewport'),vr=viewport.getBoundingClientRect(),x=clientX-vr.left+16,y=clientY-vr.top+16;
+  if(x+130>vr.width)x-=150;if(y+130>vr.height)y-=150;mag.style.left=x+'px';mag.style.top=y+'px';mag.style.display='block'
+}
+function saveRecentReferenceColors(){
+  recentReferenceColors=recentReferenceColors.filter(c=>/^#[0-9A-F]{6}$/.test(c)).slice(0,10);
+  localStorage.setItem(STORAGE.recentReferenceColors,JSON.stringify(recentReferenceColors))
+}
+function addRecentReferenceColor(hex){
+  hex=normalizeHexLike(hex,'#FFFFFF');recentReferenceColors=[hex,...recentReferenceColors.filter(c=>c!==hex)].slice(0,10);saveRecentReferenceColors();renderRecentReferenceColors()
+}
+function setReferenceSelectedColor(hex,rgb=null,{remember=true,autoApplyActive=false}={}){
+  hex=normalizeHexLike(hex,'#FFFFFF');referenceSelectedColor=hex;let c=rgb||hexToRgb(hex);referenceSelectedRgb=Array.isArray(c)?c:[c.r,c.g,c.b];
+  if(remember)addRecentReferenceColor(hex);renderReferenceSelectedColor();
+  if(autoApplyActive&&activeReferenceColorInput)applyReferenceColorToActiveInput(hex)
+}
+function describeColorInput(el){
+  if(!el)return '';
+  let row=el.closest('.color-row'),label=row?.querySelector('.color-label')?.textContent?.trim();
+  if(label)return label;
+  let card=el.closest('.gradient-stop-card'),title=card?.querySelector('.gradient-stop-title')?.textContent?.trim();
+  if(title)return '배경 '+title;
+  if(el.id==='vignetteColor'||el.id==='vignetteColorText')return '비네트 색상';
+  return el.getAttribute('aria-label')||el.id||'현재 색상 입력'
+}
+function rememberActiveReferenceColorInput(el){
+  if(!el||el.tagName!=='INPUT')return;
+  let isColor=el.type==='color',isHex=el.type==='text'&&(el.maxLength===7||/^#[0-9A-Fa-f]{0,6}$/.test(el.value||''));
+  if(!isColor&&!isHex)return;activeReferenceColorInput=el;activeReferenceColorLabel=describeColorInput(el);renderReferenceSelectedColor()
+}
+function applyReferenceColorToActiveInput(hex){
+  let el=activeReferenceColorInput;if(!el){toast('먼저 적용할 색상 입력칸을 클릭해줘.');return false}
+  hex=normalizeHexLike(hex,'#FFFFFF');
+  if(el.type==='color'){el.value=hex;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
+  else{el.value=hex;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
+  toast((activeReferenceColorLabel||'현재 색상 입력')+'에 '+hex+' 적용');return true
+}
+function applyReferenceColor(kind,hex=referenceSelectedColor){
+  if(!hex){toast('먼저 이미지에서 색상을 선택해줘.');return}
+  hex=normalizeHexLike(hex,'#FFFFFF');let layer=currentLayer();
+  if(kind==='active'){applyReferenceColorToActiveInput(hex);return}
+  if(kind==='background'){
+    state.bg.colors[0]=hex;if(!Array.isArray(state.bg.gradientStops)||!state.bg.gradientStops.length)state.bg.gradientStops=buildGradientStopsFromColors(state.bg.colors);
+    state.bg.gradientStops[0].color=hex;syncBgGradientState(state.bg);persistAll();syncGlobalControls();renderMain();toast('배경색에 '+hex+' 적용');return
+  }
+  if(kind==='anchor'){
+    layer.colorMode='auto';applyMasterTone(layer,hex,layer.presetId!=='dashed-grid');persistAll();syncLayerUI();syncGlobalControls();renderPatternListDebounced();renderMain();toast('대표색에 '+hex+' 적용');return
+  }
+  let index={pattern1:1,pattern2:2,pattern3:3,line:4}[kind];if(index===undefined)return;
+  layer.colorMode='individual';layer.colors=normalizeColors(layer.colors);layer.colors[index]=hex;persistAll();syncLayerUI();renderPatternListDebounced();renderMain();
+  let label={pattern1:'패턴 색상 1',pattern2:'패턴 색상 2',pattern3:'패턴 색상 3',line:'선 / 외곽선'}[kind];toast(label+'에 '+hex+' 적용')
+}
+function renderReferenceSelectedColor(){
+  let sw=$('#referenceSelectedSwatch'),hex=$('#referenceSelectedHex'),rgb=$('#referenceSelectedRgb'),target=$('#referenceActiveTarget'),apply=$('#applyReferenceToActive');
+  if(sw)sw.style.background=referenceSelectedColor||'transparent';
+  if(hex)hex.textContent=referenceSelectedColor||'선택한 색상 없음';
+  if(rgb)rgb.textContent=referenceSelectedRgb?('RGB '+referenceSelectedRgb.join(', ')):'이미지를 클릭하면 HEX / RGB가 표시돼.';
+  if(target)target.textContent='활성 색상 입력: '+(activeReferenceColorLabel||'없음');
+  if(apply)apply.disabled=!referenceSelectedColor||!activeReferenceColorInput
+}
+function extractPalette(img,count=5){
+  let c=document.createElement('canvas'),max=160,ratio=Math.min(max/(img.naturalWidth||img.width),max/(img.naturalHeight||img.height),1);
+  c.width=Math.max(24,Math.floor((img.naturalWidth||img.width)*ratio));c.height=Math.max(24,Math.floor((img.naturalHeight||img.height)*ratio));
+  let x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,c.width,c.height);let data=x.getImageData(0,0,c.width,c.height).data,buckets=new Map();
+  for(let i=0;i<data.length;i+=4){if(data[i+3]<180)continue;let rr=data[i],gg=data[i+1],bb=data[i+2],key=[Math.round(rr/24)*24,Math.round(gg/24)*24,Math.round(bb/24)*24].map(v=>clamp(v,0,255)).join(',');let item=buckets.get(key)||{count:0,r:0,g:0,b:0};item.count++;item.r+=rr;item.g+=gg;item.b+=bb;buckets.set(key,item)}
+  let ranked=[...buckets.values()].map(v=>{let rgb=[Math.round(v.r/v.count),Math.round(v.g/v.count),Math.round(v.b/v.count)],hsl=rgbToHsl({r:rgb[0],g:rgb[1],b:rgb[2]});return {rgb,count:v.count,score:v.count*(.82+.30*hsl.s)}}).sort((aa,bb)=>bb.score-aa.score);
+  let out=[],lightCount=0,darkCount=0;
+  for(let item of ranked){let rgb=item.rgb,lum=(rgb[0]+rgb[1]+rgb[2])/3;if(lum>238&&lightCount>=1)continue;if(lum<28&&darkCount>=1)continue;if(out.every(v=>colorDistance(v,rgb)>50)){out.push(rgb);if(lum>238)lightCount++;if(lum<28)darkCount++;if(out.length>=count)break}}
+  for(let item of ranked){if(out.length>=count)break;if(out.every(v=>colorDistance(v,item.rgb)>28))out.push(item.rgb)}
+  return out.slice(0,count).map(rgbToHex)
+}
 function colorDistance(a,b){let dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dr*dr+dg*dg+db*db)}
-function rgbToHex([r,g,b]){return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase()}
-function renderReferencePalette(){let wrap=$('#referencePalette');wrap.innerHTML='';if(!referencePalette.length)return;let box=document.createElement('div');box.className='swatch-pack';let row=document.createElement('div');row.className='swatch-row';referencePalette.forEach(c=>{let s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;row.appendChild(s)});let actions=document.createElement('div');actions.className='preset-actions';let toLayer=document.createElement('button');toLayer.className='mini-btn';toLayer.textContent='현재 레이어에 적용';toLayer.onclick=()=>{let layer=currentLayer();layer.colors=normalizeColors([referencePalette[0],referencePalette[1]||referencePalette[0],referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[4]||referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0]]);layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncLayerUI();renderMain()};let toBg=document.createElement('button');toBg.className='mini-btn';toBg.textContent='배경에 적용';toBg.onclick=()=>{setBgGradientFromPalette(referencePalette);persistAll();syncGlobalControls();renderMain()};let toBoth=document.createElement('button');toBoth.className='mini-btn';toBoth.textContent='배경+현재 레이어';toBoth.onclick=()=>{setBgGradientFromPalette(referencePalette);let layer=currentLayer();layer.colors=normalizeColors([referencePalette[0],referencePalette[1]||referencePalette[0],referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0],referencePalette[4]||referencePalette[3]||referencePalette[2]||referencePalette[1]||referencePalette[0]]);layer.colors[4]=suggestLineColor(layer.colors);persistAll();syncAll()};actions.append(toLayer,toBg,toBoth);box.append(row,actions);wrap.appendChild(box)}
+function rgbToHex([r,g,b]){return '#'+[r,g,b].map(v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('').toUpperCase()}
+function renderReferencePalette(){
+  let wrap=$('#referencePalette');if(!wrap)return;wrap.innerHTML='';
+  if(!referencePalette.length){wrap.innerHTML='<div class="micro-copy">이미지를 첨부하면 대표색 5개가 자동으로 나타나.</div>';return}
+  referencePalette.forEach((c,i)=>{
+    let b=document.createElement('button');b.type='button';b.className='reference-palette-chip';b.title=c+' 선택';
+    let sw=document.createElement('span');sw.className='reference-palette-swatch';sw.style.background=c;
+    let copy=document.createElement('span');copy.innerHTML='<strong>대표색 '+(i+1)+'</strong><small>'+c+'</small>';
+    b.append(sw,copy);b.onclick=()=>setReferenceSelectedColor(c,null,{remember:false,autoApplyActive:!!activeReferenceColorInput});wrap.appendChild(b)
+  })
+}
+function renderRecentReferenceColors(){
+  let wrap=$('#recentReferenceColors');if(!wrap)return;wrap.innerHTML='';
+  if(!recentReferenceColors.length){wrap.innerHTML='<div class="micro-copy">스포이드로 뽑은 색상이 여기에 쌓여.</div>';return}
+  recentReferenceColors.forEach((c,i)=>{
+    let item=document.createElement('div');item.className='recent-reference-item';
+    let use=document.createElement('button');use.type='button';use.className='recent-reference-use';use.title=c;use.innerHTML='<span style="background:'+c+'"></span><small>'+c+'</small>';
+    use.onclick=()=>setReferenceSelectedColor(c,null,{remember:false,autoApplyActive:!!activeReferenceColorInput});
+    let del=document.createElement('button');del.type='button';del.className='recent-reference-delete';del.textContent='×';del.title='이 색상 삭제';del.onclick=()=>{recentReferenceColors.splice(i,1);saveRecentReferenceColors();renderRecentReferenceColors()};
+    item.append(use,del);wrap.appendChild(item)
+  })
+}
+function renderReferenceWorkspace(){
+  let has=!!referenceImage,empty=$('#referenceEmpty'),viewport=$('#referenceViewport'),zoomBar=$('#referenceZoomBar'),replace=$('#replaceReferenceBtn'),del=$('#deleteReferenceBtn');
+  if(empty)empty.hidden=has;if(viewport)viewport.hidden=!has;if(zoomBar)zoomBar.hidden=!has;if(replace)replace.disabled=!has;if(del)del.disabled=!has;
+  renderReferenceSelectedColor();renderReferencePalette();renderRecentReferenceColors();
+  if(has)requestAnimationFrame(drawReferenceCanvas)
+}
+function setupReferenceInteractions(){
+  let canvas=$('#referenceCanvas'),viewport=$('#referenceViewport');if(!canvas||!viewport)return;
+  canvas.addEventListener('wheel',e=>{if(!referenceImage)return;e.preventDefault();setReferenceZoom(referenceZoom*(e.deltaY<0?1.12:.89),e.clientX,e.clientY)},{passive:false});
+  canvas.addEventListener('pointerdown',e=>{if(!referenceImage)return;canvas.setPointerCapture?.(e.pointerId);referenceDragState={id:e.pointerId,startX:e.clientX,startY:e.clientY,panX:referencePanX,panY:referencePanY,dragged:false};canvas.classList.add('dragging')});
+  canvas.addEventListener('pointermove',e=>{
+    if(referenceDragState&&referenceDragState.id===e.pointerId){
+      let dx=e.clientX-referenceDragState.startX,dy=e.clientY-referenceDragState.startY;if(Math.hypot(dx,dy)>3)referenceDragState.dragged=true;
+      if(referenceDragState.dragged){referencePanX=referenceDragState.panX+dx;referencePanY=referenceDragState.panY+dy;drawReferenceCanvas()}
+    }
+    renderReferenceMagnifier(e.clientX,e.clientY)
+  });
+  canvas.addEventListener('pointerup',e=>{
+    if(!referenceDragState||referenceDragState.id!==e.pointerId)return;
+    let dragged=referenceDragState.dragged;referenceDragState=null;canvas.classList.remove('dragging');
+    if(!dragged){let pt=referenceCanvasPointToImage(e.clientX,e.clientY),sample=pt&&sampleReferencePixel(pt.ix,pt.iy);if(sample)setReferenceSelectedColor(sample.hex,sample.rgb,{remember:true,autoApplyActive:!!activeReferenceColorInput})}
+  });
+  canvas.addEventListener('pointercancel',()=>{referenceDragState=null;canvas.classList.remove('dragging')});
+  canvas.addEventListener('mouseleave',()=>{let m=$('#referenceMagnifier');if(m&&!referenceDragState)m.style.display='none'});
+}
 
 function makeEyeDropperButton(onPick){
   let b=document.createElement('button');b.type='button';b.className='dropper';b.textContent='💧';b.title='화면에서 색상 추출';
@@ -685,7 +877,24 @@ function bindGlobalControls(){
   $('#assetDropzone').addEventListener('drop',e=>{const files=[...(e.dataTransfer?.files||[])];if(files.length)handleAssetFiles(files)});
   $('#assetInput').onchange=e=>{handleAssetFiles([...e.target.files]);e.target.value=''};
   $('#uploadReferenceBtn').onclick=()=>$('#referenceInput').click();
+  $('#replaceReferenceBtn').onclick=()=>$('#referenceInput').click();
+  $('#deleteReferenceBtn').onclick=clearReferenceImage;
+  $('#referenceEmpty').onclick=()=>$('#referenceInput').click();
   $('#referenceInput').onchange=e=>{if(e.target.files[0])handleReferenceFile(e.target.files[0]);e.target.value=''};
+  ['dragenter','dragover'].forEach(evt=>$('#referenceDropzone').addEventListener(evt,e=>{e.preventDefault();$('#referenceDropzone').classList.add('dragover')}));
+  ['dragleave','drop'].forEach(evt=>$('#referenceDropzone').addEventListener(evt,e=>{e.preventDefault();$('#referenceDropzone').classList.remove('dragover')}));
+  $('#referenceDropzone').addEventListener('drop',e=>{let file=e.dataTransfer?.files?.[0];if(file)handleReferenceFile(file)});
+  $('#referenceZoomOut').onclick=()=>setReferenceZoom(referenceZoom/1.2);
+  $('#referenceZoomIn').onclick=()=>setReferenceZoom(referenceZoom*1.2);
+  $('#referenceZoomRange').oninput=e=>setReferenceZoom(+e.target.value/100);
+  $('#referenceResetView').onclick=resetReferenceView;
+  $('#applyReferenceToActive').onclick=()=>applyReferenceColor('active');
+  document.querySelectorAll('[data-reference-apply]').forEach(btn=>btn.onclick=()=>applyReferenceColor(btn.dataset.referenceApply));
+  $('#clearRecentReferenceColors').onclick=()=>{recentReferenceColors=[];saveRecentReferenceColors();renderRecentReferenceColors()};
+  document.addEventListener('focusin',e=>rememberActiveReferenceColorInput(e.target));
+  document.addEventListener('pointerdown',e=>rememberActiveReferenceColorInput(e.target),true);
+  window.addEventListener('resize',()=>{if(referenceImage)drawReferenceCanvas()});
+  setupReferenceInteractions();
   $('#bgMode').onchange=e=>{state.bg.mode=e.target.value;if(state.bg.mode==='linear'&&(!state.bg.gradientStops||state.bg.gradientStops.length<2))state.bg.gradientStops=buildGradientStopsFromColors(state.bg.colors);persistAll();syncGlobalControls();renderMain()};
   $('#transparentBg').onchange=e=>{state.bg.transparent=e.target.checked;persistAll();syncGlobalControls();renderMain()};
   $('#backgroundOnly').onchange=e=>{state.bg.backgroundOnly=e.target.checked;persistAll();renderMain()};
@@ -720,7 +929,7 @@ function bindGlobalControls(){
   $('#tileW').oninput=e=>{state.tileW=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
   $('#tileH').oninput=e=>{state.tileH=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
 }
-function syncAll(){syncGlobalControls();syncLayerUI();renderPatternList();renderMain();renderAssetList();renderFavoritePreview();renderSavedPresets()}
+function syncAll(){syncGlobalControls();syncLayerUI();renderPatternList();renderMain();renderAssetList();renderFavoritePreview();renderSavedPresets();renderReferenceWorkspace()}
 
 loadLocal();
 runtimeSelfCheck();
