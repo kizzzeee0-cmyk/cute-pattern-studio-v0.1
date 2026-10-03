@@ -65,15 +65,22 @@
       else if(opt.secondary){target.globalAlpha=p.op*aSoft;target.fillStyle=softColor;target.fillRect(-step*4,yy,w+step*8,cell)}
     }
     if(hatchOn&&hatchStrength>0&&verticalBands.length&&horizontalBands.length){
-      let revealAlpha=.10+.90*hatchStrength,hatchWidth=Math.max(.7,cell*.018),hatchGap=Math.max(4,cell*.075);
+      let revealAlpha=.10+.90*hatchStrength,hatchWidth=Math.max(.7,cell*.018),hatchGap=Math.max(4,cell*.075),alternate=s.triHatchAlternate!==false;
       const revealRect=(x,y,ww,hh)=>{
         if(ww<=0||hh<=0)return;
+        let row=Math.floor((((y+hh/2)-startY)/step)+1e-6),reverse=alternate&&(Math.abs(row)%2===1);
         target.save();target.beginPath();target.rect(x,y,ww,hh);target.clip();
         target.globalCompositeOperation='destination-out';target.globalAlpha=revealAlpha;target.strokeStyle='#000000';target.lineWidth=hatchWidth;target.lineCap='round';
-        for(let d=-hh;d<ww+hh;d+=hatchGap){target.beginPath();target.moveTo(x+d,y+hh);target.lineTo(x+d+hh,y);target.stroke()}
+        for(let d=-hh;d<ww+hh;d+=hatchGap){
+          target.beginPath();
+          if(reverse){target.moveTo(x+d,y);target.lineTo(x+d+hh,y+hh)}
+          else{target.moveTo(x+d,y+hh);target.lineTo(x+d+hh,y)}
+          target.stroke()
+        }
         target.restore()
       };
       // Cut transparent diagonal lines only through the medium-tone single-band areas.
+      // Adjacent rows alternate / and \ so row A / row B becomes one repeating hatch pair.
       for(const [vx,vw] of verticalBands){
         let sorted=horizontalBands.slice().sort((a,b)=>a[0]-b[0]),cursor=-step*4;
         for(const [hy,hh] of sorted){if(hy>cursor)revealRect(vx,cursor,vw,hy-cursor);cursor=Math.max(cursor,hy+hh)}
@@ -452,7 +459,7 @@
 
   const defaults={
     'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:8,jitter:0,detail:25},
-    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
+    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
     'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
