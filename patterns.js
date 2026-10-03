@@ -47,46 +47,52 @@
       bandColor=s.colors[1]||'#9CC8F0',softColor=s.colors[2]||bandColor,lineColor=s.colors[4]||softColor,
       aStrong=Math.max(.18,Math.min(.46,.22+p.detail*.22)),aSoft=Math.max(.08,Math.min(.28,.10+p.detail*.12)),
       hatchOn=opt.hatchMid&&s.triHatch!==false,hatchStrength=Math.max(0,Math.min(1,(s.triHatchStrength??40)/100));
-    ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);
+    let workCanvas=null,target=ctx;
+    if(hatchOn){
+      workCanvas=document.createElement('canvas');workCanvas.width=w;workCanvas.height=h;target=workCanvas.getContext('2d')
+    }
+    target.save();target.globalAlpha=p.op;target.translate(w/2,h/2);target.rotate(p.rot+extraRot);target.translate(-w/2,-h/2);
     let startX=-step*4+(s.offsetX||0)*scale,startY=-step*4+(s.offsetY||0)*scale;
     let verticalBands=[],horizontalBands=[];
     for(let i=0,x=startX;i<Math.ceil((w+step*8)/step);i++,x+=step){
       let even=i%2===0,xx=x+((s.randomPosition===false)?0:jitter(rng,p.jit*.08));
-      if(even){ctx.globalAlpha=p.op*aStrong;ctx.fillStyle=bandColor;ctx.fillRect(xx,-step*4,cell,h+step*8);verticalBands.push([xx,cell])}
-      else if(opt.secondary){ctx.globalAlpha=p.op*aSoft;ctx.fillStyle=softColor;ctx.fillRect(xx,-step*4,cell,h+step*8)}
+      if(even){target.globalAlpha=p.op*aStrong;target.fillStyle=bandColor;target.fillRect(xx,-step*4,cell,h+step*8);verticalBands.push([xx,cell])}
+      else if(opt.secondary){target.globalAlpha=p.op*aSoft;target.fillStyle=softColor;target.fillRect(xx,-step*4,cell,h+step*8)}
     }
     for(let j=0,y=startY;j<Math.ceil((h+step*8)/step);j++,y+=step){
       let even=j%2===0,yy=y+((s.randomPosition===false)?0:jitter(rng,p.jit*.08));
-      if(even){ctx.globalAlpha=p.op*aStrong;ctx.fillStyle=bandColor;ctx.fillRect(-step*4,yy,w+step*8,cell);horizontalBands.push([yy,cell])}
-      else if(opt.secondary){ctx.globalAlpha=p.op*aSoft;ctx.fillStyle=softColor;ctx.fillRect(-step*4,yy,w+step*8,cell)}
+      if(even){target.globalAlpha=p.op*aStrong;target.fillStyle=bandColor;target.fillRect(-step*4,yy,w+step*8,cell);horizontalBands.push([yy,cell])}
+      else if(opt.secondary){target.globalAlpha=p.op*aSoft;target.fillStyle=softColor;target.fillRect(-step*4,yy,w+step*8,cell)}
     }
     if(hatchOn&&hatchStrength>0&&verticalBands.length&&horizontalBands.length){
-      let hatchColor=lineColor, hatchAlpha=p.op*(.05+.34*hatchStrength), hatchWidth=Math.max(.5,cell*.012), hatchGap=Math.max(4,cell*.075);
-      const hatchRect=(x,y,ww,hh)=>{
+      let revealAlpha=.10+.90*hatchStrength,hatchWidth=Math.max(.7,cell*.018),hatchGap=Math.max(4,cell*.075);
+      const revealRect=(x,y,ww,hh)=>{
         if(ww<=0||hh<=0)return;
-        ctx.save();ctx.beginPath();ctx.rect(x,y,ww,hh);ctx.clip();ctx.globalAlpha=hatchAlpha;ctx.strokeStyle=hatchColor;ctx.lineWidth=hatchWidth;ctx.lineCap='round';
-        for(let d=-hh;d<ww+hh;d+=hatchGap){ctx.beginPath();ctx.moveTo(x+d,y+hh);ctx.lineTo(x+d+hh,y);ctx.stroke()}
-        ctx.restore()
+        target.save();target.beginPath();target.rect(x,y,ww,hh);target.clip();
+        target.globalCompositeOperation='destination-out';target.globalAlpha=revealAlpha;target.strokeStyle='#000000';target.lineWidth=hatchWidth;target.lineCap='round';
+        for(let d=-hh;d<ww+hh;d+=hatchGap){target.beginPath();target.moveTo(x+d,y+hh);target.lineTo(x+d+hh,y);target.stroke()}
+        target.restore()
       };
-      // Vertical bands: hatch only the spans between horizontal bands.
+      // Cut transparent diagonal lines only through the medium-tone single-band areas.
       for(const [vx,vw] of verticalBands){
         let sorted=horizontalBands.slice().sort((a,b)=>a[0]-b[0]),cursor=-step*4;
-        for(const [hy,hh] of sorted){if(hy>cursor)hatchRect(vx,cursor,vw,hy-cursor);cursor=Math.max(cursor,hy+hh)}
-        if(cursor<h+step*4)hatchRect(vx,cursor,vw,h+step*4-cursor)
+        for(const [hy,hh] of sorted){if(hy>cursor)revealRect(vx,cursor,vw,hy-cursor);cursor=Math.max(cursor,hy+hh)}
+        if(cursor<h+step*4)revealRect(vx,cursor,vw,h+step*4-cursor)
       }
-      // Horizontal bands: hatch only the spans between vertical bands.
       for(const [hy,hh] of horizontalBands){
         let sorted=verticalBands.slice().sort((a,b)=>a[0]-b[0]),cursor=-step*4;
-        for(const [vx,vw] of sorted){if(vx>cursor)hatchRect(cursor,hy,vx-cursor,hh);cursor=Math.max(cursor,vx+vw)}
-        if(cursor<w+step*4)hatchRect(cursor,hy,w+step*4-cursor,hh)
+        for(const [vx,vw] of sorted){if(vx>cursor)revealRect(cursor,hy,vx-cursor,hh);cursor=Math.max(cursor,vx+vw)}
+        if(cursor<w+step*4)revealRect(cursor,hy,w+step*4-cursor,hh)
       }
+      target.globalCompositeOperation='source-over'
     }
     if((opt.grid||opt.outline)&&p.stroke>0){
-      ctx.globalAlpha=p.op*.55;ctx.strokeStyle=lineColor;ctx.lineWidth=Math.max(.5,p.stroke*.28);
-      for(let x=startX;x<w+step*4;x+=step){ctx.beginPath();ctx.moveTo(x,-step*4);ctx.lineTo(x,h+step*4);ctx.stroke()}
-      for(let y=startY;y<h+step*4;y+=step){ctx.beginPath();ctx.moveTo(-step*4,y);ctx.lineTo(w+step*4,y);ctx.stroke()}
+      target.globalAlpha=p.op*.55;target.strokeStyle=lineColor;target.lineWidth=Math.max(.5,p.stroke*.28);
+      for(let x=startX;x<w+step*4;x+=step){target.beginPath();target.moveTo(x,-step*4);target.lineTo(x,h+step*4);target.stroke()}
+      for(let y=startY;y<h+step*4;y+=step){target.beginPath();target.moveTo(-step*4,y);target.lineTo(w+step*4,y);target.stroke()}
     }
-    ctx.restore()
+    target.restore();
+    if(workCanvas){ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.drawImage(workCanvas,0,0);ctx.restore()}
   }
   function wavyChecker(ctx,w,h,s,scale){let p=common(s,scale),cell=Math.max(10,p.size),step=Math.max(cell*.55,cell+p.gap),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3;y<h+step*3;row++,y+=step){for(let col=-3,x=-step*3;x<w+step*3;col++,x+=step){if((row+col)%2)continue;let amp=cell*(.06+.10*p.detail),xx=x+jitter(rng,p.jit*.25),yy=y+jitter(rng,p.jit*.25);ctx.fillStyle=(row+col)%4===0?s.colors[1]:s.colors[2];ctx.beginPath();ctx.moveTo(xx,yy+amp);ctx.bezierCurveTo(xx+cell*.3,yy-amp,xx+cell*.7,yy+amp,xx+cell,yy);ctx.lineTo(xx+cell,yy+cell-amp);ctx.bezierCurveTo(xx+cell*.7,yy+cell+amp,xx+cell*.3,yy+cell-amp,xx,yy+cell);ctx.closePath();ctx.fill()}}ctx.restore()}
   function dots(ctx,w,h,s,scale,opt={}){
