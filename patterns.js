@@ -69,7 +69,7 @@
       for(const [vx,vw] of verticalBands)for(const [hy,hh] of horizontalBands)target.fillRect(vx,hy,vw,hh)
     }
     if(hatchOn&&hatchStrength>0&&verticalBands.length&&horizontalBands.length){
-      let revealAlpha=.10+.90*hatchStrength,hatchWidth=Math.max(.9,cell*.024),hatchGap=Math.max(4,cell*.075),alternate=s.triHatchAlternate!==false;
+      let revealAlpha=.10+.90*hatchStrength,hatchWidth=Math.max(.9,cell*.024)*Math.max(.5,Number(opt.hatchWidthScale)||1),hatchGap=Math.max(4,cell*.075),alternate=s.triHatchAlternate!==false;
       const revealRect=(x,y,ww,hh)=>{
         if(ww<=0||hh<=0)return;
         let row=Math.floor((((y+hh/2)-startY)/step)+1e-6),reverse=alternate&&(Math.abs(row)%2===1);
@@ -109,13 +109,12 @@
     let p=common(s,scale),cell=Math.max(8,p.size),step=Math.max(8,cell+(opt.allowGap?(p.gap||0):0)),
       pointColor=s.airyPointColor||s.colors[3]||s.colors[2]||'#FFFFFF',
       pointCount=Math.max(0,Math.round(s.airyPointCount??24)),
-      pointScale=Math.max(.20,Math.min(1,(s.airyPointScale??60)/100)),
+      pointGrid=Math.max(2,Math.min(16,Math.round(s.airyPointGrid??4))),
       pointPattern=['all','every2','every3','checker','vertical','horizontal'].includes(s.airyPointPattern)?s.airyPointPattern:'every3';
 
-    // Keep the original 3-tone airy overlap structure exactly:
-    // medium single-band zones receive the existing 45° cutout hatch,
-    // darkest intersections are reserved for optional nested airy-check points.
-    overlapChecker(ctx,w,h,s,scale,{secondary:false,hatchMid:true});
+    // Keep the original 3-tone airy overlap structure exactly.
+    // This preset alone uses a visibly thicker 45° hatch in the medium-tone zones.
+    overlapChecker(ctx,w,h,s,scale,{secondary:false,hatchMid:true,hatchWidthScale:1.8});
 
     // Rebuild the same darkest intersection positions used by overlapChecker.
     let rng=mulberry32(p.seed),startX=-step*4+(s.offsetX||0)*scale,startY=-step*4+(s.offsetY||0)*scale;
@@ -152,8 +151,7 @@
       let take=Math.min(pointCount,eligible.length);
       if(take===eligible.length)selected=eligible;
       else{
-        // Evenly sample the regular candidate list instead of taking a random cluster.
-        // This keeps sparse counts visually balanced across the whole canvas.
+        // Evenly sample the regular candidate list so sparse points remain balanced.
         for(let k=0;k<take;k++){
           let idx=Math.min(eligible.length-1,Math.floor((k+.5)*eligible.length/take));
           selected.push(eligible[idx])
@@ -162,17 +160,19 @@
     }
 
     const drawNestedAiry=(x,y,ww,hh)=>{
-      let dw=ww*pointScale,dh=hh*pointScale,px=x+(ww-dw)/2,py=y+(hh-dh)/2,
-        mini=Math.max(3,Math.min(dw,dh)/4),band=mini,period=mini*2;
+      // pointGrid is the number of mini cells per side.
+      // 4 => 4x4 = 16 visible mini cells (legacy density)
+      // 8 => 8x8 = 64, etc. Increasing the value makes each mini cell smaller and denser.
+      let mini=Math.max(1.5,Math.min(ww,hh)/pointGrid),band=mini,period=mini*2;
       ctx.save();
-      ctx.beginPath();ctx.rect(px,py,dw,dh);ctx.clip();
+      ctx.beginPath();ctx.rect(x,y,ww,hh);ctx.clip();
       ctx.fillStyle=pointColor;
       ctx.globalAlpha=p.op*.34;
-      for(let xx=px;xx<px+dw+period;xx+=period)ctx.fillRect(xx,py,band,dh);
-      for(let yy=py;yy<py+dh+period;yy+=period)ctx.fillRect(px,yy,dw,band);
+      for(let xx=x;xx<x+ww+period;xx+=period)ctx.fillRect(xx,y,band,hh);
+      for(let yy=y;yy<y+hh+period;yy+=period)ctx.fillRect(x,yy,ww,band);
       ctx.globalAlpha=p.op*.18;
-      for(let xx=px;xx<px+dw+period;xx+=period){
-        for(let yy=py;yy<py+dh+period;yy+=period)ctx.fillRect(xx,yy,band,band)
+      for(let xx=x;xx<x+ww+period;xx+=period){
+        for(let yy=y;yy<y+hh+period;yy+=period)ctx.fillRect(xx,yy,band,band)
       }
       ctx.restore()
     };
@@ -691,7 +691,7 @@
 
   const defaults={
     'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:8,jitter:0,detail:25},
-    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:40,triHatchAlternate:true,airyPointCount:24,airyPointColor:'#FFFFFF',airyPointScale:60,airyPointPattern:'every3'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
+    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:40,triHatchAlternate:true,airyPointCount:24,airyPointColor:'#FFFFFF',airyPointGrid:4,airyPointPattern:'every3'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartGap:4,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
     'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
