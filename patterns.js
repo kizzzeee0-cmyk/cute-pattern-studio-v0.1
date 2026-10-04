@@ -114,7 +114,7 @@
 
     // Keep the original 3-tone airy overlap structure exactly.
     // This preset alone uses a visibly thicker 45° hatch in the medium-tone zones.
-    overlapChecker(ctx,w,h,s,scale,{secondary:false,hatchMid:true,hatchWidthScale:1.8});
+    overlapChecker(ctx,w,h,s,scale,{secondary:false,hatchMid:true,hatchWidthScale:2.15});
 
     // Rebuild the same darkest intersection positions used by overlapChecker.
     let rng=mulberry32(p.seed),startX=-step*4+(s.offsetX||0)*scale,startY=-step*4+(s.offsetY||0)*scale;
