@@ -64,6 +64,10 @@
       if(even){target.globalAlpha=p.op*aStrong;target.fillStyle=bandColor;target.fillRect(-step*4,yy,w+step*8,cell);horizontalBands.push([yy,cell])}
       else if(opt.secondary){target.globalAlpha=p.op*aSoft;target.fillStyle=softColor;target.fillRect(-step*4,yy,w+step*8,cell)}
     }
+    if(s.anchorExact&&verticalBands.length&&horizontalBands.length){
+      let exact=s.anchorColor||bandColor;target.globalAlpha=1;target.fillStyle=exact;
+      for(const [vx,vw] of verticalBands)for(const [hy,hh] of horizontalBands)target.fillRect(vx,hy,vw,hh)
+    }
     if(hatchOn&&hatchStrength>0&&verticalBands.length&&horizontalBands.length){
       let revealAlpha=.10+.90*hatchStrength,hatchWidth=Math.max(.7,cell*.018),hatchGap=Math.max(4,cell*.075),alternate=s.triHatchAlternate!==false;
       const revealRect=(x,y,ww,hh)=>{
@@ -180,7 +184,13 @@
   function waveLines(ctx,w,h,s,scale){let p=common(s,scale),rng=mulberry32(p.seed),step=p.size+p.gap;ctx.save();ctx.globalAlpha=p.op;ctx.lineWidth=p.stroke;ctx.lineCap='round';for(let y=-step;y<h+step;y+=step){ctx.strokeStyle=pick(rng,s.colors.slice(1));ctx.beginPath();ctx.moveTo(-step,y);for(let x=-step;x<w+step;x+=step*.7){let amp=p.size*(.18+.2*p.detail);ctx.quadraticCurveTo(x+step*.35,y+amp,x+step*.7,y)}ctx.stroke()}ctx.restore()}
   function texturedChecker(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cell=Math.max(10,p.size),step=Math.max(cell*.5,cell+p.gap),rng=mulberry32(p.seed),outlineColor=s.colors[4]||s.colors[3]||s.colors[2]||s.colors[1],extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180;ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3; y<h+step*3; row++,y+=step){for(let col=-3,x=-step*3; x<w+step*3; col++,x+=step){let colr=opt.tricolor?[s.colors[1],s.colors[2],s.colors[3]][Math.abs((row+col)%3)]:((row+col)%2===0?s.colors[1]:s.colors[2]),xx=x+jitter(rng,p.jit*.15),yy=y+jitter(rng,p.jit*.15),sz=cell;ctx.globalAlpha=p.op*.92;ctx.fillStyle=colr;ctx.fillRect(xx,yy,sz,sz);for(let i=0;i<8+Math.floor(p.detail*16);i++){ctx.globalAlpha=p.op*(0.025+0.018*p.detail);ctx.fillStyle=i%2?s.colors[3]:s.colors[0];ctx.fillRect(xx+jitter(rng,sz*.08),yy+jitter(rng,sz*.08),sz*(.88+rr(rng,-.1,.1)),Math.max(1,sz*(.02+.012*rng())))}if(opt.grid&&p.stroke>0){ctx.globalAlpha=p.op*.72;ctx.strokeStyle=outlineColor;ctx.lineWidth=Math.max(.5,p.stroke*.38);ctx.strokeRect(xx,yy,sz,sz)}}}ctx.restore()}
   function plaid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),step=Math.max(12,p.size+p.gap),band=Math.max(6,p.size*(opt.bandScale||.42)),rng=mulberry32(p.seed),outlineColor=s.colors[4]||s.colors[3]||s.colors[2]||s.colors[1],extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180;ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);for(let x=-step*3;x<w+step*3;x+=step){let wob=opt.wobble?jitter(rng,p.jit*.22):0;ctx.globalAlpha=p.op*.35;ctx.fillStyle=s.colors[1];ctx.fillRect(x+wob,-step*3,band,h+step*6);ctx.globalAlpha=p.op*.18;ctx.fillStyle=s.colors[2];ctx.fillRect(x+wob+band*.52,-step*3,Math.max(2,band*.38),h+step*6);if(opt.fine&&p.stroke>0){ctx.globalAlpha=p.op*.78;ctx.fillStyle=outlineColor;ctx.fillRect(x+wob-band*.22,-step*3,Math.max(.5,p.stroke*.45),h+step*6)}}for(let y=-step*3;y<h+step*3;y+=step){let wob=opt.wobble?jitter(rng,p.jit*.22):0;ctx.globalAlpha=p.op*.35;ctx.fillStyle=s.colors[1];ctx.fillRect(-step*3,y+wob,w+step*6,band);ctx.globalAlpha=p.op*.18;ctx.fillStyle=s.colors[2];ctx.fillRect(-step*3,y+wob+band*.52,w+step*6,Math.max(2,band*.38));if(opt.fine&&p.stroke>0){ctx.globalAlpha=p.op*.78;ctx.fillStyle=outlineColor;ctx.fillRect(-step*3,y+wob-band*.22,w+step*6,Math.max(.5,p.stroke*.45))}}if(opt.fabric&&p.stroke>0){ctx.globalAlpha=p.op*.22;ctx.strokeStyle=outlineColor;ctx.lineWidth=Math.max(.5,p.stroke*.32);for(let y=-step*2;y<h+step*2;y+=Math.max(10,band*.62)){ctx.beginPath();for(let x=-step*2;x<=w+step*2;x+=step*.35){let off=opt.wobble?jitter(rng,p.jit*.12):0;x===-step*2?ctx.moveTo(x,y+off):ctx.lineTo(x,y+off)}ctx.stroke()}for(let x=-step*2;x<w+step*2;x+=Math.max(10,band*.62)){ctx.beginPath();for(let y=-step*2;y<=h+step*2;y+=step*.35){let off=opt.wobble?jitter(rng,p.jit*.12):0;y===-step*2?ctx.moveTo(x+off,y):ctx.lineTo(x+off,y)}ctx.stroke()}}ctx.restore()}
-  function layeredFabricPlaid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),unit=Math.max(34,p.size),period=Math.max(unit*2.45,unit*2.45+p.gap*.55),bgA=s.colors[0]||'#FFF7FA',bgB=s.plaidBg2||'#FFEAF2',wide=s.colors[1]||'#F7B4CF',mid=s.colors[2]||'#F49ABD',dark=s.colors[3]||'#E978A5',hatch=s.colors[4]||dark,hatchOn=s.plaidHatch!==false,hatchStrength=Math.max(0,Math.min(1,(s.plaidHatchStrength??40)/100));ctx.save();ctx.globalAlpha=1;ctx.fillStyle=bgA;ctx.fillRect(0,0,w,h);ctx.globalAlpha=.42;ctx.fillStyle=bgB;for(let y=-period;y<h+period;y+=period*2)ctx.fillRect(0,y,w,period*.86);for(let x=period*.62;x<w+period;x+=period*2)ctx.fillRect(x,0,period*.48,h);let hatchRects=[];const bands=[[0,unit*.78,wide,.30],[unit*.96,unit*.30,mid,.24],[unit*1.48,Math.max(1.2,p.stroke*.52),dark,.62],[unit*1.70,unit*.13,mid,.18],[unit*2.08,Math.max(.8,p.stroke*.30),dark,.38]];const drawBands=(vertical)=>{for(let k=-2;k<Math.ceil((vertical?w:h)/period)+3;k++){let pos=k*period;for(const [off,bw,c,alpha] of bands){ctx.globalAlpha=p.op*alpha;ctx.fillStyle=c;if(vertical)ctx.fillRect(pos+off,-period,bw,h+period*2);else ctx.fillRect(-period,pos+off,w+period*2,bw);if(alpha>=.24){if(vertical)hatchRects.push([pos+off,-period,bw,h+period*2]);else hatchRects.push([-period,pos+off,w+period*2,bw])}}}};drawBands(true);drawBands(false);if(hatchOn&&hatchStrength>0){ctx.save();ctx.globalAlpha=p.op*(.08+.42*hatchStrength);ctx.strokeStyle=hatch;ctx.lineWidth=Math.max(.5,unit*.0105);let step=Math.max(4,unit*.068);for(const [x,y,ww,hh] of hatchRects){ctx.save();ctx.beginPath();ctx.rect(x,y,ww,hh);ctx.clip();for(let d=-hh;d<ww+hh;d+=step){ctx.beginPath();ctx.moveTo(x+d,y+hh);ctx.lineTo(x+d+hh,y);ctx.stroke()}ctx.restore()}ctx.restore()}ctx.restore()}
+  function layeredFabricPlaid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),unit=Math.max(34,p.size),period=Math.max(unit*2.45,unit*2.45+p.gap*.55),bgA=s.colors[0]||'#FFF7FA',bgB=s.plaidBg2||'#FFEAF2',wide=s.colors[1]||'#F7B4CF',mid=s.colors[2]||'#F49ABD',dark=s.colors[3]||'#E978A5',hatch=s.colors[4]||dark,hatchOn=s.plaidHatch!==false,hatchStrength=Math.max(0,Math.min(1,(s.plaidHatchStrength??40)/100));ctx.save();ctx.globalAlpha=1;ctx.fillStyle=bgA;ctx.fillRect(0,0,w,h);ctx.globalAlpha=.42;ctx.fillStyle=bgB;for(let y=-period;y<h+period;y+=period*2)ctx.fillRect(0,y,w,period*.86);for(let x=period*.62;x<w+period;x+=period*2)ctx.fillRect(x,0,period*.48,h);let hatchRects=[];const bands=[[0,unit*.78,wide,.30],[unit*.96,unit*.30,mid,.24],[unit*1.48,Math.max(1.2,p.stroke*.52),dark,.62],[unit*1.70,unit*.13,mid,.18],[unit*2.08,Math.max(.8,p.stroke*.30),dark,.38]];const drawBands=(vertical)=>{for(let k=-2;k<Math.ceil((vertical?w:h)/period)+3;k++){let pos=k*period;for(const [off,bw,c,alpha] of bands){ctx.globalAlpha=p.op*alpha;ctx.fillStyle=c;if(vertical)ctx.fillRect(pos+off,-period,bw,h+period*2);else ctx.fillRect(-period,pos+off,w+period*2,bw);if(alpha>=.24){if(vertical)hatchRects.push([pos+off,-period,bw,h+period*2]);else hatchRects.push([-period,pos+off,w+period*2,bw])}}}};drawBands(true);drawBands(false);
+  if(s.anchorExact){
+    ctx.globalAlpha=1;ctx.fillStyle=s.anchorColor||dark;
+    for(let k=-2;k<Math.ceil(w/period)+3;k++){let pos=k*period;ctx.fillRect(pos+unit*1.48,-period,Math.max(1.2,p.stroke*.52),h+period*2)}
+    for(let k=-2;k<Math.ceil(h/period)+3;k++){let pos=k*period;ctx.fillRect(-period,pos+unit*1.48,w+period*2,Math.max(1.2,p.stroke*.52))}
+  }
+  if(hatchOn&&hatchStrength>0){ctx.save();ctx.globalAlpha=p.op*(.08+.42*hatchStrength);ctx.strokeStyle=hatch;ctx.lineWidth=Math.max(.5,unit*.0105);let step=Math.max(4,unit*.068);for(const [x,y,ww,hh] of hatchRects){ctx.save();ctx.beginPath();ctx.rect(x,y,ww,hh);ctx.clip();for(let d=-hh;d<ww+hh;d+=step){ctx.beginPath();ctx.moveTo(x+d,y+hh);ctx.lineTo(x+d+hh,y);ctx.stroke()}ctx.restore()}ctx.restore()}ctx.restore()}
   function referencePlaid(ctx,w,h,s,scale,opt={}){
     let p=common(s,scale),unit=Math.max(30,p.size),gap=Math.max(0,p.gap||0),variant=opt.variant||'soft-layer';
     let bg=s.colors[0]||'#FFF8F4',anchor=s.colors[1]||'#B88970',mid=s.colors[2]||'#DFC3B3',light=s.colors[3]||'#F8EFE9',line=s.colors[4]||'#C49B84';
@@ -196,7 +206,7 @@
     if(!cfg)return;
     let period=Math.max(unit*1.8,unit*cfg.period+gap*.55),extra=Math.hypot(w,h)+period*4,rot=p.rot+(cfg.rotate45?Math.PI/4:0);
     let colorByIndex=i=>[bg,anchor,mid,light,line][i]||anchor;
-    let hatchRects=[];
+    let hatchRects=[],primaryVertical=[],primaryHorizontal=[];
     ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(rot);ctx.translate(-w/2,-h/2);
 
     // Very light under-bands make the wide cells feel layered without introducing a new color.
@@ -212,11 +222,18 @@
           ctx.globalAlpha=p.op*alpha;ctx.fillStyle=c;
           if(vertical)ctx.fillRect(pos+off,-extra,bw,h+extra*2);
           else ctx.fillRect(-extra,pos+off,w+extra*2,bw);
+          if(colorIndex===1&&alpha>=.16){if(vertical)primaryVertical.push([pos+off,bw]);else primaryHorizontal.push([pos+off,bw])}
           if(hatch){if(vertical)hatchRects.push([pos+off,-extra,bw,h+extra*2]);else hatchRects.push([-extra,pos+off,w+extra*2,bw])}
         }
       }
     };
     drawBands(true);drawBands(false);
+
+    // In auto Anchor mode the darkest visible plaid crossings must equal the sampled/typed color exactly.
+    if(s.anchorExact&&primaryVertical.length&&primaryHorizontal.length){
+      ctx.globalAlpha=1;ctx.fillStyle=s.anchorColor||anchor;
+      for(const [vx,vw] of primaryVertical)for(const [hy,hh] of primaryHorizontal)ctx.fillRect(vx,hy,vw,hh)
+    }
 
     // Fine 45° light hatching inside selected medium/dark bands.
     let hatchAlpha=p.op*(.20+.42*p.detail),hatchGap=Math.max(4,unit*cfg.hatchGap),hatchWidth=Math.max(.6,unit*cfg.hatchWidth);
