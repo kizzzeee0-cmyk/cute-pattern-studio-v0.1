@@ -108,16 +108,16 @@
   function airyMixCheck(ctx,w,h,s,scale,opt={}){
     let p=common(s,scale),cell=Math.max(8,p.size),step=Math.max(8,cell+(opt.allowGap?(p.gap||0):0)),
       pointColor=s.airyPointColor||s.colors[3]||s.colors[2]||'#FFFFFF',
-      pointCount=Math.max(0,Math.round(s.airyPointCount??10));
+      pointCount=Math.max(0,Math.round(s.airyPointCount??24)),
+      pointScale=Math.max(.20,Math.min(1,(s.airyPointScale??60)/100)),
+      pointPattern=['all','every2','every3','checker','vertical','horizontal'].includes(s.airyPointPattern)?s.airyPointPattern:'every3';
 
-    // Base structure is intentionally identical to the existing airy/3-tone overlap check:
-    // one color band overlaps into three tones, with 45° cutout hatching only in the medium tone.
+    // Keep the original 3-tone airy overlap structure exactly:
+    // medium single-band zones receive the existing 45° cutout hatch,
+    // darkest intersections are reserved for optional nested airy-check points.
     overlapChecker(ctx,w,h,s,scale,{secondary:false,hatchMid:true});
 
-    if(pointCount<=0)return;
-
-    // Rebuild the exact darkest intersection positions from overlapChecker.
-    // No frame, border, white box or extra decoration is drawn around the nested motif.
+    // Rebuild the same darkest intersection positions used by overlapChecker.
     let rng=mulberry32(p.seed),startX=-step*4+(s.offsetX||0)*scale,startY=-step*4+(s.offsetY||0)*scale;
     let verticalBands=[],horizontalBands=[];
     for(let i=0,x=startX;i<Math.ceil((w+step*8)/step);i++,x+=step){
@@ -130,34 +130,56 @@
     }
 
     let candidates=[];
-    verticalBands.forEach(([x,ww,ci])=>horizontalBands.forEach(([y,hh,rj])=>{
+    horizontalBands.forEach(([y,hh,rj],row)=>verticalBands.forEach(([x,ww,ci],col)=>{
       if(x+ww<=0||x>=w||y+hh<=0||y>=h)return;
-      let score=hashSeed(String(p.seed)+':airy-point:'+ci+':'+rj);
-      candidates.push({x,y,ww,hh,score})
+      candidates.push({x,y,ww,hh,row,col,seq:row*verticalBands.length+col,ci,rj})
     }));
-    candidates.sort((a,b)=>a.score-b.score);
-    candidates=candidates.slice(0,Math.min(pointCount,candidates.length));
+
+    const matchesPattern=c=>{
+      if(pointPattern==='all')return true;
+      if(pointPattern==='every2')return c.seq%2===0;
+      if(pointPattern==='every3')return c.seq%3===0;
+      if(pointPattern==='checker')return (c.row+c.col)%2===0;
+      if(pointPattern==='vertical')return c.col%2===0;
+      if(pointPattern==='horizontal')return c.row%2===0;
+      return c.seq%3===0
+    };
+
+    let eligible=candidates.filter(matchesPattern),selected=[];
+    if(pointPattern==='all'){
+      selected=eligible;
+    }else if(pointCount>0&&eligible.length){
+      let take=Math.min(pointCount,eligible.length);
+      if(take===eligible.length)selected=eligible;
+      else{
+        // Evenly sample the regular candidate list instead of taking a random cluster.
+        // This keeps sparse counts visually balanced across the whole canvas.
+        for(let k=0;k<take;k++){
+          let idx=Math.min(eligible.length-1,Math.floor((k+.5)*eligible.length/take));
+          selected.push(eligible[idx])
+        }
+      }
+    }
 
     const drawNestedAiry=(x,y,ww,hh)=>{
-      let mini=Math.max(4,Math.min(ww,hh)/4),band=mini,period=mini*2;
+      let dw=ww*pointScale,dh=hh*pointScale,px=x+(ww-dw)/2,py=y+(hh-dh)/2,
+        mini=Math.max(3,Math.min(dw,dh)/4),band=mini,period=mini*2;
       ctx.save();
-      ctx.beginPath();ctx.rect(x,y,ww,hh);ctx.clip();
+      ctx.beginPath();ctx.rect(px,py,dw,dh);ctx.clip();
       ctx.fillStyle=pointColor;
       ctx.globalAlpha=p.op*.34;
-      for(let xx=x;xx<x+ww+period;xx+=period)ctx.fillRect(xx,y,band,hh);
-      for(let yy=y;yy<y+hh+period;yy+=period)ctx.fillRect(x,yy,ww,band);
-      // A slightly stronger overlap makes the mini 3-tone structure readable,
-      // while remaining borderless and fully clipped to the darkest parent cell.
+      for(let xx=px;xx<px+dw+period;xx+=period)ctx.fillRect(xx,py,band,dh);
+      for(let yy=py;yy<py+dh+period;yy+=period)ctx.fillRect(px,yy,dw,band);
       ctx.globalAlpha=p.op*.18;
-      for(let xx=x;xx<x+ww+period;xx+=period){
-        for(let yy=y;yy<y+hh+period;yy+=period)ctx.fillRect(xx,yy,band,band)
+      for(let xx=px;xx<px+dw+period;xx+=period){
+        for(let yy=py;yy<py+dh+period;yy+=period)ctx.fillRect(xx,yy,band,band)
       }
       ctx.restore()
     };
 
     ctx.save();
     ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);
-    candidates.forEach(c=>drawNestedAiry(c.x,c.y,c.ww,c.hh));
+    selected.forEach(c=>drawNestedAiry(c.x,c.y,c.ww,c.hh));
     ctx.restore()
   }
   function wavyChecker(ctx,w,h,s,scale){let p=common(s,scale),cell=Math.max(10,p.size),step=Math.max(cell*.55,cell+p.gap),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3;y<h+step*3;row++,y+=step){for(let col=-3,x=-step*3;x<w+step*3;col++,x+=step){if((row+col)%2)continue;let amp=cell*(.06+.10*p.detail),xx=x+jitter(rng,p.jit*.25),yy=y+jitter(rng,p.jit*.25);ctx.fillStyle=(row+col)%4===0?s.colors[1]:s.colors[2];ctx.beginPath();ctx.moveTo(xx,yy+amp);ctx.bezierCurveTo(xx+cell*.3,yy-amp,xx+cell*.7,yy+amp,xx+cell,yy);ctx.lineTo(xx+cell,yy+cell-amp);ctx.bezierCurveTo(xx+cell*.7,yy+cell+amp,xx+cell*.3,yy+cell-amp,xx,yy+cell);ctx.closePath();ctx.fill()}}ctx.restore()}
@@ -669,7 +691,7 @@
 
   const defaults={
     'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:8,jitter:0,detail:25},
-    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:40,triHatchAlternate:true,airyPointCount:10,airyPointColor:'#FFFFFF'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
+    'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:40,triHatchAlternate:true,airyPointCount:24,airyPointColor:'#FFFFFF',airyPointScale:60,airyPointPattern:'every3'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartGap:4,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
     'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
