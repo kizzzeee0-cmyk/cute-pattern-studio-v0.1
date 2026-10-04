@@ -54,7 +54,7 @@ const MASTER_COLOR_SWATCHES=['#D94B5E','#E78238','#D4B83A','#4F9866','#4B79C8','
 function defaultAnchorProfileForPreset(presetId=''){
   let preset=PE.presets.find(p=>p.id===presetId),type=preset?.type||'',soft=preset?.opt?.anchorMode==='soft';
   if(type==='grid'||type==='dashed-grid')return [.96,0,.60,.84,.08];
-  if(['checker','wavy-checker','textured-checker','plaid','layered-fabric-plaid','overlap-check','torn-checker'].includes(type))return soft?[.95,0,.50,.78,.08]:[.90,0,.28,.64,.10];
+  if(['checker','wavy-checker','textured-checker','plaid','layered-fabric-plaid','overlap-check','airy-mix-check','torn-checker'].includes(type))return soft?[.95,0,.50,.78,.08]:[.90,0,.28,.64,.10];
   if(type==='reference-plaid')return soft?[.96,0,.56,.86,.22]:[.88,0,.32,.66,.14];
   if(['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'].includes(type))return [.93,0,.34,.72,.10];
   return [.95,0,.48,.78,.10]
@@ -69,7 +69,7 @@ function buildThemeTonePalette(baseHex,presetId='',profile=null){
   let master=normalizeHexLike(baseHex,'#D94B7A'),preset=PE.presets.find(p=>p.id===presetId),type=preset?.type||'',soft=preset?.opt?.anchorMode==='soft';
   if(type==='graphic-composition')return normalizeColors([mixHex(master,'#FFFFFF',.96),master,mixHex(master,'#FFFFFF',.58),'#FFFFFF',mixHex(master,'#FFFFFF',.22)]);
   if(type==='reference-plaid')return soft?normalizeColors([mixHex(master,'#FFFFFF',.96),master,mixHex(master,'#FFFFFF',.56),mixHex(master,'#FFFFFF',.86),mixHex(master,'#FFFFFF',.22)]):normalizeColors([mixHex(master,'#FFFFFF',.88),master,mixHex(master,'#FFFFFF',.32),mixHex(master,'#FFFFFF',.66),mixHex(master,'#FFFFFF',.14)]);
-  if(['checker','wavy-checker','textured-checker','plaid','overlap-check','torn-checker'].includes(type)&&!soft)return normalizeColors([mixHex(master,'#FFFFFF',.90),master,mixHex(master,'#FFFFFF',.28),mixHex(master,'#FFFFFF',.64),mixHex(master,'#FFFFFF',.10)]);
+  if(['checker','wavy-checker','textured-checker','plaid','overlap-check','airy-mix-check','torn-checker'].includes(type)&&!soft)return normalizeColors([mixHex(master,'#FFFFFF',.90),master,mixHex(master,'#FFFFFF',.28),mixHex(master,'#FFFFFF',.64),mixHex(master,'#FFFFFF',.10)]);
   let tone=(Array.isArray(profile)&&profile.length>=5?profile:defaultAnchorProfileForPreset(presetId)).slice(0,5);
   return tone.map(t=>mixHex(master,'#FFFFFF',clamp(Number(t)||0,0,.975)))
 }
@@ -455,7 +455,7 @@ if(uniformShape){
   row.append(lab,picker,txt,makeEyeDropperButton(setShape));colorBox.appendChild(row)
 }else colorBox.appendChild(renderColorInputs(layer.colors,()=>{persistAll();let asset=userAssets.find(v=>v.id===layer.assetId);if(asset&&asset.kind==='svg'){asset._img=null;ensureAssetImage(asset,layer).then(renderMain)}renderPatternListDebounced();renderAssetList();renderMain()}))}
   autoBtn.onclick=function(){if(layer.colorMode==='individual')layer.anchorToneProfile=buildAnchorToneProfile(layer.colors,layer.presetId);layer.colorMode='auto';applyMasterTone(layer,layer.masterColor||layer.colors[1]||'#F59BBC',true);persistAll();renderLayerEditor();syncGlobalControls();renderPatternListDebounced();renderMain()};manualBtn.onclick=function(){layer.colorMode='individual';persistAll();renderLayerEditor();renderMain()};top.appendChild(colorBox);
-  if(layer.sourceType==='builtin'&&['checker','plaid','overlap-check','layered-fabric-plaid','reference-plaid','textured-checker'].includes(PE.presets.find(p=>p.id===layer.presetId)?.type)){
+  if(layer.sourceType==='builtin'&&['checker','plaid','overlap-check','airy-mix-check','layered-fabric-plaid','reference-plaid','textured-checker'].includes(PE.presets.find(p=>p.id===layer.presetId)?.type)){
     let soft=isSoftAnchorPresetId(layer.presetId),mode=document.createElement('div');mode.className='layer-editor-card';
     mode.innerHTML='<div class="section-title-row"><h3>색상 렌더링 방식</h3></div><div class="control-subtitle">'+(soft?'<strong>소프트 투명</strong> · 대표색을 기준으로 사용하지만 기존처럼 투명도와 겹침을 유지해서 실제 화면에서는 조금 더 연하고 부드럽게 보여.':'<strong>진한 기준색 연동</strong> · 스포이드/HEX 대표색을 가장 진한 부분에 정확히 쓰고, 중간톤과 연한톤도 같은 색상 결로 함께 진해져.')+'</div>';
     top.appendChild(mode)
