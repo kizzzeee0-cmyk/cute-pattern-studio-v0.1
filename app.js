@@ -644,7 +644,7 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
     if(layer.diamondSize===undefined)layer.diamondSize=d.diamondSize??10;
 
     let box=document.createElement('div');box.className='layer-editor-card';
-    box.innerHTML='<div class="section-title-row"><h3>파스텔 다이아 격자 설정</h3></div><div class="control-subtitle">기존 파스텔 격자와는 별도 패턴이야. 격자 교차점마다 작은 다이아를 넣고, <strong>격자 X/Y · 다이아 색상 · 다이아 크기</strong>를 각각 조절할 수 있어.</div>';
+    box.innerHTML='<div class="section-title-row"><h3>파스텔 다이아 격자 설정</h3></div><div class="control-subtitle"><strong>격자 X/Y는 각각 독립적으로</strong> 비율을 잡고, 아래 공통 <strong>패턴 크기</strong>를 조절하면 현재 X/Y 비율을 유지한 채 격자 전체와 다이아 포인트가 함께 커지거나 작아져. 다이아 색상과 기본 크기는 별도로 조절할 수 있어.</div>';
 
     let colorRow=document.createElement('div');colorRow.className='color-row';
     let lab=document.createElement('div');lab.className='color-label';lab.textContent='다이아 색상';
