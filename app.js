@@ -626,7 +626,7 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
     if(layer.gridX===undefined)layer.gridX=d.gridX??96;
     if(layer.gridY===undefined)layer.gridY=d.gridY??96;
     let box=document.createElement('div');box.className='layer-editor-card';
-    box.innerHTML='<div class="section-title-row"><h3>파스텔 격자 크기</h3></div><div class="control-subtitle">정사각형뿐 아니라 가로로 긴 격자·세로로 긴 격자도 만들 수 있도록 <strong>X 크기와 Y 크기를 각각 독립적으로</strong> 조절해.</div>';
+    box.innerHTML='<div class="section-title-row"><h3>파스텔 격자 크기</h3></div><div class="control-subtitle"><strong>X 크기와 Y 크기는 각각 독립적으로</strong> 비율을 잡을 수 있고, 아래 공통 <strong>패턴 크기</strong>를 조절하면 현재 X/Y 비율을 유지한 채 격자 전체가 함께 커지거나 작아져.</div>';
     let grid=document.createElement('div');grid.className='layer-editor-grid';
     grid.append(
       sliderRow('격자 X 크기 · 가로','gridX',layer.gridX??96,20,400,'px',v=>layer.gridX=v),
