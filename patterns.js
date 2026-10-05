@@ -206,9 +206,10 @@
   function rrand(rng,a,b){return a+(b-a)*rng()}
   function grid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),baseStep=Math.max(10,p.size+p.gap),customXY=s.presetId==='grid',sizeFactor=customXY?Math.max(.1,(Number(s.size)||70)/70):1,stepX=customXY?Math.max(10,(s.gridX??96)*sizeFactor*scale):baseStep,stepY=customXY?Math.max(10,(s.gridY??96)*sizeFactor*scale):baseStep,rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.lineCap='round';ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let x=-stepX;x<w+stepX;x+=stepX){ctx.beginPath();for(let y=-stepY;y<=h+stepY;y+=Math.max(2,stepY/3)){let xx=x+(opt.hand?jitter(rng,p.jit*.22):0);y===-stepY?ctx.moveTo(xx,y):ctx.lineTo(xx,y)}ctx.stroke()}for(let y=-stepY;y<h+stepY;y+=stepY){ctx.beginPath();for(let x=-stepX;x<=w+stepX;x+=Math.max(2,stepX/3)){let yy=y+(opt.hand?jitter(rng,p.jit*.22):0);x===-stepX?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke()}ctx.restore()}
   function gridDiamond(ctx,w,h,s,scale,opt={}){
-    let p=common(s,scale),stepX=Math.max(10,(s.gridX??96)*scale),stepY=Math.max(10,(s.gridY??96)*scale),
+    let p=common(s,scale),sizeFactor=Math.max(.1,(Number(s.size)||70)/70),
+      stepX=Math.max(10,(s.gridX??96)*sizeFactor*scale),stepY=Math.max(10,(s.gridY??96)*sizeFactor*scale),
       diamondColor=s.diamondColor||s.colors[2]||s.colors[1]||'#BFD7FF',
-      diamondSize=Math.max(2,(s.diamondSize??10)*scale),
+      diamondSize=Math.max(2,(s.diamondSize??10)*sizeFactor*scale),
       half=diamondSize/2;
     ctx.save();
     ctx.globalAlpha=p.op;
