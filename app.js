@@ -20,7 +20,7 @@ const MAX_LAYERS=8;
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/장식색'],['선 색','체크 외곽선/그리드 선']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
 const MAX_BG_STOPS=6;
-let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],recentReferenceColors=[],referenceImage=null,referenceObjectUrl='',referenceSampleCanvas=null,referenceSelectedColor='',referenceSelectedRgb=null,referenceZoom=1,referencePanX=0,referencePanY=0,referenceViewMetrics=null,activeReferenceColorInput=null,activeReferenceColorLabel='',referenceDragState=null;
+let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],recentReferenceColors=[],referenceImage=null,referenceObjectUrl='',referenceSampleCanvas=null,referenceSelectedColor='',referenceSelectedRgb=null,referenceZoom=1,referencePanX=0,referencePanY=0,referenceViewMetrics=null,activeReferenceColorInput=null,activeReferenceColorLabel='',referenceDragState=null,referenceDockCollapsed=localStorage.getItem('cps-v260-reference-dock-collapsed')==='1';
 
 function normalizeHexLike(value,fallback='#FFFFFF'){return /^#[0-9a-fA-F]{6}$/.test(String(value||'').trim())?String(value).trim().toUpperCase():fallback}
 function buildGradientStopsFromColors(colors){let list=(Array.isArray(colors)?colors:[...defaultBg]).filter(Boolean).map((c,i)=>normalizeHexLike(c,defaultBg[Math.min(i,defaultBg.length-1)]||'#FFFFFF')).slice(0,MAX_BG_STOPS);if(!list.length)list=[defaultBg[0],defaultBg[1]];if(list.length===1)list.push(list[0]);let step=list.length>1?100/(list.length-1):100;return list.map((color,i)=>({color,pos:Math.round(step*i)}))}
@@ -831,7 +831,7 @@ function describeColorInput(el){
 function rememberActiveReferenceColorInput(el){
   if(!el||el.tagName!=='INPUT')return;
   let isColor=el.type==='color',isHex=el.type==='text'&&(el.maxLength===7||/^#[0-9A-Fa-f]{0,6}$/.test(el.value||''));
-  if(!isColor&&!isHex)return;activeReferenceColorInput=el;activeReferenceColorLabel=describeColorInput(el);renderReferenceSelectedColor()
+  if(!isColor&&!isHex)return;activeReferenceColorInput=el;activeReferenceColorLabel=describeColorInput(el);openReferenceDockForColorInput();renderReferenceSelectedColor()
 }
 function applyReferenceColorToActiveInput(hex){
   let el=activeReferenceColorInput;if(!el){toast('먼저 적용할 색상 입력칸을 클릭해줘.');return false}
@@ -897,7 +897,25 @@ function renderRecentReferenceColors(){
     item.append(use,del);wrap.appendChild(item)
   })
 }
+function syncReferenceDockUI(){
+  let section=$('#referenceColorSection'),toggle=$('#referenceDockToggle');if(!section)return;
+  let mobile=window.innerWidth<=1060;
+  section.classList.toggle('is-collapsed',!mobile&&referenceDockCollapsed);
+  if(toggle){toggle.hidden=mobile;toggle.textContent=referenceDockCollapsed?'펼치기':'접기';toggle.setAttribute('aria-expanded',String(!referenceDockCollapsed))}
+}
+function setReferenceDockCollapsed(value){
+  referenceDockCollapsed=!!value;
+  localStorage.setItem('cps-v260-reference-dock-collapsed',referenceDockCollapsed?'1':'0');
+  syncReferenceDockUI();
+  if(!referenceDockCollapsed&&referenceImage)requestAnimationFrame(drawReferenceCanvas)
+}
+function openReferenceDockForColorInput(){
+  if(window.innerWidth<=1060)return;
+  if(referenceDockCollapsed)setReferenceDockCollapsed(false);
+}
+
 function renderReferenceWorkspace(){
+  syncReferenceDockUI();
   let has=!!referenceImage,empty=$('#referenceEmpty'),viewport=$('#referenceViewport'),zoomBar=$('#referenceZoomBar'),replace=$('#replaceReferenceBtn'),del=$('#deleteReferenceBtn');
   if(empty)empty.hidden=has;if(viewport)viewport.hidden=!has;if(zoomBar)zoomBar.hidden=!has;if(replace)replace.disabled=!has;if(del)del.disabled=!has;
   renderReferenceSelectedColor();renderReferencePalette();renderRecentReferenceColors();
@@ -992,6 +1010,7 @@ function bindGlobalControls(){
   ['dragleave','drop'].forEach(evt=>$('#assetDropzone').addEventListener(evt,e=>{e.preventDefault();$('#assetDropzone').classList.remove('dragover')}));
   $('#assetDropzone').addEventListener('drop',e=>{const files=[...(e.dataTransfer?.files||[])];if(files.length)handleAssetFiles(files)});
   $('#assetInput').onchange=e=>{handleAssetFiles([...e.target.files]);e.target.value=''};
+  if($('#referenceDockToggle'))$('#referenceDockToggle').onclick=()=>setReferenceDockCollapsed(!referenceDockCollapsed);
   $('#uploadReferenceBtn').onclick=()=>$('#referenceInput').click();
   $('#replaceReferenceBtn').onclick=()=>$('#referenceInput').click();
   $('#deleteReferenceBtn').onclick=clearReferenceImage;
@@ -1009,7 +1028,7 @@ function bindGlobalControls(){
   $('#clearRecentReferenceColors').onclick=()=>{recentReferenceColors=[];saveRecentReferenceColors();renderRecentReferenceColors()};
   document.addEventListener('focusin',e=>rememberActiveReferenceColorInput(e.target));
   document.addEventListener('pointerdown',e=>rememberActiveReferenceColorInput(e.target),true);
-  window.addEventListener('resize',()=>{if(referenceImage)drawReferenceCanvas()});
+  window.addEventListener('resize',()=>{syncReferenceDockUI();if(referenceImage)drawReferenceCanvas()});
   setupReferenceInteractions();
   $('#bgMode').onchange=e=>{state.bg.mode=e.target.value;if(state.bg.mode==='linear'&&(!state.bg.gradientStops||state.bg.gradientStops.length<2))state.bg.gradientStops=buildGradientStopsFromColors(state.bg.colors);persistAll();syncGlobalControls();renderMain()};
   $('#transparentBg').onchange=e=>{state.bg.transparent=e.target.checked;persistAll();syncGlobalControls();renderMain()};
