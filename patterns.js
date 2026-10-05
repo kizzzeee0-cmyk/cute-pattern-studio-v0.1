@@ -205,6 +205,42 @@
   }
   function rrand(rng,a,b){return a+(b-a)*rng()}
   function grid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),baseStep=Math.max(10,p.size+p.gap),customXY=s.presetId==='grid',stepX=customXY?Math.max(10,(s.gridX??96)*scale):baseStep,stepY=customXY?Math.max(10,(s.gridY??96)*scale):baseStep,rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.lineCap='round';ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let x=-stepX;x<w+stepX;x+=stepX){ctx.beginPath();for(let y=-stepY;y<=h+stepY;y+=Math.max(2,stepY/3)){let xx=x+(opt.hand?jitter(rng,p.jit*.22):0);y===-stepY?ctx.moveTo(xx,y):ctx.lineTo(xx,y)}ctx.stroke()}for(let y=-stepY;y<h+stepY;y+=stepY){ctx.beginPath();for(let x=-stepX;x<=w+stepX;x+=Math.max(2,stepX/3)){let yy=y+(opt.hand?jitter(rng,p.jit*.22):0);x===-stepX?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke()}ctx.restore()}
+  function gridDiamond(ctx,w,h,s,scale,opt={}){
+    let p=common(s,scale),stepX=Math.max(10,(s.gridX??96)*scale),stepY=Math.max(10,(s.gridY??96)*scale),
+      diamondColor=s.diamondColor||s.colors[2]||s.colors[1]||'#BFD7FF',
+      diamondSize=Math.max(2,(s.diamondSize??10)*scale),
+      half=diamondSize/2;
+    ctx.save();
+    ctx.globalAlpha=p.op;
+    ctx.strokeStyle=s.colors[1];
+    ctx.lineWidth=p.stroke;
+    ctx.lineCap='round';
+    ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);
+
+    // Same clean pastel grid structure as the standard grid preset.
+    for(let x=-stepX;x<w+stepX;x+=stepX){
+      ctx.beginPath();ctx.moveTo(x,-stepY);ctx.lineTo(x,h+stepY);ctx.stroke()
+    }
+    for(let y=-stepY;y<h+stepY;y+=stepY){
+      ctx.beginPath();ctx.moveTo(-stepX,y);ctx.lineTo(w+stepX,y);ctx.stroke()
+    }
+
+    // Soft diamond accents sit exactly on the grid intersections.
+    ctx.fillStyle=diamondColor;
+    for(let x=-stepX;x<w+stepX;x+=stepX){
+      for(let y=-stepY;y<h+stepY;y+=stepY){
+        ctx.beginPath();
+        ctx.moveTo(x,y-half);
+        ctx.lineTo(x+half,y);
+        ctx.lineTo(x,y+half);
+        ctx.lineTo(x-half,y);
+        ctx.closePath();
+        ctx.fill()
+      }
+    }
+    ctx.restore()
+  }
+
   function stripes(ctx,w,h,s,scale,opt={}){let p=common(s,scale),step=Math.max(8,p.size+p.gap),rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+(opt.diagonal?Math.PI/4:0));ctx.translate(-w/2,-h/2);ctx.lineWidth=Math.max(2,p.size*.55);ctx.lineCap='round';for(let y=-h;y<h*2;y+=step){ctx.strokeStyle=pick(rng,s.colors.slice(1));ctx.beginPath();if(opt.wavy){ctx.moveTo(-w,y);for(let x=-w;x<=w*2;x+=step*.55){ctx.quadraticCurveTo(x+step*.27,y+Math.sin(x/step*2)*p.size*.18*(.3+p.detail),x+step*.55,y)}}else if(opt.scribble){ctx.moveTo(-w,y);for(let x=-w;x<=w*2;x+=step*.35)ctx.lineTo(x,y+jitter(rng,p.jit*.6))}else{ctx.moveTo(-w,y);ctx.lineTo(w*2,y)}ctx.stroke()}ctx.restore()}
   function zigzag(ctx,w,h,s,scale){let p=common(s,scale),step=Math.max(12,p.size+p.gap),amp=p.size*.35;ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let y=-step;y<h+step;y+=step){ctx.beginPath();for(let x=-step,i=0;x<w+step;x+=step/2,i++){let yy=y+(i%2?amp:-amp);i?ctx.lineTo(x,yy):ctx.moveTo(x,yy)}ctx.stroke()}ctx.restore()}
   function motifScatter(ctx,w,h,s,scale,type,opt={}){
@@ -581,7 +617,7 @@
     }
     ctx.restore()
   }
-  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='reference-plaid')referencePlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='airy-mix-check')airyMixCheck(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
+  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='reference-plaid')referencePlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='airy-mix-check')airyMixCheck(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='grid-diamond')gridDiamond(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
 
   const presets=[
     ['pastel-checker','파스텔 체크','체크·도트','깔끔한 기본 체커보드','checker',{}],
@@ -641,6 +677,7 @@
     ['ring-dot','링 도트','체크·도트','속이 빈 원형 도트','dots',{ring:true,irregular:true}],
     ['bubble-dot','버블 도트','체크·도트','크기가 섞인 말랑한 점','dots',{irregular:true}],
     ['grid','파스텔 격자','격자·줄무늬','깔끔한 기본 그리드','grid',{}],
+    ['grid-diamond','파스텔 다이아 격자','격자·줄무늬','파스텔 격자 교차점마다 작은 다이아 포인트가 들어가는 깔끔한 격자','grid-diamond',{}],
     ['dashed-grid','점선 체크 / Dashed Grid','격자·줄무늬','얇은 점선이 가로·세로로 교차하는 넓은 저대비 격자','dashed-grid',{}],
     ['heart-dashed-grid','하트 점선 다이아 격자','격자·줄무늬','45° 점선 격자 교차점마다 작은 하트가 들어가는 러블리 저대비 패턴','dashed-grid',{diamond:true,hearts:true}],
     ['hand-grid','손그림 격자','격자·줄무늬','선이 조금씩 흔들리는 격자','grid',{hand:true}],
@@ -692,7 +729,7 @@
   const defaults={
     'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20},'gingham':{size:70,gap:8,jitter:0,detail:25},
     'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:55,triHatchAlternate:false,airyStripeColor:'#FFFFFF',airyPointCount:24,airyPointColor:'#FFFFFF',airyPointGrid:4,airyPointPattern:'every3'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
-    'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96},
+    'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'grid':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96},'grid-diamond':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96,diamondColor:'#BFD7FF',diamondSize:10},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartGap:4,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
     'wavy-stripe':{size:54,gap:20,jitter:12,detail:68},'scribble-stripe':{size:52,gap:22,jitter:70,detail:60},'zigzag':{size:66,gap:35,stroke:6},
     'hearts':{size:56,gap:46,jitter:28},'bows':{size:64,gap:56,jitter:28},'sparkles':{size:48,gap:40,jitter:34},'kira-sparkle':{size:34,gap:28,jitter:24,detail:68},'tiny-bows':{size:40,gap:30,jitter:18,detail:36},'puff-hearts':{size:44,gap:34,jitter:20,detail:40},'candy-stars':{size:42,gap:32,jitter:24,detail:38},'flowers':{size:68,gap:54,jitter:34},'daisy-dot':{size:42,gap:34,jitter:26,detail:44},
