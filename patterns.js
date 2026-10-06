@@ -337,14 +337,14 @@
     ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);
     for(let x=-step*3;x<w+step*3;x+=step){
       let wob=opt.wobble?jitter(rng,p.jit*.22):0,px=x+wob;primaryV.push([px,band]);
-      ctx.globalAlpha=p.op*(s.anchorExact?.68:.35);ctx.fillStyle=s.colors[1];ctx.fillRect(px,-step*3,band,h+step*6);
-      ctx.globalAlpha=p.op*(s.anchorExact?.34:.18);ctx.fillStyle=s.colors[2];ctx.fillRect(px+band*.52,-step*3,Math.max(2,band*.38),h+step*6);
+      ctx.globalAlpha=p.op*(s.anchorExact?.78:.35);ctx.fillStyle=s.colors[1];ctx.fillRect(px,-step*3,band,h+step*6);
+      ctx.globalAlpha=p.op*(s.anchorExact?.46:.18);ctx.fillStyle=s.colors[2];ctx.fillRect(px+band*.52,-step*3,Math.max(2,band*.38),h+step*6);
       if(opt.fine&&p.stroke>0){ctx.globalAlpha=p.op*.78;ctx.fillStyle=outlineColor;ctx.fillRect(px-band*.22,-step*3,Math.max(.5,p.stroke*.45),h+step*6)}
     }
     for(let y=-step*3;y<h+step*3;y+=step){
       let wob=opt.wobble?jitter(rng,p.jit*.22):0,py=y+wob;primaryH.push([py,band]);
-      ctx.globalAlpha=p.op*(s.anchorExact?.68:.35);ctx.fillStyle=s.colors[1];ctx.fillRect(-step*3,py,w+step*6,band);
-      ctx.globalAlpha=p.op*(s.anchorExact?.34:.18);ctx.fillStyle=s.colors[2];ctx.fillRect(-step*3,py+band*.52,w+step*6,Math.max(2,band*.38));
+      ctx.globalAlpha=p.op*(s.anchorExact?.78:.35);ctx.fillStyle=s.colors[1];ctx.fillRect(-step*3,py,w+step*6,band);
+      ctx.globalAlpha=p.op*(s.anchorExact?.46:.18);ctx.fillStyle=s.colors[2];ctx.fillRect(-step*3,py+band*.52,w+step*6,Math.max(2,band*.38));
       if(opt.fine&&p.stroke>0){ctx.globalAlpha=p.op*.78;ctx.fillStyle=outlineColor;ctx.fillRect(-step*3,py-band*.22,w+step*6,Math.max(.5,p.stroke*.45))}
     }
     if(s.anchorExact){
@@ -358,7 +358,7 @@
     }
     ctx.restore()
   }
-  function layeredFabricPlaid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),unit=Math.max(34,p.size),period=Math.max(unit*2.45,unit*2.45+p.gap*.55),bgA=s.colors[0]||'#FFF7FA',bgB=s.plaidBg2||'#FFEAF2',wide=s.colors[1]||'#F7B4CF',mid=s.colors[2]||'#F49ABD',dark=s.colors[3]||'#E978A5',hatch=s.colors[4]||dark,hatchOn=s.plaidHatch!==false,hatchStrength=Math.max(0,Math.min(1,(s.plaidHatchStrength??40)/100));ctx.save();ctx.globalAlpha=1;ctx.fillStyle=bgA;ctx.fillRect(0,0,w,h);ctx.globalAlpha=s.anchorExact?.58:.42;ctx.fillStyle=bgB;for(let y=-period;y<h+period;y+=period*2)ctx.fillRect(0,y,w,period*.86);for(let x=period*.62;x<w+period;x+=period*2)ctx.fillRect(x,0,period*.48,h);let hatchRects=[];const bands=s.anchorExact?[[0,unit*.78,wide,.56],[unit*.96,unit*.30,mid,.42],[unit*1.48,Math.max(1.2,p.stroke*.52),dark,.78],[unit*1.70,unit*.13,mid,.32],[unit*2.08,Math.max(.8,p.stroke*.30),dark,.56]]:[[0,unit*.78,wide,.30],[unit*.96,unit*.30,mid,.24],[unit*1.48,Math.max(1.2,p.stroke*.52),dark,.62],[unit*1.70,unit*.13,mid,.18],[unit*2.08,Math.max(.8,p.stroke*.30),dark,.38]];const drawBands=(vertical)=>{for(let k=-2;k<Math.ceil((vertical?w:h)/period)+3;k++){let pos=k*period;for(const [off,bw,c,alpha] of bands){ctx.globalAlpha=p.op*alpha;ctx.fillStyle=c;if(vertical)ctx.fillRect(pos+off,-period,bw,h+period*2);else ctx.fillRect(-period,pos+off,w+period*2,bw);if(alpha>=.24){if(vertical)hatchRects.push([pos+off,-period,bw,h+period*2]);else hatchRects.push([-period,pos+off,w+period*2,bw])}}}};drawBands(true);drawBands(false);
+  function layeredFabricPlaid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),unit=Math.max(34,p.size),period=Math.max(unit*2.45,unit*2.45+p.gap*.55),bgA=s.colors[0]||'#FFF7FA',bgB=s.plaidBg2||'#FFEAF2',wide=s.colors[1]||'#F7B4CF',mid=s.colors[2]||'#F49ABD',dark=s.colors[3]||'#E978A5',hatch=s.colors[4]||dark,hatchOn=s.plaidHatch!==false,hatchStrength=Math.max(0,Math.min(1,(s.plaidHatchStrength??40)/100));ctx.save();ctx.globalAlpha=1;ctx.fillStyle=bgA;ctx.fillRect(0,0,w,h);ctx.globalAlpha=s.anchorExact?.70:.42;ctx.fillStyle=bgB;for(let y=-period;y<h+period;y+=period*2)ctx.fillRect(0,y,w,period*.86);for(let x=period*.62;x<w+period;x+=period*2)ctx.fillRect(x,0,period*.48,h);let hatchRects=[];const bands=s.anchorExact?[[0,unit*.78,wide,.68],[unit*.96,unit*.30,mid,.52],[unit*1.48,Math.max(1.2,p.stroke*.52),dark,.88],[unit*1.70,unit*.13,mid,.42],[unit*2.08,Math.max(.8,p.stroke*.30),dark,.68]]:[[0,unit*.78,wide,.30],[unit*.96,unit*.30,mid,.24],[unit*1.48,Math.max(1.2,p.stroke*.52),dark,.62],[unit*1.70,unit*.13,mid,.18],[unit*2.08,Math.max(.8,p.stroke*.30),dark,.38]];const drawBands=(vertical)=>{for(let k=-2;k<Math.ceil((vertical?w:h)/period)+3;k++){let pos=k*period;for(const [off,bw,c,alpha] of bands){ctx.globalAlpha=p.op*alpha;ctx.fillStyle=c;if(vertical)ctx.fillRect(pos+off,-period,bw,h+period*2);else ctx.fillRect(-period,pos+off,w+period*2,bw);if(alpha>=.24){if(vertical)hatchRects.push([pos+off,-period,bw,h+period*2]);else hatchRects.push([-period,pos+off,w+period*2,bw])}}}};drawBands(true);drawBands(false);
   if(s.anchorExact){
     ctx.globalAlpha=1;ctx.fillStyle=s.anchorColor||dark;
     for(let k=-2;k<Math.ceil(w/period)+3;k++){let pos=k*period;ctx.fillRect(pos+unit*1.48,-period,Math.max(1.2,p.stroke*.52),h+period*2)}
@@ -384,7 +384,7 @@
     ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(rot);ctx.translate(-w/2,-h/2);
 
     // Very light under-bands make the wide cells feel layered without introducing a new color.
-    ctx.globalAlpha=p.op*(s.anchorExact?.34:.22);ctx.fillStyle=light;
+    ctx.globalAlpha=p.op*(s.anchorExact?.44:.22);ctx.fillStyle=light;
     for(let x=-extra;x<w+extra;x+=period*2)ctx.fillRect(x,-extra,period*.92,h+extra*2);
     for(let y=-extra;y<h+extra;y+=period*2)ctx.fillRect(-extra,y,w+extra*2,period*.92);
 
@@ -393,7 +393,7 @@
         let pos=k*period;
         for(const [offRatio,widthRatio,colorIndex,alpha,hatch] of cfg.bands){
           let off=unit*offRatio,bw=Math.max(.8,unit*widthRatio),c=colorByIndex(colorIndex);
-          ctx.globalAlpha=p.op*(s.anchorExact?Math.min(.82,alpha*1.85):alpha);ctx.fillStyle=c;
+          ctx.globalAlpha=p.op*(s.anchorExact?Math.min(.94,alpha*2.45):alpha);ctx.fillStyle=c;
           if(vertical)ctx.fillRect(pos+off,-extra,bw,h+extra*2);
           else ctx.fillRect(-extra,pos+off,w+extra*2,bw);
           if(colorIndex===1&&alpha>=.16){if(vertical)primaryVertical.push([pos+off,bw]);else primaryHorizontal.push([pos+off,bw])}
@@ -421,7 +421,7 @@
     // Thin stitched/window grid seen in the reference backgrounds.
     if(p.stroke>0){
       let seamStep=Math.max(unit*.45,period*cfg.seam),seamWidth=Math.max(.55,p.stroke*.36*scale);
-      ctx.globalAlpha=p.op*.34;ctx.strokeStyle=line;ctx.lineWidth=seamWidth;ctx.lineCap='round';
+      ctx.globalAlpha=p.op*(s.anchorExact?.46:.34);ctx.strokeStyle=line;ctx.lineWidth=seamWidth;ctx.lineCap='round';
       ctx.setLineDash([Math.max(3,unit*.070),Math.max(4,unit*.078)]);
       for(let x=-extra;x<w+extra;x+=seamStep){ctx.beginPath();ctx.moveTo(x,-extra);ctx.lineTo(x,h+extra);ctx.stroke()}
       for(let y=-extra;y<h+extra;y+=seamStep){ctx.beginPath();ctx.moveTo(-extra,y);ctx.lineTo(w+extra,y);ctx.stroke()}
