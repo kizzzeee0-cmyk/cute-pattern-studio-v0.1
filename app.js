@@ -52,17 +52,17 @@ function rgbToHsl({r,g,b}){r/=255;g/=255;b/=255;let max=Math.max(r,g,b),min=Math
 function hslToRgb(h,s,l){h=((h%360)+360)%360;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}return {r:(r+m)*255,g:(g+m)*255,b:(b+m)*255}}
 function hslToHex(h,s,l){return rgbToHexObj(hslToRgb(h,s,l))}
 function mixHex(a,b,ratio=.5){let ca=hexToRgb(a),cb=hexToRgb(b);return rgbToHexObj({r:ca.r*(1-ratio)+cb.r*ratio,g:ca.g*(1-ratio)+cb.g*ratio,b:ca.b*(1-ratio)+cb.b*ratio})}
-function buildLayeredPlaidPalette(baseHex,soft=false){let master=normalizeHexLike(baseHex,'#6E88C8');return soft?{bgA:mixHex(master,'#FFFFFF',.91),bgB:mixHex(master,'#FFFFFF',.82),wide:mixHex(master,'#FFFFFF',.52),mid:mixHex(master,'#FFFFFF',.30),dark:master,hatch:master}:{bgA:mixHex(master,'#FFFFFF',.86),bgB:mixHex(master,'#FFFFFF',.72),wide:mixHex(master,'#FFFFFF',.34),mid:mixHex(master,'#FFFFFF',.18),dark:master,hatch:master}}
+function buildLayeredPlaidPalette(baseHex,soft=false){let master=normalizeHexLike(baseHex,'#6E88C8');return soft?{bgA:mixHex(master,'#FFFFFF',.88),bgB:mixHex(master,'#FFFFFF',.76),wide:mixHex(master,'#FFFFFF',.46),mid:mixHex(master,'#FFFFFF',.26),dark:master,hatch:master}:{bgA:mixHex(master,'#FFFFFF',.72),bgB:mixHex(master,'#FFFFFF',.56),wide:mixHex(master,'#FFFFFF',.24),mid:mixHex(master,'#FFFFFF',.12),dark:master,hatch:master}}
 function applyLayeredPlaidMaster(layer,baseHex,soft=isSoftAnchorPresetId(layer.presetId)){let pal=buildLayeredPlaidPalette(baseHex,soft);layer.plaidMaster=normalizeHexLike(baseHex,'#F39BBC');layer.colors=[pal.bgA,pal.wide,pal.mid,pal.dark,pal.hatch];layer.plaidBg2=pal.bgB;layer.plaidHatch=layer.plaidHatch!==false;layer.plaidHatchStrength=layer.plaidHatchStrength??40;return pal}
 const MASTER_COLOR_SWATCHES=['#D94B5E','#E78238','#D4B83A','#4F9866','#4B79C8','#535AA8','#8A5CC2'];
 function defaultAnchorProfileForPreset(presetId=''){
   let preset=PE.presets.find(p=>p.id===presetId),type=preset?.type||'',soft=preset?.opt?.anchorMode==='soft';
-  if(type==='grid'||type==='grid-diamond'||type==='dashed-grid')return [.96,0,.60,.84,.08];
-  if(type==='soft-window-check')return [0,0,.46,.68,.30];
-  if(['checker','wavy-checker','textured-checker','plaid','layered-fabric-plaid','overlap-check','airy-mix-check','torn-checker'].includes(type))return soft?[.95,0,.50,.78,.08]:[.90,0,.28,.64,.10];
-  if(type==='reference-plaid')return soft?[.96,0,.56,.86,.22]:[.88,0,.32,.66,.14];
-  if(['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'].includes(type))return [.93,0,.34,.72,.10];
-  return [.95,0,.48,.78,.10]
+  if(type==='grid'||type==='grid-diamond'||type==='dashed-grid')return [.82,0,.38,.62,.08];
+  if(type==='soft-window-check')return [0,0,.34,.52,.20];
+  if(['checker','wavy-checker','textured-checker','plaid','layered-fabric-plaid','overlap-check','airy-mix-check','torn-checker'].includes(type))return soft?[.86,0,.38,.62,.12]:[.76,0,.20,.44,.08];
+  if(type==='reference-plaid')return soft?[.86,0,.40,.64,.12]:[.74,0,.18,.42,.08];
+  if(['sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg'].includes(type))return [.86,0,.26,.54,.08];
+  return [.82,0,.32,.56,.10]
 }
 function buildAnchorToneProfile(colors,presetId=''){
   let list=normalizeColors(colors),lum=list.map(c=>luminance(c)),min=Math.min(...lum),den=Math.max(1,255-min);
@@ -72,12 +72,19 @@ function buildAnchorToneProfile(colors,presetId=''){
 }
 function buildThemeTonePalette(baseHex,presetId='',profile=null){
   let master=normalizeHexLike(baseHex,'#D94B7A'),preset=PE.presets.find(p=>p.id===presetId),type=preset?.type||'',soft=preset?.opt?.anchorMode==='soft';
-  if(type==='graphic-composition')return normalizeColors([mixHex(master,'#FFFFFF',.96),master,mixHex(master,'#FFFFFF',.58),'#FFFFFF',mixHex(master,'#FFFFFF',.22)]);
-  if(type==='soft-window-check')return normalizeColors([master,master,mixHex(master,'#FFFFFF',.46),mixHex(master,'#FFFFFF',.68),mixHex(master,'#FFFFFF',.30)]);
-  if(type==='reference-plaid')return soft?normalizeColors([mixHex(master,'#FFFFFF',.96),master,mixHex(master,'#FFFFFF',.56),mixHex(master,'#FFFFFF',.86),mixHex(master,'#FFFFFF',.22)]):normalizeColors([mixHex(master,'#FFFFFF',.88),master,mixHex(master,'#FFFFFF',.32),mixHex(master,'#FFFFFF',.66),mixHex(master,'#FFFFFF',.14)]);
-  if(['checker','wavy-checker','textured-checker','plaid','overlap-check','airy-mix-check','torn-checker'].includes(type)&&!soft)return normalizeColors([mixHex(master,'#FFFFFF',.90),master,mixHex(master,'#FFFFFF',.28),mixHex(master,'#FFFFFF',.64),mixHex(master,'#FFFFFF',.10)]);
-  let tone=(Array.isArray(profile)&&profile.length>=5?profile:defaultAnchorProfileForPreset(presetId)).slice(0,5);
-  return tone.map(t=>mixHex(master,'#FFFFFF',clamp(Number(t)||0,0,.975)))
+  if(type==='graphic-composition')return normalizeColors([mixHex(master,'#FFFFFF',.88),master,mixHex(master,'#FFFFFF',.42),mixHex(master,'#FFFFFF',.68),mixHex(master,'#FFFFFF',.16)]);
+  if(type==='soft-window-check')return normalizeColors([master,master,mixHex(master,'#FFFFFF',.34),mixHex(master,'#FFFFFF',.52),mixHex(master,'#FFFFFF',.20)]);
+  if(type==='reference-plaid')return soft
+    ?normalizeColors([mixHex(master,'#FFFFFF',.86),master,mixHex(master,'#FFFFFF',.40),mixHex(master,'#FFFFFF',.64),mixHex(master,'#FFFFFF',.12)])
+    :normalizeColors([mixHex(master,'#FFFFFF',.74),master,mixHex(master,'#FFFFFF',.18),mixHex(master,'#FFFFFF',.42),mixHex(master,'#FFFFFF',.08)]);
+  if(['checker','wavy-checker','textured-checker','plaid','overlap-check','airy-mix-check','torn-checker'].includes(type))return soft
+    ?normalizeColors([mixHex(master,'#FFFFFF',.86),master,mixHex(master,'#FFFFFF',.38),mixHex(master,'#FFFFFF',.62),mixHex(master,'#FFFFFF',.12)])
+    :normalizeColors([mixHex(master,'#FFFFFF',.76),master,mixHex(master,'#FFFFFF',.20),mixHex(master,'#FFFFFF',.44),mixHex(master,'#FFFFFF',.08)]);
+  let defaults=defaultAnchorProfileForPreset(presetId),raw=(Array.isArray(profile)&&profile.length>=5?profile:defaults).slice(0,5);
+  // Saved profiles from older versions may contain 90~97% white mixing.
+  // Cap them to the new preset defaults so automatic colors cannot become washed out again.
+  let tone=raw.map((t,i)=>Math.min(clamp(Number(t)||0,0,.975),defaults[i]));
+  return tone.map(t=>mixHex(master,'#FFFFFF',t))
 }
 function setCanvasBackgroundColor(value){
   let fallback=state.bg.colors?.[0]||'#FFFFFF',bg=normalizeHexLike(value,fallback);
@@ -486,8 +493,8 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
     let lab=document.createElement('div');lab.className='master-label';
     let patternOnly=layer.colorMode==='pattern-auto';
     lab.innerHTML=patternOnly
-      ?'<strong>패턴 대표 색상 · Anchor Color</strong><span>현재 캔버스 배경색은 그대로 고정하고, 패턴의 가장 진한 색을 기준으로 중간톤·연한톤만 자동으로 맞춰.</span>'
-      :'<strong>대표 색상 · Anchor Color</strong><span>대표색을 가장 진한 기준색으로 사용하고 패턴과 기본 레이어 배경까지 어울리는 색조합으로 함께 자동 변경해.</span>';
+      ?'<strong>패턴 대표 색상 · Anchor Color</strong><span>현재 캔버스 배경색은 그대로 고정하고, 패턴의 가장 진한 색을 기준으로 채도와 색감을 유지한 중간톤·연한톤만 자동으로 맞춰.</span>'
+      :'<strong>대표 색상 · Anchor Color</strong><span>대표색을 가장 진한 기준색으로 사용하고, 지나치게 흰색으로 빠지지 않는 비슷한 색조의 중간톤·연한톤으로 자연스럽게 연결해.</span>';
     let row=document.createElement('div');row.className='master-color-row';
     let picker=document.createElement('input');picker.type='color';picker.value=normalizeHexLike(layer.masterColor||layer.colors[1]||'#F59BBC','#F59BBC');
     let txt=document.createElement('input');txt.type='text';txt.maxLength=7;txt.value=picker.value.toUpperCase();
