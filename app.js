@@ -358,7 +358,18 @@ function forcePreviewRefresh(){
 function updateSelected(){let layer=currentLayer();if(layer.sourceType==='builtin'){let p=getPreset(layer.presetId);$('#selectedCategory').textContent=p.category;$('#selectedName').textContent=p.name;$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${p.desc}`}else{let asset=userAssets.find(v=>v.id===layer.assetId);$('#selectedCategory').textContent='업로드 에셋';$('#selectedName').textContent=asset?asset.name:'에셋 없음';let modeLabel={motif:'모티프 반복',tile:'반복 타일',brick:'브릭 반복',halfdrop:'하프드롭 반복',diagonal:'대각 반복'}[layer.renderMode]||'모티프 반복';$('#selectedDesc').textContent=`${layer.name} 편집 중 · ${modeLabel}`}}
 function setupCategories(){let wrap=$('#categoryTabs');wrap.innerHTML='';categories().forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===activeCategory?' active':'');b.textContent=c;b.onclick=()=>{activeCategory=c;setupCategories();renderPatternList()};wrap.appendChild(b)})}
 function filteredPresets(){let q=$('#searchInput').value.trim().toLowerCase(),checksOnly=$('#checkOnly')?.checked;return PE.presets.filter(p=>(activeCategory==='전체'||p.category===activeCategory)&&(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!checksOnly||checkPresetOnly(p))&&(!q||`${p.name} ${p.category} ${p.desc} ${p.id}`.toLowerCase().includes(q)))}
-function thumbnailLayerForPreset(p){let layer={...currentLayer(),presetId:p.id,sourceType:'builtin'};let d=PE.defaults[p.id]||{};Object.assign(layer,d);return layer}
+function thumbnailLayerForPreset(p){
+  let layer={...currentLayer(),presetId:p.id,sourceType:'builtin'},d=PE.defaults[p.id]||{};
+  Object.assign(layer,d);
+  if(layer.colorMode==='auto'||layer.colorMode==='pattern-auto'){
+    layer.anchorToneProfile=defaultAnchorProfileForPreset(p.id);
+    if(isLayeredFabricPlaidPresetId(p.id)){applyLayeredPlaidMaster(layer,layer.masterColor||layer.colors?.[1]||'#F59BBC',isSoftAnchorPresetId(p.id))}
+    else layer.colors=buildThemeTonePalette(layer.masterColor||layer.colors?.[1]||'#F59BBC',p.id,layer.anchorToneProfile);
+  }else{
+    layer.colors=normalizeColors(layer.colors)
+  }
+  return layer
+}
 function renderPatternList(){
   let list=$('#patternList'),items=filteredPresets();
   if($('#patternCount'))$('#patternCount').textContent=`${PE.presets.length}개 패턴 · 현재 ${items.length}개`;
