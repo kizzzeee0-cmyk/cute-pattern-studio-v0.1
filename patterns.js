@@ -207,6 +207,107 @@
     ctx.restore()
   }
   function rrand(rng,a,b){return a+(b-a)*rng()}
+  function pastelArgyle(ctx,w,h,s,scale,opt={}){
+    let p=common(s,scale),sizeFactor=Math.max(.1,(Number(s.size)||92)/92),
+      dx=Math.max(28,(s.argyleX??112)*sizeFactor*scale),
+      dy=Math.max(22,(s.argyleY??92)*sizeFactor*scale),
+      diamondW=dx,diamondH=dy*2,
+      variant=opt.variant||'basic',
+      fillAlpha=p.op*(variant==='soft'?.72:.92),
+      lineColor=s.argyleLineColor||s.colors[4]||'#FFFFFF',
+      lineAlpha=p.op*Math.max(0,Math.min(1,(s.argyleLineOpacity??78)/100)),
+      lineWidth=Math.max(.7,(s.argyleLineWidth??2)*sizeFactor*scale),
+      dash=Math.max(2,(s.argyleDashLength??10)*sizeFactor*scale),
+      dashGap=Math.max(2,(s.argyleDashGap??8)*sizeFactor*scale),
+      motifColor=s.argyleMotifColor||s.colors[4]||s.colors[1]||'#F2AFC4',
+      motifSize=Math.max(4,(s.argyleMotifSize??18)*sizeFactor*scale),
+      motifEvery=Math.max(1,Math.round(s.argyleMotifEvery??3)),
+      motif=opt.motif||'',
+      extra=Math.hypot(w,h)+Math.max(dx,dy)*6;
+
+    let palettes={
+      basic:[s.colors[1],s.colors[2],s.colors[0],s.colors[3]],
+      soft:[s.colors[2],s.colors[3],s.colors[0],s.colors[2]],
+      cream:[s.colors[1],s.colors[0],s.colors[2],s.colors[0]],
+      trio:[s.colors[1],s.colors[2],s.colors[3],s.colors[0]],
+      mini:[s.colors[1],s.colors[3],s.colors[2],s.colors[0]]
+    };
+    let fills=palettes[variant]||palettes.basic;
+
+    const drawDiamond=(cx,cy,fill)=>{
+      ctx.beginPath();
+      ctx.moveTo(cx,cy-diamondH/2);
+      ctx.lineTo(cx+diamondW/2,cy);
+      ctx.lineTo(cx,cy+diamondH/2);
+      ctx.lineTo(cx-diamondW/2,cy);
+      ctx.closePath();
+      ctx.fillStyle=fill;
+      ctx.fill()
+    };
+
+    ctx.save();
+    ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);
+
+    // A staggered rhombus lattice gives the tall pastel argyle proportion seen in the references.
+    ctx.globalAlpha=fillAlpha;
+    let rowStart=-Math.ceil(extra/dy)-3,rowEnd=Math.ceil((h+extra)/dy)+3;
+    let colStart=-Math.ceil(extra/dx)-3,colEnd=Math.ceil((w+extra)/dx)+3;
+    for(let row=rowStart;row<=rowEnd;row++){
+      let cy=row*dy,shift=((row%2)+2)%2?dx/2:0;
+      for(let col=colStart;col<=colEnd;col++){
+        let cx=col*dx+shift,index=((row*2+col)%4+4)%4;
+        if(variant==='cream')index=((row+col)%3+3)%3;
+        else if(variant==='trio')index=((row+col*2)%4+4)%4;
+        else if(variant==='mini')index=((row*3+col)%4+4)%4;
+        drawDiamond(cx,cy,fills[index%fills.length])
+      }
+    }
+
+    // Two families of thin dashed diagonal seams cross over the diamonds.
+    let m=(diamondH/2)/(diamondW/2),periodY=dy*2;
+    const drawSeamFamily=(slope,offset=0)=>{
+      for(let b=-extra*2;b<h+extra*2;b+=periodY){
+        ctx.beginPath();
+        let x1=-extra,y1=slope*x1+b+offset,x2=w+extra,y2=slope*x2+b+offset;
+        ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()
+      }
+    };
+    ctx.globalAlpha=lineAlpha;
+    ctx.strokeStyle=lineColor;
+    ctx.lineWidth=lineWidth;
+    ctx.lineCap='round';
+    ctx.setLineDash([dash,dashGap]);
+    drawSeamFamily(m,0);drawSeamFamily(-m,0);
+    if(opt.doubleLine){
+      let off=Math.max(3,lineWidth*3.3);
+      ctx.globalAlpha=lineAlpha*.55;
+      drawSeamFamily(m,off);drawSeamFamily(-m,-off)
+    }
+    ctx.setLineDash([]);
+
+    // Optional cute motifs sit on a regular subset of diamond centers.
+    if(motif){
+      ctx.globalAlpha=p.op*.94;
+      ctx.fillStyle=motifColor;ctx.strokeStyle=motifColor;
+      for(let row=rowStart;row<=rowEnd;row++){
+        let cy=row*dy,shift=((row%2)+2)%2?dx/2:0;
+        for(let col=colStart;col<=colEnd;col++){
+          if((((row*2+col)%motifEvery)+motifEvery)%motifEvery!==0)continue;
+          let cx=col*dx+shift;
+          if(motif==='heart'){heart(ctx,cx,cy,motifSize);ctx.fill()}
+          else if(motif==='bow'){bow(ctx,cx,cy,motifSize)}
+          else if(motif==='flower'){
+            flower(ctx,cx,cy,motifSize,5,0);
+            ctx.fillStyle=s.colors[0]||'#FFF8F2';
+            ctx.beginPath();ctx.arc(cx,cy,motifSize*.13,0,TAU);ctx.fill();
+            ctx.fillStyle=motifColor
+          }
+        }
+      }
+    }
+    ctx.restore()
+  }
+
   function softWindowCheck(ctx,w,h,s,scale,opt={}){
     let p=common(s,scale),sizeFactor=Math.max(.1,(Number(s.size)||84)/84),
       stepX=Math.max(24,(s.windowCheckX??118)*sizeFactor*scale),
@@ -655,7 +756,7 @@
     }
     ctx.restore()
   }
-  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='reference-plaid')referencePlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='airy-mix-check')airyMixCheck(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='soft-window-check')softWindowCheck(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='grid-diamond')gridDiamond(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
+  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='reference-plaid')referencePlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='airy-mix-check')airyMixCheck(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='pastel-argyle')pastelArgyle(ctx,w,h,s,scale,o);else if(t==='soft-window-check')softWindowCheck(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='grid-diamond')gridDiamond(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
 
   const presets=[
     ['pastel-checker','파스텔 체크','체크·도트','깔끔한 기본 체커보드','checker',{}],
@@ -692,6 +793,15 @@
     ['tri-color-check','3톤 겹침 체크','체크·도트','한 색 밴드가 겹치며 3톤이 만들어지는 체크','overlap-check',{secondary:false}],
     ['diamond-check','다이아 체크','체크·도트','마름모처럼 보이는 사선 체크','checker',{rotate45:true,round:true}],
     ['diamond-gingham','다이아 깅엄','체크·도트','45도로 기울어진 부드러운 깅엄 체크','checker',{rotate45:true,gingham:true,soft:true}],
+    ['pastel-argyle','파스텔 아가일','격자·줄무늬','파스텔 마름모 색면 위에 얇은 점선 사선이 겹치는 기본 아가일','pastel-argyle',{variant:'basic'}],
+    ['soft-pastel-argyle','소프트 파스텔 아가일','격자·줄무늬','밝고 부드러운 마름모 톤과 은은한 사선 점선이 반복되는 아가일','pastel-argyle',{variant:'soft'}],
+    ['cream-pastel-argyle','크림 믹스 아가일','격자·줄무늬','크리미한 빈 마름모와 대표색 마름모를 번갈아 섞은 아가일','pastel-argyle',{variant:'cream'}],
+    ['tricolor-pastel-argyle','3톤 파스텔 아가일','격자·줄무늬','세 가지 파스텔 톤 마름모가 규칙적으로 교차하는 아가일','pastel-argyle',{variant:'trio'}],
+    ['double-stitch-argyle','더블 스티치 아가일','격자·줄무늬','기본 아가일 위에 이중 사선 점선을 겹친 스티치 느낌 패턴','pastel-argyle',{variant:'basic',doubleLine:true}],
+    ['heart-pastel-argyle','하트 파스텔 아가일','격자·줄무늬','파스텔 아가일 마름모 사이에 작은 하트를 규칙적으로 넣은 패턴','pastel-argyle',{variant:'cream',motif:'heart'}],
+    ['bow-pastel-argyle','리본 파스텔 아가일','격자·줄무늬','라벤더·핑크 계열과 잘 어울리는 작은 리본 포인트 아가일','pastel-argyle',{variant:'trio',motif:'bow'}],
+    ['flower-pastel-argyle','플라워 파스텔 아가일','격자·줄무늬','민트·크림 계열에 어울리는 작은 꽃 포인트 아가일','pastel-argyle',{variant:'cream',motif:'flower'}],
+    ['mini-pastel-argyle','미니 파스텔 아가일','격자·줄무늬','마름모가 더 작고 촘촘하게 반복되는 미니 아가일','pastel-argyle',{variant:'mini'}],
     ['flat-checker','플랫 체크','체크·도트','가운데 구분선과 빈칸 없이 색면으로만 이어지는 체크','checker',{contiguous:true}],
     ['flat-tri-check','플랫 3톤 체크','체크·도트','붙어 있는 겹침 밴드로 3톤이 보이는 체크','overlap-check',{secondary:false}],
     ['no-gap-checker','노갭 체크','체크·도트','첨부 예시처럼 칸 사이가 뜨지 않는 연속 체크','checker',{contiguous:true}],
@@ -766,7 +876,7 @@
   ].map(([id,name,category,desc,type,opt])=>({id,name,category,desc,type,opt}));
 
   const defaults={
-    'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20,tinyDotGapX:0,tinyDotGapY:0},'gingham':{size:70,gap:8,jitter:0,detail:25},
+    'pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:92,argyleLineColor:'#FFFFFF',argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:10,argyleDashGap:8,argyleMotifColor:'#F2AFC4',argyleMotifSize:18,argyleMotifEvery:3},'soft-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:92,argyleX:116,argyleY:94,argyleLineColor:'#FFFFFF',argyleLineOpacity:66,argyleLineWidth:1.7,argyleDashLength:10,argyleDashGap:9,argyleMotifColor:'#F2AFC4',argyleMotifSize:18,argyleMotifEvery:3},'cream-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:94,argyleLineColor:'#FFFFFF',argyleLineOpacity:80,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifColor:'#F2AFC4',argyleMotifSize:18,argyleMotifEvery:3},'tricolor-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:92,argyleLineColor:'#FFFFFF',argyleLineOpacity:76,argyleLineWidth:2,argyleDashLength:10,argyleDashGap:8,argyleMotifColor:'#C7A7E8',argyleMotifSize:18,argyleMotifEvery:3},'double-stitch-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:116,argyleY:96,argyleLineColor:'#FFFFFF',argyleLineOpacity:76,argyleLineWidth:1.7,argyleDashLength:9,argyleDashGap:8,argyleMotifColor:'#F2AFC4',argyleMotifSize:18,argyleMotifEvery:3},'heart-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineColor:'#FFFFFF',argyleLineOpacity:80,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifColor:'#F2AFC4',argyleMotifSize:20,argyleMotifEvery:4},'bow-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineColor:'#FFFFFF',argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifColor:'#C7A7E8',argyleMotifSize:21,argyleMotifEvery:4},'flower-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineColor:'#FFFFFF',argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifColor:'#FFFFFF',argyleMotifSize:20,argyleMotifEvery:4},'mini-pastel-argyle':{size:72,gap:0,jitter:0,stroke:0,opacity:100,argyleX:88,argyleY:70,argyleLineColor:'#FFFFFF',argyleLineOpacity:74,argyleLineWidth:1.6,argyleDashLength:8,argyleDashGap:7,argyleMotifColor:'#F2AFC4',argyleMotifSize:15,argyleMotifEvery:3},'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20,tinyDotGapX:0,tinyDotGapY:0},'gingham':{size:70,gap:8,jitter:0,detail:25},
     'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:55,triHatchAlternate:false,airyStripeColor:'#FFFFFF',airyPointCount:24,airyPointColor:'#FFFFFF',airyPointGrid:4,airyPointPattern:'every3'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'soft-window-check':{size:84,gap:0,jitter:0,stroke:0,opacity:100,windowCheckX:118,windowCheckY:96,windowCheckLineWidth:2,windowCheckSecondaryOpacity:28},'grid':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96},'grid-diamond':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96,diamondColor:'#BFD7FF',diamondSize:10},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartGap:4,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
