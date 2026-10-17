@@ -540,40 +540,40 @@
       cx=w*Math.max(0,Math.min(1,(s.softSunCenterX??48)/100)),
       cy=h*Math.max(0,Math.min(1,(s.softSunCenterY??54)/100)),
       R=Math.hypot(w,h)*1.08,
-      rayCount=Math.max(4,Math.min(180,Math.round(s.softSunRayCount??36))),
-      rayThickness=Math.max(.35,(s.softSunRayThickness??8)*scale),
+      requestedPairs=Math.max(2,Math.min(180,Math.round(s.softSunRayCount??36))),
+      thicknessScale=Math.max(.25,Math.min(4,(Number(s.softSunRayThickness)||100)/100)),
+      pairCount=Math.max(2,Math.min(180,Math.round(requestedPairs/thicknessScale))),
+      sectorCount=pairCount*2,
+      step=TAU/sectorCount,
       rayOpacity=Math.max(0,Math.min(1,(s.softSunRayOpacity??72)/100)),
       softness=Math.max(0,Math.min(1,(s.softSunSoftness??34)/100)),
       color1=s.colors[1]||'#FFE88D',
-      color2=s.colors[2]||'#FFFFFF',
-      step=TAU/rayCount,
-      maxHalf=step*.44,
-      half=Math.max(.00025,Math.min(maxHalf,(rayThickness/Math.max(1,R))/2));
+      color2=s.colors[2]||'#FFFFFF';
+
     ctx.save();
     ctx.globalAlpha=p.op;
-    ctx.fillStyle=color1;
-    ctx.fillRect(0,0,w,h);
-
     ctx.translate(cx,cy);
     ctx.rotate(p.rot);
     ctx.translate(-cx,-cy);
-    ctx.fillStyle=color2;
-    ctx.globalAlpha=p.op*rayOpacity;
-    for(let i=0;i<rayCount;i++){
-      let a=-Math.PI/2+i*step,a1=a-half,a2=a+half;
+
+    // Equal-angle alternating sectors: dark and light bands always have identical visual width.
+    for(let i=0;i<sectorCount;i++){
+      let a1=-Math.PI/2+i*step,a2=a1+step;
       ctx.beginPath();
       ctx.moveTo(cx,cy);
       ctx.lineTo(cx+Math.cos(a1)*R,cy+Math.sin(a1)*R);
       ctx.arc(cx,cy,R,a1,a2);
       ctx.closePath();
+      ctx.globalAlpha=p.op*(i%2===0?1:rayOpacity);
+      ctx.fillStyle=i%2===0?color1:color2;
       ctx.fill()
     }
 
-    // Keep the original soft-sunburst feel without making thin rays blurry.
+    // Softness is a center glow only; it never changes the width of either color band.
     if(softness>0){
       let glow=ctx.createRadialGradient(cx,cy,0,cx,cy,R*.55);
-      glow.addColorStop(0,`rgba(255,255,255,${.10+.28*softness})`);
-      glow.addColorStop(.48,`rgba(255,255,255,${.035+.10*softness})`);
+      glow.addColorStop(0,'rgba(255,255,255,'+(.08+.22*softness)+')');
+      glow.addColorStop(.48,'rgba(255,255,255,'+(.025+.075*softness)+')');
       glow.addColorStop(1,'rgba(255,255,255,0)');
       ctx.globalAlpha=p.op;
       ctx.fillStyle=glow;
@@ -940,7 +940,7 @@
     'graphic-frame':{size:92,gap:20,jitter:0,stroke:3,detail:62,opacity:100,graphicSafeArea:66,graphicBarScale:105,graphicCircleScale:115,graphicSmallScale:95,graphicLargeScale:115,graphicBalance:94,graphicMotifMode:'mixed'},
     'graphic-center-space':{size:90,gap:24,jitter:0,stroke:3,detail:48,opacity:100,graphicSafeArea:72,graphicBarScale:105,graphicCircleScale:95,graphicSmallScale:90,graphicLargeScale:115,graphicBalance:96,graphicMotifMode:'minimal'},
     'graphic-scatter':{size:90,gap:18,jitter:0,stroke:3,detail:66,opacity:100,graphicSafeArea:60,graphicBarScale:100,graphicCircleScale:100,graphicSmallScale:100,graphicLargeScale:110,graphicBalance:88,graphicMotifMode:'sparkle'},
-    'sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:68,opacity:100},'soft-sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:48,opacity:100,softSunRayCount:36,softSunRayThickness:8,softSunRayOpacity:72,softSunSoftness:34,softSunCenterX:48,softSunCenterY:54},'glossy-sun-bg':{size:90,gap:0,jitter:0,stroke:0,detail:54,opacity:100},'sparkle-glow-bg':{size:90,gap:0,jitter:0,stroke:0,detail:58,opacity:100}
+    'sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:68,opacity:100},'soft-sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:48,opacity:100,softSunRayCount:36,softSunRayThickness:100,softSunThicknessMode:'equal-bands-v2',softSunRayOpacity:72,softSunSoftness:34,softSunCenterX:48,softSunCenterY:54},'glossy-sun-bg':{size:90,gap:0,jitter:0,stroke:0,detail:54,opacity:100},'sparkle-glow-bg':{size:90,gap:0,jitter:0,stroke:0,detail:58,opacity:100}
   };
   window.PatternEngine={presets,defaults,render};
 })();
