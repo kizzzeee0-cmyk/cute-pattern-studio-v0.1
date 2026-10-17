@@ -535,7 +535,52 @@
   }
   function tornChecker(ctx,w,h,s,scale,opt={}){checker(ctx,w,h,s,scale,{contiguous:true,soft:true,round:false});let p=common(s,scale),rng=mulberry32(p.seed+991),paper=s.colors[0]||'#FFFFFF';ctx.save();ctx.fillStyle=paper;ctx.shadowColor='rgba(0,0,0,0.10)';ctx.shadowBlur=18*scale;ctx.shadowOffsetY=2*scale;let startY=h*(.02+rr(rng,.00,.08));ctx.beginPath();ctx.moveTo(0,startY);let pts=[[w*.06,h*.08],[w*.11,h*.16],[w*.18,h*.24],[w*.28,h*.31],[w*.39,h*.44],[w*.54,h*.57],[w*.70,h*.72],[w*.85,h*.83],[w*.96,h*.99]];pts.forEach((pt,i)=>{let px=pt[0]+jitter(rng,w*.015),py=pt[1]+jitter(rng,h*.018);ctx.quadraticCurveTo(px-w*.03,py-h*.03,px,py)});ctx.lineTo(0,h);ctx.closePath();ctx.fill();ctx.shadowColor='transparent';ctx.strokeStyle='rgba(255,255,255,0.72)';ctx.lineWidth=Math.max(1.2,2.2*scale);ctx.beginPath();ctx.moveTo(0,startY);pts.forEach((pt,i)=>{let px=pt[0],py=pt[1];ctx.quadraticCurveTo(px-w*.03,py-h*.03,px,py)});ctx.stroke();ctx.restore()}
   function sunburstBackground(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cx=w*.5,cy=h*.53,R=Math.hypot(w,h)*.78,rayCount=Math.max(12,Math.round(12+p.detail*18)),base=s.colors[1]||'#FFD95A',deep=s.colors[2]||'#FFB83D',spark=s.colors[3]||'#FFFFFF';ctx.save();ctx.globalAlpha=p.op;ctx.translate(cx,cy);ctx.rotate(p.rot);ctx.translate(-cx,-cy);let bg=ctx.createRadialGradient(cx,cy,Math.min(w,h)*.04,cx,cy,R*.92);bg.addColorStop(0,mixColor(base,'#FFFFFF',.82));bg.addColorStop(.44,mixColor(base,'#FFFFFF',.35));bg.addColorStop(1,deep);ctx.fillStyle=bg;ctx.fillRect(-R,-R,w+R*2,h+R*2);for(let i=0;i<rayCount;i++){let a1=-Math.PI/2+i*TAU/rayCount,a2=-Math.PI/2+(i+1)*TAU/rayCount;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a1)*R,cy+Math.sin(a1)*R);ctx.arc(cx,cy,R,a1,a2);ctx.closePath();ctx.globalAlpha=p.op*(i%2===0?.22:.08);ctx.fillStyle=i%2===0?mixColor(base,'#FFFFFF',.44):mixColor(deep,'#FFFFFF',.18);ctx.fill()}ctx.globalAlpha=p.op;let glow=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.min(w,h)*.42);glow.addColorStop(0,'rgba(255,255,255,.72)');glow.addColorStop(.55,'rgba(255,255,255,.24)');glow.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);ctx.fillStyle=spark;let unit=Math.min(w,h);[[.30,.19,.032],[.83,.49,.036],[.12,.61,.03]].forEach(([px,py,ss])=>{sparkle(ctx,w*px,h*py,unit*ss);ctx.fill()});ctx.restore()}
-  function softSunburstBackground(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cx=w*.48,cy=h*.54,R=Math.hypot(w,h)*.82,rayCount=Math.max(10,Math.round(10+p.detail*12)),color1=s.colors[1]||'#FFE88D',color2=s.colors[2]||'#FFFFFF';ctx.save();ctx.globalAlpha=p.op;ctx.translate(cx,cy);ctx.rotate(p.rot);ctx.translate(-cx,-cy);ctx.fillStyle=color1;ctx.fillRect(-R,-R,w+R*2,h+R*2);for(let i=0;i<rayCount;i++){let a1=-Math.PI/2+i*TAU/rayCount,a2=-Math.PI/2+(i+1)*TAU/rayCount;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a1)*R,cy+Math.sin(a1)*R);ctx.arc(cx,cy,R,a1,a2);ctx.closePath();ctx.globalAlpha=p.op;ctx.fillStyle=i%2===0?color1:color2;ctx.fill()}let glow=ctx.createRadialGradient(cx,cy,0,cx,cy,R*.55);glow.addColorStop(0,'rgba(255,255,255,.28)');glow.addColorStop(.5,'rgba(255,255,255,.10)');glow.addColorStop(1,'rgba(255,255,255,0)');ctx.globalAlpha=p.op;ctx.fillStyle=glow;ctx.fillRect(-R,-R,w+R*2,h+R*2);ctx.restore()}
+  function softSunburstBackground(ctx,w,h,s,scale,opt={}){
+    let p=common(s,scale),
+      cx=w*Math.max(0,Math.min(1,(s.softSunCenterX??48)/100)),
+      cy=h*Math.max(0,Math.min(1,(s.softSunCenterY??54)/100)),
+      R=Math.hypot(w,h)*1.08,
+      rayCount=Math.max(4,Math.min(180,Math.round(s.softSunRayCount??36))),
+      rayThickness=Math.max(.35,(s.softSunRayThickness??8)*scale),
+      rayOpacity=Math.max(0,Math.min(1,(s.softSunRayOpacity??72)/100)),
+      softness=Math.max(0,Math.min(1,(s.softSunSoftness??34)/100)),
+      color1=s.colors[1]||'#FFE88D',
+      color2=s.colors[2]||'#FFFFFF',
+      step=TAU/rayCount,
+      maxHalf=step*.44,
+      half=Math.max(.00025,Math.min(maxHalf,(rayThickness/Math.max(1,R))/2));
+    ctx.save();
+    ctx.globalAlpha=p.op;
+    ctx.fillStyle=color1;
+    ctx.fillRect(0,0,w,h);
+
+    ctx.translate(cx,cy);
+    ctx.rotate(p.rot);
+    ctx.translate(-cx,-cy);
+    ctx.fillStyle=color2;
+    ctx.globalAlpha=p.op*rayOpacity;
+    for(let i=0;i<rayCount;i++){
+      let a=-Math.PI/2+i*step,a1=a-half,a2=a+half;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.cos(a1)*R,cy+Math.sin(a1)*R);
+      ctx.arc(cx,cy,R,a1,a2);
+      ctx.closePath();
+      ctx.fill()
+    }
+
+    // Keep the original soft-sunburst feel without making thin rays blurry.
+    if(softness>0){
+      let glow=ctx.createRadialGradient(cx,cy,0,cx,cy,R*.55);
+      glow.addColorStop(0,`rgba(255,255,255,${.10+.28*softness})`);
+      glow.addColorStop(.48,`rgba(255,255,255,${.035+.10*softness})`);
+      glow.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.globalAlpha=p.op;
+      ctx.fillStyle=glow;
+      ctx.fillRect(-R,-R,w+R*2,h+R*2)
+    }
+    ctx.restore()
+  }
   function glossySunshineBackground(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cx=w*.5,cy=h*.5,unit=Math.min(w,h),base=s.colors[1]||'#FFE05E',deep=s.colors[2]||'#FFB733',spark=s.colors[3]||'#FFFFFF',accent=s.colors[4]||'#FF8C13';ctx.save();ctx.globalAlpha=p.op;let bg=ctx.createRadialGradient(cx,cy,unit*.04,cx,cy,Math.hypot(w,h)*.66);bg.addColorStop(0,mixColor(base,'#FFFFFF',.9));bg.addColorStop(.48,mixColor(base,'#FFFFFF',.36));bg.addColorStop(1,deep);ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);let glow=ctx.createRadialGradient(cx,cy,0,cx,cy,unit*.38);glow.addColorStop(0,'rgba(255,255,255,.58)');glow.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);ctx.translate(cx,cy);ctx.rotate(p.rot);ctx.translate(-cx,-cy);ctx.strokeStyle=mixColor(base,'#FFFFFF',.58);ctx.lineCap='round';ctx.lineWidth=Math.max(7,unit*.026);ctx.globalAlpha=p.op*.56;let arcs=[[w*.05,h*.19,w*.31,h*.04,w*.34,h*.10],[w*.68,h*.10,w*.93,h*.18,w*.92,h*.34],[w*.08,h*.62,w*.16,h*.91,w*.34,h*.94],[w*.73,h*.89,w*.90,h*.76,w*.92,h*.66]];arcs.forEach(([x1,y1,x2,y2,cx2,cy2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(cx2,cy2,x2,y2);ctx.stroke()});ctx.globalAlpha=p.op;ctx.fillStyle=spark;[[.29,.20,.034],[.83,.44,.04],[.24,.73,.036]].forEach(([px,py,ss])=>{sparkle(ctx,w*px,h*py,unit*ss);ctx.fill()});ctx.fillStyle=accent;[[.21,.25,.019],[.86,.51,.022],[.20,.68,.019]].forEach(([px,py,rr])=>{let x=w*px,y=h*py,r=unit*rr;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();ctx.arc(x-r*.2,y-r*.22,r*.44,0,TAU);ctx.fill();ctx.fillStyle=accent});ctx.restore()}
   function sparkleGlowBackground(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cx=w*.5,cy=h*.5,unit=Math.min(w,h),base=s.colors[1]||'#FFE994',deep=s.colors[2]||'#FFC85B',spark=s.colors[3]||'#FFFFFF';ctx.save();ctx.globalAlpha=p.op;let bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.hypot(w,h)*.72);bg.addColorStop(0,mixColor(base,'#FFFFFF',.92));bg.addColorStop(.52,mixColor(base,'#FFFFFF',.40));bg.addColorStop(1,deep);ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);ctx.fillStyle=spark;let pts=[[.16,.18,.028],[.31,.12,.018],[.82,.24,.028],[.89,.55,.02],[.72,.83,.028],[.20,.78,.025],[.10,.50,.018]];pts.forEach(([px,py,ss],i)=>{ctx.globalAlpha=p.op*(i%2?.55:.92);sparkle(ctx,w*px,h*py,unit*ss);ctx.fill()});ctx.restore()}
 
@@ -756,44 +801,7 @@
     }
     ctx.restore()
   }
-  function radialPatternRays(ctx,w,h,s,scale,opt={}){
-    let p=common(s,scale),
-      count=Math.max(3,Math.min(96,Math.round(s.radialRayCount??16))),
-      thickness=Math.max(1,(s.radialRayThickness??14)*scale),
-      cell=Math.max(2,(s.radialRayCellSize??18)*scale),
-      lengthPct=Math.max(5,Math.min(115,Number(s.radialRayLength??92)))/100,
-      inner=Math.max(0,(s.radialRayInnerGap??0)*scale),
-      colorA=s.radialRayColorA||s.colors[1]||'#79BFFF',
-      colorB=s.radialRayColorB||s.colors[3]||s.colors[2]||'#D9EEFF',
-      maxRadius=Math.hypot(w,h)*.5*lengthPct,
-      startAngle=p.rot,
-      rows=thickness>=8*scale?2:1,
-      rowH=thickness/rows;
-
-    ctx.save();
-    ctx.globalAlpha=p.op;
-    ctx.translate(w/2,h/2);
-
-    for(let i=0;i<count;i++){
-      let angle=startAngle+i*TAU/count;
-      ctx.save();
-      ctx.rotate(angle);
-
-      let seg=0;
-      for(let x=inner;x<maxRadius;x+=cell,seg++){
-        let segW=Math.min(cell,maxRadius-x);
-        for(let row=0;row<rows;row++){
-          ctx.fillStyle=((seg+row)&1)?colorB:colorA;
-          ctx.fillRect(x,-thickness/2+row*rowH,segW+.35,rowH+.35)
-        }
-      }
-
-      ctx.restore()
-    }
-    ctx.restore()
-  }
-
-  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='reference-plaid')referencePlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='airy-mix-check')airyMixCheck(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='pastel-argyle')pastelArgyle(ctx,w,h,s,scale,o);else if(t==='soft-window-check')softWindowCheck(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='grid-diamond')gridDiamond(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);else if(t==='radial-pattern-rays')radialPatternRays(ctx,w,h,s,scale,o);ctx.restore()}
+  function render(ctx,w,h,s,preset,scale=1){ctx.save();ctx.setTransform(1,0,0,1,0,0);drawBackground(ctx,w,h,s);ctx.restore();ctx.save();ctx.translate((s.offsetX||0)*scale,(s.offsetY||0)*scale);let t=preset.type,o=preset.opt||{};if(t==='checker')checker(ctx,w,h,s,scale,o);else if(t==='wavy-checker')wavyChecker(ctx,w,h,s,scale);else if(t==='textured-checker')texturedChecker(ctx,w,h,s,scale,o);else if(t==='plaid')plaid(ctx,w,h,s,scale,o);else if(t==='layered-fabric-plaid')layeredFabricPlaid(ctx,w,h,s,scale,o);else if(t==='reference-plaid')referencePlaid(ctx,w,h,s,scale,o);else if(t==='overlap-check')overlapChecker(ctx,w,h,s,scale,o);else if(t==='airy-mix-check')airyMixCheck(ctx,w,h,s,scale,o);else if(t==='torn-checker')tornChecker(ctx,w,h,s,scale,o);else if(t==='dots')dots(ctx,w,h,s,scale,o);else if(t==='pastel-argyle')pastelArgyle(ctx,w,h,s,scale,o);else if(t==='soft-window-check')softWindowCheck(ctx,w,h,s,scale,o);else if(t==='grid')grid(ctx,w,h,s,scale,o);else if(t==='grid-diamond')gridDiamond(ctx,w,h,s,scale,o);else if(t==='dashed-grid')dashedGridPattern(ctx,w,h,s,scale,o);else if(t==='stripes')stripes(ctx,w,h,s,scale,o);else if(t==='zigzag')zigzag(ctx,w,h,s,scale);else if(t==='motif')motifScatter(ctx,w,h,s,scale,o.motif,o);else if(t==='raindrops')raindrops(ctx,w,h,s,scale);else if(t==='confetti')confetti(ctx,w,h,s,scale);else if(t==='doodles')doodles(ctx,w,h,s,scale);else if(t==='blobs')blobs(ctx,w,h,s,scale,o);else if(t==='groovy-flower')groovyFlower(ctx,w,h,s,scale);else if(t==='wave-lines')waveLines(ctx,w,h,s,scale);else if(t==='sunburst-bg')sunburstBackground(ctx,w,h,s,scale,o);else if(t==='soft-sunburst-bg')softSunburstBackground(ctx,w,h,s,scale,o);else if(t==='glossy-sun-bg')glossySunshineBackground(ctx,w,h,s,scale,o);else if(t==='sparkle-glow-bg')sparkleGlowBackground(ctx,w,h,s,scale,o);else if(t==='graphic-composition')graphicComposition(ctx,w,h,s,scale,o);ctx.restore()}
 
   const presets=[
     ['pastel-checker','파스텔 체크','체크·도트','깔끔한 기본 체커보드','checker',{}],
@@ -900,7 +908,6 @@
     ['graphic-pill-frame','그래픽 롱 캡슐 프레임','그래픽 배경','기다란 둥근 막대와 캡슐을 중심으로 가장자리에 흐름을 만드는 프레임','graphic-composition',{layout:'center-space'}],
     ['graphic-dotted-frame','그래픽 점선 프레임','그래픽 배경','점선·도트·점 원을 중심으로 가볍고 정돈된 프레임을 만드는 스타일','graphic-composition',{layout:'frame'}],
     ['graphic-stripe-frame','그래픽 스트라이프 프레임','그래픽 배경','평행 막대·스트라이프 원·긴 선을 섞은 사선형 프레임','graphic-composition',{layout:'diagonal'}],
-    ['radial-check-rays','방사형 투톤 체크 라인','그래픽 배경','중앙점을 기준으로 얇은 투톤 체크 라인이 360°로 퍼지는 방사형 패턴','radial-pattern-rays',{}],
     ['graphic-balanced-mix','그래픽 밸런스 믹스','그래픽 배경','큰 요소와 작은 요소를 고르게 분산하고 중앙 여백을 유지하는 혼합 스타일','graphic-composition',{layout:'scatter'}],
     ['graphic-corner-focus','그래픽 코너 집중형','그래픽 배경','둥근 막대·원·링·점·스파클을 코너에 집중하고 중앙은 비워 두는 2D 그래픽','graphic-composition',{layout:'corner'}],
     ['graphic-diagonal-flow','그래픽 사선 흐름형','그래픽 배경','좌상단→우하단 사선 흐름으로 막대·원·점선·패턴 포인트가 이어지는 구성','graphic-composition',{layout:'diagonal'}],
@@ -914,7 +921,7 @@
   ].map(([id,name,category,desc,type,opt])=>({id,name,category,desc,type,opt}));
 
   const defaults={
-    'pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:92,argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:10,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'soft-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:92,argyleX:116,argyleY:94,argyleLineOpacity:66,argyleLineWidth:1.7,argyleDashLength:10,argyleDashGap:9,argyleMotifSize:18,argyleMotifEvery:3},'cream-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:94,argyleLineOpacity:80,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'tricolor-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:92,argyleLineOpacity:76,argyleLineWidth:2,argyleDashLength:10,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'double-stitch-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:116,argyleY:96,argyleLineOpacity:76,argyleLineWidth:1.7,argyleDashLength:9,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'heart-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineOpacity:80,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:20,argyleMotifEvery:4},'bow-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:21,argyleMotifEvery:4},'flower-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:20,argyleMotifEvery:4},'mini-pastel-argyle':{size:72,gap:0,jitter:0,stroke:0,opacity:100,argyleX:88,argyleY:70,argyleLineOpacity:74,argyleLineWidth:1.6,argyleDashLength:8,argyleDashGap:7,argyleMotifSize:15,argyleMotifEvery:3},'radial-check-rays':{size:72,gap:0,jitter:0,stroke:0,opacity:100,rotation:0,radialRayCount:16,radialRayThickness:14,radialRayCellSize:18,radialRayLength:92,radialRayInnerGap:0},'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20,tinyDotGapX:0,tinyDotGapY:0},'gingham':{size:70,gap:8,jitter:0,detail:25},
+    'pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:92,argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:10,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'soft-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:92,argyleX:116,argyleY:94,argyleLineOpacity:66,argyleLineWidth:1.7,argyleDashLength:10,argyleDashGap:9,argyleMotifSize:18,argyleMotifEvery:3},'cream-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:94,argyleLineOpacity:80,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'tricolor-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:112,argyleY:92,argyleLineOpacity:76,argyleLineWidth:2,argyleDashLength:10,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'double-stitch-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:116,argyleY:96,argyleLineOpacity:76,argyleLineWidth:1.7,argyleDashLength:9,argyleDashGap:8,argyleMotifSize:18,argyleMotifEvery:3},'heart-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineOpacity:80,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:20,argyleMotifEvery:4},'bow-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:21,argyleMotifEvery:4},'flower-pastel-argyle':{size:92,gap:0,jitter:0,stroke:0,opacity:100,argyleX:118,argyleY:96,argyleLineOpacity:78,argyleLineWidth:2,argyleDashLength:11,argyleDashGap:8,argyleMotifSize:20,argyleMotifEvery:4},'mini-pastel-argyle':{size:72,gap:0,jitter:0,stroke:0,opacity:100,argyleX:88,argyleY:70,argyleLineOpacity:74,argyleLineWidth:1.6,argyleDashLength:8,argyleDashGap:7,argyleMotifSize:15,argyleMotifEvery:3},'mini-checker':{size:34,gap:8,jitter:4,detail:22},'tiny-dot':{size:34,gap:22,jitter:4,detail:20,tinyDotGapX:0,tinyDotGapY:0},'gingham':{size:70,gap:8,jitter:0,detail:25},
     'wavy-checker':{size:92,gap:10,jitter:18,detail:65},'hand-checker':{size:75,gap:8,jitter:40,detail:45},'soft-plaid':{size:84,gap:34,jitter:0,stroke:4,opacity:58},'layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'legacy-soft-layered-fabric-plaid':{size:76,gap:18,jitter:0,stroke:4,detail:42,opacity:100},'stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'legacy-soft-stitch-layer-plaid':{size:82,gap:8,jitter:0,stroke:3,detail:58,opacity:100},'soft-window-plaid':{size:94,gap:18,jitter:0,stroke:2,detail:48,opacity:92},'multi-band-plaid':{size:78,gap:6,jitter:0,stroke:3,detail:62,opacity:100},'big-cell-fabric-check':{size:106,gap:10,jitter:0,stroke:3,detail:54,opacity:96},'fine-seam-plaid':{size:88,gap:12,jitter:0,stroke:2,detail:52,opacity:94},'double-band-grid':{size:84,gap:8,jitter:0,stroke:3,detail:56,opacity:98},'diagonal-woven-plaid':{size:92,gap:10,jitter:0,stroke:2,detail:58,opacity:94},'airy-plaid':{size:110,gap:46,jitter:0,stroke:3,opacity:42},'powder-gingham':{size:76,gap:8,jitter:6,detail:52,opacity:76},'fabric-checker':{size:88,gap:18,jitter:14,detail:58,opacity:84},'milk-checker':{size:48,gap:10,jitter:8,detail:18,opacity:55},'soft-gingham':{size:74,gap:12,jitter:2,detail:36,opacity:86},'handmade-plaid':{size:86,gap:18,jitter:28,stroke:3,opacity:84},'textured-checker':{size:58,gap:10,jitter:10,detail:72,opacity:92},'sketch-plaid':{size:90,gap:28,jitter:34,stroke:2,opacity:52},'marshmallow-check':{size:58,gap:12,jitter:6,detail:28,opacity:86},'picnic-check':{size:66,gap:10,jitter:2,detail:30,opacity:88},'windowpane-check':{size:118,gap:42,jitter:0,stroke:3,opacity:48},'layered-check':{size:92,gap:24,jitter:8,stroke:3,detail:52,opacity:82},'micro-gingham':{size:38,gap:6,jitter:0,detail:22,opacity:84},'tri-color-check':{size:64,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'diamond-check':{size:60,gap:8,jitter:0,detail:20,opacity:86},'diamond-gingham':{size:72,gap:10,jitter:2,detail:34,opacity:86},'flat-checker':{size:62,gap:0,jitter:0,detail:18,stroke:0,opacity:92},'flat-tri-check':{size:64,gap:0,jitter:0,detail:24,stroke:0,opacity:92},'no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'legacy-soft-no-gap-checker':{size:76,gap:0,jitter:0,detail:16,stroke:0,opacity:94},'soft-no-gap-check':{size:72,gap:0,jitter:0,detail:28,stroke:0,opacity:92},'soft-overlap-check':{size:68,gap:0,jitter:0,detail:22,stroke:0,opacity:88},'airy-overlap-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72},'airy-mix-check':{size:82,gap:0,jitter:0,detail:18,stroke:0,opacity:72,triHatch:true,triHatchStrength:55,triHatchAlternate:false,airyStripeColor:'#FFFFFF',airyPointCount:24,airyPointColor:'#FFFFFF',airyPointGrid:4,airyPointPattern:'every3'},'no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'legacy-soft-no-gap-tri-check':{size:72,gap:0,jitter:0,detail:26,stroke:0,opacity:94,triHatch:true,triHatchStrength:40,triHatchAlternate:true},'torn-checker':{size:92,gap:0,jitter:0,detail:28,stroke:0,opacity:96},'pencil-check':{size:70,gap:10,jitter:12,detail:78,opacity:92},'pastel-crayon-check':{size:72,gap:12,jitter:14,detail:82,opacity:92},'irregular-dot':{size:62,gap:34,jitter:60,detail:45},
     'doodle-dot':{size:64,gap:32,jitter:60,detail:70},'ring-dot':{size:64,gap:30,jitter:30,detail:50},'soft-window-check':{size:84,gap:0,jitter:0,stroke:0,opacity:100,windowCheckX:118,windowCheckY:96,windowCheckLineWidth:2,windowCheckSecondaryOpacity:28},'grid':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96},'grid-diamond':{size:70,gap:26,jitter:0,stroke:3,gridX:96,gridY:96,diamondColor:'#BFD7FF',diamondSize:10},
     'hand-grid':{size:72,gap:22,jitter:48,stroke:3},'dashed-grid':{size:180,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:38,dashedLineWidth:2,dashLength:9,dashGap:12,gridX:180,gridY:180},'heart-dashed-grid':{size:126,gap:0,jitter:0,stroke:2,opacity:100,detail:20,dashedLineColor:'#FFFFFF',dashedLineOpacity:52,dashedLineWidth:2,dashLength:7,dashGap:10,gridX:128,gridY:128,dashedHeartColor:'#FFFFFF',dashedHeartOpacity:92,dashedHeartSize:14,dashedHeartGap:4,dashedHeartEvery:1},'stripe':{size:54,gap:22,jitter:0},'diagonal-stripe':{size:48,gap:24,jitter:0},
@@ -933,7 +940,7 @@
     'graphic-frame':{size:92,gap:20,jitter:0,stroke:3,detail:62,opacity:100,graphicSafeArea:66,graphicBarScale:105,graphicCircleScale:115,graphicSmallScale:95,graphicLargeScale:115,graphicBalance:94,graphicMotifMode:'mixed'},
     'graphic-center-space':{size:90,gap:24,jitter:0,stroke:3,detail:48,opacity:100,graphicSafeArea:72,graphicBarScale:105,graphicCircleScale:95,graphicSmallScale:90,graphicLargeScale:115,graphicBalance:96,graphicMotifMode:'minimal'},
     'graphic-scatter':{size:90,gap:18,jitter:0,stroke:3,detail:66,opacity:100,graphicSafeArea:60,graphicBarScale:100,graphicCircleScale:100,graphicSmallScale:100,graphicLargeScale:110,graphicBalance:88,graphicMotifMode:'sparkle'},
-    'sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:68,opacity:100},'soft-sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:48,opacity:100},'glossy-sun-bg':{size:90,gap:0,jitter:0,stroke:0,detail:54,opacity:100},'sparkle-glow-bg':{size:90,gap:0,jitter:0,stroke:0,detail:58,opacity:100}
+    'sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:68,opacity:100},'soft-sunburst-bg':{size:90,gap:0,jitter:0,stroke:0,detail:48,opacity:100,softSunRayCount:36,softSunRayThickness:8,softSunRayOpacity:72,softSunSoftness:34,softSunCenterX:48,softSunCenterY:54},'glossy-sun-bg':{size:90,gap:0,jitter:0,stroke:0,detail:54,opacity:100},'sparkle-glow-bg':{size:90,gap:0,jitter:0,stroke:0,detail:58,opacity:100}
   };
   window.PatternEngine={presets,defaults,render};
 })();
