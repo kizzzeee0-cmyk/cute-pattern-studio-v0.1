@@ -764,7 +764,7 @@
       lengthPct=Math.max(5,Math.min(115,Number(s.radialRayLength??92)))/100,
       inner=Math.max(0,(s.radialRayInnerGap??0)*scale),
       colorA=s.radialRayColorA||s.colors[1]||'#79BFFF',
-      colorB=s.radialRayColorB||s.colors[2]||'#D9EEFF',
+      colorB=s.radialRayColorB||s.colors[3]||s.colors[2]||'#D9EEFF',
       maxRadius=Math.hypot(w,h)*.5*lengthPct,
       startAngle=p.rot,
       rows=thickness>=8*scale?2:1,
