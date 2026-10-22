@@ -40,7 +40,48 @@
   function hexToRgb(hex){let v=(hex||'#000000').replace('#','').trim();if(v.length===3)v=v.split('').map(c=>c+c).join('');let n=parseInt(v,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
   function rgbToHex(rgb){return '#'+[rgb.r,rgb.g,rgb.b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('')}
   function mixColor(a,b,t=.5){let c1=hexToRgb(a),c2=hexToRgb(b),m=(x,y)=>x+(y-x)*t;return rgbToHex({r:m(c1.r,c2.r),g:m(c1.g,c2.g),b:m(c1.b,c2.b)})}
-  function checker(ctx,w,h,s,scale,opt={}){let p=common(s,scale),cell=Math.max(4,p.size),contiguous=!!opt.contiguous,step=contiguous?cell:Math.max(cell*.45,cell+p.gap),rng=mulberry32(p.seed),cols=s.colors,outlineColor=cols[4]||cols[3]||cols[2]||cols[1],extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180;ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3; y<h+step*3; row++,y+=step){for(let col=-3,x=-step*3; x<w+step*3; col++,x+=step){let on=(row+col)%2===0;let wob=opt.hand?p.jit*.3:0,xx=x+jitter(rng,wob),yy=y+jitter(rng,wob),sz=cell+(opt.hand?jitter(rng,p.jit*.18):0),drawn=false;ctx.lineWidth=p.stroke;ctx.strokeStyle=outlineColor;if(opt.tricolor){let chosen=[cols[1],cols[2],cols[3]][Math.abs((row+col)%3)];ctx.globalAlpha=(s.anchorExact&&chosen===cols[1])?1:p.op;ctx.fillStyle=chosen;if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.16));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(opt.gingham){let chosen=s.anchorExact?(on?cols[1]:cols[2]):(on?cols[2]:cols[1]);ctx.globalAlpha=s.anchorExact?1:p.op*(on?.62:.18);ctx.fillStyle=chosen;ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false){ctx.globalAlpha=p.op;ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(contiguous){ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else{if(!on)continue;ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}if(drawn&&opt.soft){ctx.globalAlpha=p.op*.14;ctx.fillStyle=opt.tricolor?cols[(Math.abs((row+col)%3)+1)%3+1]:on?cols[2]:cols[1];ctx.fillRect(xx+sz*.08,yy+sz*.08,sz*.84,sz*.84)}if(drawn&&opt.motif&&rng()<.35+p.detail*.5){ctx.fillStyle=cols[3];ctx.globalAlpha=p.op*.88;let mx=xx+sz/2,my=yy+sz/2,ms=sz*(.16+.13*p.detail);if(opt.motif==='heart'){heart(ctx,mx,my,ms);ctx.fill()}if(opt.motif==='star'){star(ctx,mx,my,ms,ms*.48);ctx.fill()}if(opt.motif==='dot'){ctx.beginPath();ctx.arc(mx,my,ms*.65,0,TAU);ctx.fill()}}}}ctx.restore()}
+  function alignedDiamondLattice(ctx,w,h,{diamondW,diamondH,extra=0,colorAt,alphaAt,drawCell}){
+    let rowStep=diamondH/2,colStep=diamondW,
+      rowStart=-Math.ceil((extra+diamondH*2)/rowStep)-4,
+      rowEnd=Math.ceil((h+extra+diamondH*2)/rowStep)+4,
+      colStart=-Math.ceil((extra+diamondW*2)/colStep)-4,
+      colEnd=Math.ceil((w+extra+diamondW*2)/colStep)+4;
+    for(let row=rowStart;row<=rowEnd;row++){
+      let rowParity=((row%2)+2)%2,cy=row*rowStep,shift=rowParity*diamondW/2;
+      for(let col=colStart;col<=colEnd;col++){
+        let cx=col*colStep+shift,color=colorAt?colorAt(row,col,rowParity):null;
+        if(color==null)continue;
+        if(alphaAt)ctx.globalAlpha=alphaAt(row,col,rowParity);
+        if(drawCell){drawCell(cx,cy,diamondW,diamondH,color,row,col,rowParity);continue}
+        ctx.fillStyle=color;
+        ctx.beginPath();
+        ctx.moveTo(cx,cy-diamondH/2);
+        ctx.lineTo(cx+diamondW/2,cy);
+        ctx.lineTo(cx,cy+diamondH/2);
+        ctx.lineTo(cx-diamondW/2,cy);
+        ctx.closePath();
+        ctx.fill()
+      }
+    }
+  }
+
+  function checker(ctx,w,h,s,scale,opt={}){
+    let p=common(s,scale),cell=Math.max(4,p.size),contiguous=!!opt.contiguous,step=contiguous?cell:Math.max(cell*.45,cell+p.gap),rng=mulberry32(p.seed),cols=s.colors,outlineColor=cols[4]||cols[3]||cols[2]||cols[1],extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180;
+    if(opt.rotate45){
+      let diamondW=Math.max(12,cell*1.05),diamondH=Math.max(18,cell*1.68),extra=Math.hypot(w,h)+diamondH*3;
+      ctx.save();ctx.translate(w/2,h/2);ctx.rotate(p.rot+(opt.rotateDeg||0)*Math.PI/180);ctx.translate(-w/2,-h/2);
+      alignedDiamondLattice(ctx,w,h,{
+        diamondW,diamondH,extra,
+        colorAt:(row,col,rowParity)=>rowParity===0?(cols[1]||'#AFC3FF'):(opt.gingham?(cols[2]||cols[0]):(cols[0]||'#FFFFFF')),
+        alphaAt:(row,col,rowParity)=>opt.gingham?(rowParity===0?p.op:(s.anchorExact?p.op:p.op*.72)):p.op,
+        drawCell:(cx,cy,dw,dh,color,row,col,rowParity)=>{
+          ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(cx,cy-dh/2);ctx.lineTo(cx+dw/2,cy);ctx.lineTo(cx,cy+dh/2);ctx.lineTo(cx-dw/2,cy);ctx.closePath();ctx.fill();
+          if(opt.soft){ctx.globalAlpha=p.op*.10;ctx.fillStyle=rowParity===0?(cols[2]||color):(cols[1]||color);ctx.beginPath();ctx.moveTo(cx,cy-dh*.34);ctx.lineTo(cx+dw*.34,cy);ctx.lineTo(cx,cy+dh*.34);ctx.lineTo(cx-dw*.34,cy);ctx.closePath();ctx.fill()}
+        }
+      });
+      ctx.restore();return
+    }
+    ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3; y<h+step*3; row++,y+=step){for(let col=-3,x=-step*3; x<w+step*3; col++,x+=step){let on=(row+col)%2===0;let wob=opt.hand?p.jit*.3:0,xx=x+jitter(rng,wob),yy=y+jitter(rng,wob),sz=cell+(opt.hand?jitter(rng,p.jit*.18):0),drawn=false;ctx.lineWidth=p.stroke;ctx.strokeStyle=outlineColor;if(opt.tricolor){let chosen=[cols[1],cols[2],cols[3]][Math.abs((row+col)%3)];ctx.globalAlpha=(s.anchorExact&&chosen===cols[1])?1:p.op;ctx.fillStyle=chosen;if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.16));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(opt.gingham){let chosen=s.anchorExact?(on?cols[1]:cols[2]):(on?cols[2]:cols[1]);ctx.globalAlpha=s.anchorExact?1:p.op*(on?.62:.18);ctx.fillStyle=chosen;ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false){ctx.globalAlpha=p.op;ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(contiguous){ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else{if(!on)continue;ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}if(drawn&&opt.soft){ctx.globalAlpha=p.op*.14;ctx.fillStyle=opt.tricolor?cols[(Math.abs((row+col)%3)+1)%3+1]:on?cols[2]:cols[1];ctx.fillRect(xx+sz*.08,yy+sz*.08,sz*.84,sz*.84)}if(drawn&&opt.motif&&rng()<.35+p.detail*.5){ctx.fillStyle=cols[3];ctx.globalAlpha=p.op*.88;let mx=xx+sz/2,my=yy+sz/2,ms=sz*(.16+.13*p.detail);if(opt.motif==='heart'){heart(ctx,mx,my,ms);ctx.fill()}if(opt.motif==='star'){star(ctx,mx,my,ms,ms*.48);ctx.fill()}if(opt.motif==='dot'){ctx.beginPath();ctx.arc(mx,my,ms*.65,0,TAU);ctx.fill()}}}}ctx.restore()}
   function overlapChecker(ctx,w,h,s,scale,opt={}){
     let p=common(s,scale),cell=Math.max(8,p.size),step=Math.max(8,cell+(opt.allowGap?(p.gap||0):0)),rng=mulberry32(p.seed),
       extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180,
@@ -213,39 +254,15 @@
       diamondW=Math.max(18,(s.simpleDiamondX??78)*sizeFactor*scale),
       diamondH=Math.max(24,(s.simpleDiamondY??132)*sizeFactor*scale),
       color=s.simpleDiamondColor||s.colors[1]||'#CFEFF7',
-      rowStep=diamondH/2,
-      colStep=diamondW,
-      extra=Math.max(diamondW,diamondH)*4;
+      extra=Math.hypot(w,h)+Math.max(diamondW,diamondH)*5;
 
     ctx.save();
-    ctx.globalAlpha=p.op;
-    ctx.fillStyle=color;
-    ctx.translate(w/2,h/2);
-    ctx.rotate(p.rot);
-    ctx.translate(-w/2,-h/2);
-
-    let rowStart=-Math.ceil(extra/rowStep)-4;
-    let rowEnd=Math.ceil((h+extra)/rowStep)+4;
-    let colStart=-Math.ceil(extra/colStep)-4;
-    let colEnd=Math.ceil((w+extra)/colStep)+4;
-
-    for(let row=rowStart;row<=rowEnd;row++){
-      let cy=row*rowStep;
-      let shift=(Math.abs(row)%2)*diamondW/2;
-      for(let col=colStart;col<=colEnd;col++){
-        // Draw every other tessellation cell so the canvas/background
-        // becomes the alternating second diamond color, matching the reference.
-        if(((row+col)&1)!==0)continue;
-        let cx=col*colStep+shift;
-        ctx.beginPath();
-        ctx.moveTo(cx,cy-diamondH/2);
-        ctx.lineTo(cx+diamondW/2,cy);
-        ctx.lineTo(cx,cy+diamondH/2);
-        ctx.lineTo(cx-diamondW/2,cy);
-        ctx.closePath();
-        ctx.fill()
-      }
-    }
+    ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);
+    alignedDiamondLattice(ctx,w,h,{
+      diamondW,diamondH,extra,
+      colorAt:(row,col,rowParity)=>rowParity===0?color:null,
+      alphaAt:()=>p.op
+    });
     ctx.restore()
   }
 
@@ -297,10 +314,11 @@
     for(let row=rowStart;row<=rowEnd;row++){
       let cy=row*dy,shift=((row%2)+2)%2?dx/2:0;
       for(let col=colStart;col<=colEnd;col++){
-        let cx=col*dx+shift,index=((row*2+col)%4+4)%4;
-        if(variant==='cream')index=((row+col)%3+3)%3;
-        else if(variant==='trio')index=((row+col*2)%4+4)%4;
-        else if(variant==='mini')index=((row*3+col)%4+4)%4;
+        let cx=col*dx+shift,rr=((row%2)+2)%2,cc=((col%2)+2)%2,index=rr*2+cc;
+        if(variant==='soft')index=rr?3:cc;
+        else if(variant==='cream')index=rr*2+cc;
+        else if(variant==='trio')index=rr*2+cc;
+        else if(variant==='mini')index=rr*2+cc;
         drawDiamond(cx,cy,fills[index%fills.length])
       }
     }
