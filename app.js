@@ -794,7 +794,7 @@ function renderLayerEditor(){let layer=currentLayer();let root=$('#layerEditor')
     if(layer.simpleDiamondY===undefined)layer.simpleDiamondY=d.simpleDiamondY??132;
 
     let box=document.createElement('div');box.className='layer-editor-card';
-    box.innerHTML='<div class="section-title-row"><h3>심플 다이아 설정</h3></div><div class="control-subtitle">첨부 레퍼런스처럼 <strong>선·점선·장식 없이 세로로 긴 마름모만</strong> 규칙적으로 반복되는 심플한 패턴이야. 다이아 색상을 바꾸고 X/Y 비율도 따로 조절할 수 있어.</div>';
+    box.innerHTML='<div class="section-title-row"><h3>심플 다이아 설정</h3></div><div class="control-subtitle">첨부 레퍼런스처럼 <strong>가로·세로 줄이 정확히 맞는 마름모 격자</strong>로 반복되고, 색이 들어간 다이아 줄과 배경 다이아 줄이 규칙적으로 번갈아 보여. 선·점선·장식은 들어가지 않아.</div>';
 
     let colorRow=document.createElement('div');colorRow.className='color-row';
     let lab=document.createElement('div');lab.className='color-label';lab.textContent='다이아 색상';
