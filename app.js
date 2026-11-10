@@ -1074,7 +1074,7 @@ function renderSavedPresets(){let wrap=$('#savedPresetList');wrap.innerHTML='';i
 function saveCurrentPreset(){let name=prompt('저장할 프리셋 이름을 입력해줘.','내 패턴 프리셋');if(!name)return;myPresets.unshift({id:uid('preset'),name:name.trim()||'내 프리셋',savedAt:Date.now(),state:clone(stripStateForSave(state))});myPresets=myPresets.slice(0,40);persistAll();renderSavedPresets();toast('현재 설정을 내 프리셋에 저장했어.')}
 
 function setupPalettes(){/* reserved for future UI विस्तार */}
-function syncGlobalControls(){renderBgColorInputs();renderGradientOverlayEditor();$('#bgMode').value=state.bg.mode;$('#transparentBg').checked=state.bg.transparent;$('#gradientAngle').value=state.bg.gradientAngle;$('#gradientAngleVal').textContent=`${state.bg.gradientAngle}°`;$('#gradientControls').style.display=state.bg.mode==='linear'&&!state.bg.transparent?'block':'none';$('#watercolorControls').style.display=state.bg.mode==='watercolor'&&!state.bg.transparent?'block':'none';$('#backgroundOnly').checked=!!state.bg.backgroundOnly;$('#watercolorSpread').value=state.bg.watercolorSpread??62;$('#watercolorSpreadVal').textContent=`${state.bg.watercolorSpread??62}%`;$('#watercolorScale').value=state.bg.watercolorScale??58;$('#watercolorScaleVal').textContent=`${state.bg.watercolorScale??58}%`;$('#watercolorIrregular').value=state.bg.watercolorIrregular??72;$('#watercolorIrregularVal').textContent=`${state.bg.watercolorIrregular??72}%`;if($('#watercolorDefinition'))$('#watercolorDefinition').value=state.bg.watercolorDefinition??52;if($('#watercolorDefinitionVal'))$('#watercolorDefinitionVal').textContent=`${state.bg.watercolorDefinition??52}%`;if($('#watercolorSparkle'))$('#watercolorSparkle').value=state.bg.watercolorSparkle??28;if($('#watercolorSparkleVal'))$('#watercolorSparkleVal').textContent=`${state.bg.watercolorSparkle??28}%`;$('#watercolorTexture').checked=state.bg.watercolorTexture!==false;if($('#watercolorStyle'))$('#watercolorStyle').value=state.bg.watercolorStyle||'mist';let v=state.bg.vignette||{};if($('#vignetteEnabled'))$('#vignetteEnabled').checked=!!v.enabled;if($('#vignetteColor'))$('#vignetteColor').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteColorText'))$('#vignetteColorText').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteRange'))$('#vignetteRange').value=v.range??72;if($('#vignetteRangeVal'))$('#vignetteRangeVal').textContent=`${v.range??72}%`;if($('#vignetteStrength'))$('#vignetteStrength').value=v.strength??28;if($('#vignetteStrengthVal'))$('#vignetteStrengthVal').textContent=`${v.strength??28}%`;if($('#vignetteSoftness'))$('#vignetteSoftness').value=v.softness??28;if($('#vignetteSoftnessVal'))$('#vignetteSoftnessVal').textContent=`${v.softness??28}%`;if($('#vignetteControls'))$('#vignetteControls').style.display=v.enabled?'block':'none';$('#exportW').value=state.exportW;$('#exportH').value=state.exportH;$('#tileW').value=state.tileW;$('#tileH').value=state.tileH}
+function syncGlobalControls(){renderBgColorInputs();renderGradientOverlayEditor();$('#bgMode').value=state.bg.mode;$('#transparentBg').checked=state.bg.transparent;$('#gradientAngle').value=state.bg.gradientAngle;$('#gradientAngleVal').textContent=`${state.bg.gradientAngle}°`;$('#gradientControls').style.display=state.bg.mode==='linear'&&!state.bg.transparent?'block':'none';$('#watercolorControls').style.display=state.bg.mode==='watercolor'&&!state.bg.transparent?'block':'none';$('#backgroundOnly').checked=!!state.bg.backgroundOnly;$('#watercolorSpread').value=state.bg.watercolorSpread??62;$('#watercolorSpreadVal').textContent=`${state.bg.watercolorSpread??62}%`;$('#watercolorScale').value=state.bg.watercolorScale??58;$('#watercolorScaleVal').textContent=`${state.bg.watercolorScale??58}%`;$('#watercolorIrregular').value=state.bg.watercolorIrregular??72;$('#watercolorIrregularVal').textContent=`${state.bg.watercolorIrregular??72}%`;if($('#watercolorDefinition'))$('#watercolorDefinition').value=state.bg.watercolorDefinition??52;if($('#watercolorDefinitionVal'))$('#watercolorDefinitionVal').textContent=`${state.bg.watercolorDefinition??52}%`;if($('#watercolorSparkle'))$('#watercolorSparkle').value=state.bg.watercolorSparkle??28;if($('#watercolorSparkleVal'))$('#watercolorSparkleVal').textContent=`${state.bg.watercolorSparkle??28}%`;$('#watercolorTexture').checked=state.bg.watercolorTexture!==false;if($('#watercolorStyle'))$('#watercolorStyle').value=state.bg.watercolorStyle||'mist';let v=state.bg.vignette||{};if($('#vignetteEnabled'))$('#vignetteEnabled').checked=!!v.enabled;if($('#vignetteColor'))$('#vignetteColor').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteColorText'))$('#vignetteColorText').value=normalizeHexLike(v.color||'#6F55C9','#6F55C9');if($('#vignetteRange'))$('#vignetteRange').value=v.range??72;if($('#vignetteRangeVal'))$('#vignetteRangeVal').textContent=`${v.range??72}%`;if($('#vignetteStrength'))$('#vignetteStrength').value=v.strength??28;if($('#vignetteStrengthVal'))$('#vignetteStrengthVal').textContent=`${v.strength??28}%`;if($('#vignetteSoftness'))$('#vignetteSoftness').value=v.softness??28;if($('#vignetteSoftnessVal'))$('#vignetteSoftnessVal').textContent=`${v.softness??28}%`;if($('#vignetteControls'))$('#vignetteControls').style.display=v.enabled?'block':'none';$('#exportW').value=state.exportW;$('#exportH').value=state.exportH;$('#tileW').value=state.tileW;$('#tileH').value=state.tileH;resizePreviewCanvasToOutput()}
 function refreshPreviewZoom(){
   let stage=$('#canvasStage');if(!stage||!canvas)return;
   let cs=getComputedStyle(stage),padX=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0),padY=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
@@ -1091,22 +1091,56 @@ function randomizeAll(){
 let palette=palettePresets[Math.floor(Math.random()*palettePresets.length)];state.bg.colors=[palette[0],palette[1]];state.bg.gradientStops=buildGradientStopsFromColors([palette[0],palette[1]]);state.layers.forEach((layer,i)=>{let candidates=PE.presets.filter(p=>(!$('#favoriteOnly').checked||favorites.has(p.id))&&(!$('#checkOnly')?.checked||checkPresetOnly(p)));let pool=candidates.length?candidates:PE.presets;let p=pool[Math.floor(Math.random()*Math.max(1,pool.length))];layer.sourceType='builtin';layer.presetId=p.id;let d=PE.defaults[p.id]||{};Object.assign(layer,d);layer.colors=normalizeColors(shuffle(palette.concat()).slice(0,4));layer.colors[4]=suggestLineColor(layer.colors);layer.size=clamp((d.size??layer.size)+(i*10),12,220);layer.gap=clamp((d.gap??layer.gap)+Math.floor(Math.random()*30),0,140);layer.jitter=clamp((d.jitter??20)+Math.floor(Math.random()*40),0,100);layer.rotation=Math.floor(-18+Math.random()*36);layer.opacity=clamp(100-i*18,20,100);layer.detail=Math.floor(25+Math.random()*70);layer.enabled=i===0?true:(Math.random()>.25);layer.randomSize=isUniformShapePresetId(p.id)?false:true;layer.randomAngle=isUniformShapePresetId(p.id)?false:true;layer.randomPosition=isUniformShapePresetId(p.id)?false:true;layer.offsetX=0;layer.offsetY=0;layer.row1OffsetX=0;layer.row1OffsetY=0;layer.row1Angle=0;layer.row2OffsetX=0;layer.row2OffsetY=0;layer.row2Angle=0;if(p.type==='graphic-composition'){layer.graphicSafeArea=d.graphicSafeArea??60;layer.graphicBarScale=d.graphicBarScale??100;layer.graphicCircleScale=d.graphicCircleScale??100;layer.graphicMotifMode=d.graphicMotifMode||'auto'}layer.checkerToneMode=false;layer.checkerToneBase=layer.colors[1];layer.seed=Math.floor(Math.random()*1e9)});persistAll();syncAll();toast('배경과 레이어 패턴을 랜덤으로 조합했어.')
 }
 async function exportPNG(seamless=false){
-  let w=clamp(+($('#exportW').value)||2000,256,6000),h=clamp(+($('#exportH').value)||2000,256,6000);
-  if(seamless){w=clamp(+($('#tileW').value)||512,64,4000);h=clamp(+($('#tileH').value)||512,64,4000)}
-  state.exportW=w;state.exportH=h;if(seamless){state.tileW=w;state.tileH=h}persistAll();
-  let out=document.createElement('canvas');out.width=w;out.height=h;let octx=out.getContext('2d');
-  drawBackground(octx,w,h);
+  let w=clampInt($('#exportW')?.value,16,8000,state.exportW||2000),
+      h=clampInt($('#exportH')?.value,16,8000,state.exportH||2000);
+  if(seamless){
+    w=clampInt($('#tileW')?.value,16,4000,state.tileW||512);
+    h=clampInt($('#tileH')?.value,16,4000,state.tileH||512)
+  }else{
+    state.exportW=w;state.exportH=h;
+    resizePreviewCanvasToOutput()
+  }
+  if(seamless){state.tileW=w;state.tileH=h}
+  persistAll();
+
+  let out=document.createElement('canvas');out.width=w;out.height=h;
+  let octx=out.getContext('2d',{alpha:true});
+  resetCanvasRenderState(octx);
+  octx.clearRect(0,0,w,h);
+
+  if(!state.bg.transparent)drawBackground(octx,w,h);
+
   if(!state.bg.backgroundOnly) for(let layer of state.layers){
     if(!layer.enabled)continue;
-    if(layer.sourceType==='builtin'){PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),w/2000)}
-    else{let asset=userAssets.find(v=>v.id===layer.assetId);if(asset){await ensureAssetImage(asset,layer).catch(()=>null);renderUploadedLayer(octx,w,h,layer,w/2000,seamless)}}
+    resetCanvasRenderState(octx);
+    if(layer.sourceType==='builtin'){
+      PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),w/2000)
+    }else{
+      let asset=userAssets.find(v=>v.id===layer.assetId);
+      if(asset){
+        await ensureAssetImage(asset,layer).catch(()=>null);
+        resetCanvasRenderState(octx);
+        renderUploadedLayer(octx,w,h,layer,w/2000,seamless)
+      }
+    }
+    resetCanvasRenderState(octx)
   }
-  applyGradientOverlays(octx,w,h);
-  applyVignette(octx,w,h);
-  let blob=await new Promise(r=>out.toBlob(r,'image/png'));if(!blob){toast('PNG 생성에 실패했어.');return}
+
+  // On transparent PNG export, never add canvas-wide effects that create dark/soft alpha haze.
+  if(!state.bg.transparent){
+    resetCanvasRenderState(octx);
+    applyGradientOverlays(octx,w,h);
+    applyVignette(octx,w,h)
+  }
+
+  resetCanvasRenderState(octx);
+  let blob=await new Promise(r=>out.toBlob(r,'image/png'));
+  if(!blob){toast('PNG 생성에 실패했어.');return}
   let link=document.createElement('a');link.href=URL.createObjectURL(blob);
   link.download=seamless?('cute-pattern-seamless-'+w+'x'+h+'.png'):('cute-pattern-'+w+'x'+h+'.png');
-  link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1500);toast(w+'×'+h+' PNG를 저장했어.')
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href),1500);
+  toast(w+'×'+h+(state.bg.transparent?' 투명':'')+' PNG를 저장했어.')
 }
 
 async function handleReferenceFile(file){
@@ -1441,10 +1475,31 @@ function bindGlobalControls(){
   $('#exportTileBtn2').onclick=()=>exportPNG(true);
   $('#zoomIn').onclick=()=>setZoom(zoom+.1);
   $('#zoomOut').onclick=()=>setZoom(zoom-.1);
-  $('#exportW').oninput=e=>{state.exportW=clamp(+e.target.value||2000,256,6000);if($('#lockSquare').checked){state.exportH=state.exportW;$('#exportH').value=state.exportH}persistAll()};
-  $('#exportH').oninput=e=>{state.exportH=clamp(+e.target.value||2000,256,6000);if($('#lockSquare').checked){state.exportW=state.exportH;$('#exportW').value=state.exportW}persistAll()};
-  $('#tileW').oninput=e=>{state.tileW=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
-  $('#tileH').oninput=e=>{state.tileH=clamp(+e.target.value||512,64,4000);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
+  const updateCanvasSize=(axis,value)=>{
+    if(value==='')return;
+    let next=clampInt(value,16,8000,axis==='w'?state.exportW:state.exportH);
+    if(axis==='w')state.exportW=next;else state.exportH=next;
+    if($('#lockSquare').checked){
+      if(axis==='w')state.exportH=state.exportW;
+      else state.exportW=state.exportH
+    }
+    $('#exportW').value=state.exportW;
+    $('#exportH').value=state.exportH;
+    persistAll();
+    resizePreviewCanvasToOutput();
+    renderMain()
+  };
+  $('#exportW').oninput=e=>updateCanvasSize('w',e.target.value);
+  $('#exportH').oninput=e=>updateCanvasSize('h',e.target.value);
+  $('#lockSquare').onchange=()=>{
+    if($('#lockSquare').checked){
+      state.exportH=state.exportW;
+      $('#exportH').value=state.exportH;
+      persistAll();resizePreviewCanvasToOutput();renderMain()
+    }
+  };
+  $('#tileW').oninput=e=>{if(e.target.value==='')return;state.tileW=clampInt(e.target.value,16,4000,state.tileW||512);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
+  $('#tileH').oninput=e=>{if(e.target.value==='')return;state.tileH=clampInt(e.target.value,16,4000,state.tileH||512);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
 }
 function syncAll(){syncGlobalControls();syncLayerUI();renderPatternList();renderMain();renderAssetList();renderFavoritePreview();renderSavedPresets();renderReferenceWorkspace()}
 
