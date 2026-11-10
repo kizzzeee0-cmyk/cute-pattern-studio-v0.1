@@ -1475,13 +1475,31 @@ function bindGlobalControls(){
   $('#exportTileBtn2').onclick=()=>exportPNG(true);
   $('#zoomIn').onclick=()=>setZoom(zoom+.1);
   $('#zoomOut').onclick=()=>setZoom(zoom-.1);
-  const updateCanvasSize=(axis,value)=>{
-    if(value==='')return;
-    let next=clampInt(value,16,8000,axis==='w'?state.exportW:state.exportH);
+  const parseSizeDraft=(value,min,max)=>{
+    let raw=String(value??'').trim();
+    if(raw===''||!/^[0-9]+$/.test(raw))return null;
+    let n=Number(raw);
+    return Number.isFinite(n)&&n>=min&&n<=max?Math.round(n):null
+  };
+  const applyCanvasSizeDraft=(axis,value)=>{
+    let next=parseSizeDraft(value,16,8000);
+    if(next===null)return;
     if(axis==='w')state.exportW=next;else state.exportH=next;
     if($('#lockSquare').checked){
-      if(axis==='w')state.exportH=state.exportW;
-      else state.exportW=state.exportH
+      if(axis==='w'){state.exportH=next;$('#exportH').value=next}
+      else{state.exportW=next;$('#exportW').value=next}
+    }
+    persistAll();
+    resizePreviewCanvasToOutput();
+    renderMain()
+  };
+  const commitCanvasSize=(axis,input)=>{
+    let fallback=axis==='w'?(state.exportW||2000):(state.exportH||2000);
+    let next=clampInt(input.value,16,8000,fallback);
+    if(axis==='w')state.exportW=next;else state.exportH=next;
+    if($('#lockSquare').checked){
+      if(axis==='w')state.exportH=next;
+      else state.exportW=next
     }
     $('#exportW').value=state.exportW;
     $('#exportH').value=state.exportH;
@@ -1489,8 +1507,12 @@ function bindGlobalControls(){
     resizePreviewCanvasToOutput();
     renderMain()
   };
-  $('#exportW').oninput=e=>updateCanvasSize('w',e.target.value);
-  $('#exportH').oninput=e=>updateCanvasSize('h',e.target.value);
+  $('#exportW').oninput=e=>applyCanvasSizeDraft('w',e.target.value);
+  $('#exportH').oninput=e=>applyCanvasSizeDraft('h',e.target.value);
+  $('#exportW').onchange=e=>commitCanvasSize('w',e.target);
+  $('#exportH').onchange=e=>commitCanvasSize('h',e.target);
+  $('#exportW').onblur=e=>commitCanvasSize('w',e.target);
+  $('#exportH').onblur=e=>commitCanvasSize('h',e.target);
   $('#lockSquare').onchange=()=>{
     if($('#lockSquare').checked){
       state.exportH=state.exportW;
@@ -1498,8 +1520,35 @@ function bindGlobalControls(){
       persistAll();resizePreviewCanvasToOutput();renderMain()
     }
   };
-  $('#tileW').oninput=e=>{if(e.target.value==='')return;state.tileW=clampInt(e.target.value,16,4000,state.tileW||512);if($('#lockTileSquare').checked){state.tileH=state.tileW;$('#tileH').value=state.tileH}persistAll()};
-  $('#tileH').oninput=e=>{if(e.target.value==='')return;state.tileH=clampInt(e.target.value,16,4000,state.tileH||512);if($('#lockTileSquare').checked){state.tileW=state.tileH;$('#tileW').value=state.tileW}persistAll()};
+
+  const applyTileSizeDraft=(axis,value)=>{
+    let next=parseSizeDraft(value,16,4000);
+    if(next===null)return;
+    if(axis==='w')state.tileW=next;else state.tileH=next;
+    if($('#lockTileSquare').checked){
+      if(axis==='w'){state.tileH=next;$('#tileH').value=next}
+      else{state.tileW=next;$('#tileW').value=next}
+    }
+    persistAll()
+  };
+  const commitTileSize=(axis,input)=>{
+    let fallback=axis==='w'?(state.tileW||512):(state.tileH||512);
+    let next=clampInt(input.value,16,4000,fallback);
+    if(axis==='w')state.tileW=next;else state.tileH=next;
+    if($('#lockTileSquare').checked){
+      if(axis==='w')state.tileH=next;
+      else state.tileW=next
+    }
+    $('#tileW').value=state.tileW;
+    $('#tileH').value=state.tileH;
+    persistAll()
+  };
+  $('#tileW').oninput=e=>applyTileSizeDraft('w',e.target.value);
+  $('#tileH').oninput=e=>applyTileSizeDraft('h',e.target.value);
+  $('#tileW').onchange=e=>commitTileSize('w',e.target);
+  $('#tileH').onchange=e=>commitTileSize('h',e.target);
+  $('#tileW').onblur=e=>commitTileSize('w',e.target);
+  $('#tileH').onblur=e=>commitTileSize('h',e.target);
 }
 function syncAll(){syncGlobalControls();syncLayerUI();renderPatternList();renderMain();renderAssetList();renderFavoritePreview();renderSavedPresets();renderReferenceWorkspace()}
 
