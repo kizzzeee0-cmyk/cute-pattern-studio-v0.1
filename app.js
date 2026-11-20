@@ -2007,6 +2007,23 @@ function restoreSettingsSummary(preset,layer,result,candidate){
   return rows
 }
 
+
+function buildRestoreNativeProbe(img,maxSide=1024){
+  let iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,
+      cw=Math.max(24,Math.min(iw,maxSide)),ch=Math.max(24,Math.min(ih,maxSide)),
+      sx=Math.max(0,Math.floor((iw-cw)/2)),sy=Math.max(0,Math.floor((ih-ch)/2)),
+      canvas=document.createElement('canvas');
+  canvas.width=cw;canvas.height=ch;
+  let x=canvas.getContext('2d',{willReadFrequently:true});x.clearRect(0,0,cw,ch);
+  x.imageSmoothingEnabled=false;x.drawImage(img,sx,sy,cw,ch,0,0,cw,ch);
+  return {canvas,scale:1,iw,ih,originX:sx,originY:sy}
+}
+function normalizeRestoreProbeStructure(structure,probe){
+  let out={...structure};
+  if(out.periodX>0)out.phaseX=(((out.phaseX||0)+(probe.originX||0))%out.periodX+out.periodX)%out.periodX;
+  if(out.periodY>0)out.phaseY=(((out.phaseY||0)+(probe.originY||0))%out.periodY+out.periodY)%out.periodY;
+  return out
+}
 function restoreMostDistinctPaletteColor(palette,bgHex){
   let bg=restoreHexRgb(bgHex),best=null,bestDist=-1;
   for(let c of (palette||[])){
@@ -2037,11 +2054,12 @@ function restoreGridAxisCoverage(sampleInfo,bgHex,axis,periodOriginal,phaseOrigi
   return coverages.length?restoreMedian(coverages,0):0
 }
 function detectSolidPastelGridRestore(img,palette,bgHex,transparent){
-  let measurementInfo=buildRestoreSampleInfo(img,720),structure=estimateRestoreStructure(measurementInfo,bgHex),
-      px=Math.max(1,structure.periodX||0),py=Math.max(1,structure.periodY||0),
-      bx=Math.max(.5,structure.bandX||0),by=Math.max(.5,structure.bandY||0),
-      covX=restoreGridAxisCoverage(measurementInfo,bgHex,'x',px,structure.phaseX||0,bx),
-      covY=restoreGridAxisCoverage(measurementInfo,bgHex,'y',py,structure.phaseY||0,by),
+  let probe=buildRestoreNativeProbe(img,1024),localStructure=estimateRestoreStructure(probe,bgHex),
+      px=Math.max(1,localStructure.periodX||0),py=Math.max(1,localStructure.periodY||0),
+      bx=Math.max(.5,localStructure.bandX||0),by=Math.max(.5,localStructure.bandY||0),
+      covX=restoreGridAxisCoverage(probe,bgHex,'x',px,localStructure.phaseX||0,bx),
+      covY=restoreGridAxisCoverage(probe,bgHex,'y',py,localStructure.phaseY||0,by),
+      structure=normalizeRestoreProbeStructure(localStructure,probe),
       thinX=bx/px,thinY=by/py,
       regular=structure.periodScoreX>=.52&&structure.periodScoreY>=.52,
       thin=thinX<=.28&&thinY<=.28,
@@ -2065,10 +2083,11 @@ function detectSolidPastelGridRestore(img,palette,bgHex,transparent){
   return result
 }
 async function analyzePatternRestoreImage(img,forcedPresetId=''){
-  let sampleInfo=buildRestoreSampleInfo(img,240),measurementInfo=buildRestoreSampleInfo(img,720),
-      transparent=restoreImageHasTransparency(sampleInfo.canvas),
-      palette=extractRestorePaletteStable(img,7),bg=estimateRestoreBackgroundAdvanced(measurementInfo,palette,transparent),
-      colors=buildRestoreColorsAdvanced(palette,bg),structure=estimateRestoreStructure(measurementInfo,bg);
+  let sampleInfo=buildRestoreSampleInfo(img,240),fullMeasureInfo=buildRestoreSampleInfo(img,720),
+      probe=buildRestoreNativeProbe(img,1024),transparent=restoreImageHasTransparency(sampleInfo.canvas),
+      palette=extractRestorePaletteStable(img,7),bg=estimateRestoreBackgroundAdvanced(fullMeasureInfo,palette,transparent),
+      colors=buildRestoreColorsAdvanced(palette,bg),
+      structure=normalizeRestoreProbeStructure(estimateRestoreStructure(probe,bg),probe);
 
   // Strong primitive recognition comes before the broad library competition.
   // A continuous axis-aligned grid should restore as the built-in "파스텔 격자",
