@@ -1594,6 +1594,609 @@ function bindPatternRestoreControls(){
   renderPatternRestoreResult()
 }
 
+
+// ---- v2.9 advanced editable pattern reconstruction ----
+function buildRestoreSampleInfo(img,maxDim=240){
+  let iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,
+      scale=Math.min(1,maxDim/Math.max(1,iw,ih)),canvas=document.createElement('canvas');
+  canvas.width=Math.max(24,Math.round(iw*scale));canvas.height=Math.max(24,Math.round(ih*scale));
+  let x=canvas.getContext('2d',{willReadFrequently:true});x.clearRect(0,0,canvas.width,canvas.height);
+  x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(img,0,0,canvas.width,canvas.height);
+  return {canvas,scale,iw,ih}
+}
+function restoreRgbDistance(a,b){
+  let dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dr*dr+dg*dg+db*db)
+}
+function restoreHexRgb(hex){let c=hexToRgb(hex);return [c.r,c.g,c.b]}
+function extractRestorePaletteStable(img,count=6){
+  let info=buildRestoreSampleInfo(img,260),c=info.canvas,x=c.getContext('2d',{willReadFrequently:true}),
+      d=x.getImageData(0,0,c.width,c.height).data,w=c.width,h=c.height,buckets=new Map();
+  const px=(xx,yy)=>{
+    xx=clamp(xx,0,w-1);yy=clamp(yy,0,h-1);let i=(yy*w+xx)*4;return [d[i],d[i+1],d[i+2],d[i+3]]
+  };
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+    let i=(yy*w+xx)*4,a=d[i+3]/255;if(a<.12)continue;
+    let r=d[i],g=d[i+1],b=d[i+2],r2=px(Math.min(w-1,xx+1),yy),d2=px(xx,Math.min(h-1,yy+1)),
+        edge=(Math.abs(r-r2[0])+Math.abs(g-r2[1])+Math.abs(b-r2[2])+Math.abs(r-d2[0])+Math.abs(g-d2[1])+Math.abs(b-d2[2]))/(255*6),
+        flatWeight=edge<.025?4:edge<.07?2.3:edge<.14?1.15:.35,
+        weight=a*flatWeight,q=16,key=[Math.round(r/q)*q,Math.round(g/q)*q,Math.round(b/q)*q].map(v=>clamp(v,0,255)).join(',');
+    let item=buckets.get(key)||{weight:0,count:0,r:0,g:0,b:0};
+    item.weight+=weight;item.count++;item.r+=r*weight;item.g+=g*weight;item.b+=b*weight;buckets.set(key,item)
+  }
+  let ranked=[...buckets.values()].filter(v=>v.weight>0).map(v=>{
+    let rgb=[Math.round(v.r/v.weight),Math.round(v.g/v.weight),Math.round(v.b/v.weight)];
+    return {rgb,score:v.weight*(1+.15*(rgbToHsl({r:rgb[0],g:rgb[1],b:rgb[2]}).s||0))}
+  }).sort((a,b)=>b.score-a.score),out=[];
+  for(let item of ranked){
+    if(out.every(v=>restoreRgbDistance(v,item.rgb)>26)){out.push(item.rgb);if(out.length>=count)break}
+  }
+  for(let item of ranked){
+    if(out.length>=count)break;
+    if(out.every(v=>restoreRgbDistance(v,item.rgb)>14))out.push(item.rgb)
+  }
+  return out.slice(0,count).map(rgbToHex)
+}
+function estimateRestoreBackgroundAdvanced(sampleInfo,palette,transparent){
+  if(transparent)return '#FFFFFF';
+  let c=sampleInfo.canvas,x=c.getContext('2d',{willReadFrequently:true}),d=x.getImageData(0,0,c.width,c.height).data,
+      w=c.width,h=c.height,border=Math.max(2,Math.round(Math.min(w,h)*.10)),buckets=new Map();
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+    if(xx>=border&&xx<w-border&&yy>=border&&yy<h-border)continue;
+    let i=(yy*w+xx)*4,a=d[i+3]/255;if(a<.7)continue;
+    let q=14,key=[Math.round(d[i]/q)*q,Math.round(d[i+1]/q)*q,Math.round(d[i+2]/q)*q].map(v=>clamp(v,0,255)).join(',');
+    let item=buckets.get(key)||{n:0,r:0,g:0,b:0};item.n+=a;item.r+=d[i]*a;item.g+=d[i+1]*a;item.b+=d[i+2]*a;buckets.set(key,item)
+  }
+  let best=[...buckets.values()].sort((a,b)=>b.n-a.n)[0];
+  return best?rgbToHex([best.r/best.n,best.g/best.n,best.b/best.n]):(palette[0]||'#FFFFFF')
+}
+function buildRestoreColorsAdvanced(palette,bg){
+  let bgRgb=restoreHexRgb(bg),items=(palette||[]).map(c=>({c,dist:restoreRgbDistance(restoreHexRgb(c),bgRgb)}))
+      .filter(v=>v.dist>10).sort((a,b)=>b.dist-a.dist);
+  let main=items[0]?.c||'#AFC3FF',second=items[1]?.c||mixHex(main,bg,.40),
+      third=items[2]?.c||mixHex(main,bg,.70),line=items[0]?.c||main;
+  return normalizeColors([bg,main,second,third,line])
+}
+function restoreProfileStats(arr){
+  if(!arr.length)return {min:0,max:0,mean:0,median:0};
+  let min=Infinity,max=-Infinity,sum=0,copy=Array.from(arr).sort((a,b)=>a-b);
+  for(let v of arr){min=Math.min(min,v);max=Math.max(max,v);sum+=v}
+  return {min,max,mean:sum/arr.length,median:copy[Math.floor(copy.length/2)]}
+}
+function smoothRestoreProfile(arr,radius=1){
+  let out=new Float32Array(arr.length);
+  for(let i=0;i<arr.length;i++){let sum=0,n=0;for(let j=Math.max(0,i-radius);j<=Math.min(arr.length-1,i+radius);j++){sum+=arr[j];n++}out[i]=sum/n}
+  return out
+}
+function restoreAxisProfiles(canvas,bgHex,axis){
+  let x=canvas.getContext('2d',{willReadFrequently:true}),w=canvas.width,h=canvas.height,d=x.getImageData(0,0,w,h).data,
+      len=axis==='x'?w:h,other=axis==='x'?h:w,edge=new Float32Array(len),fg=new Float32Array(len),bg=restoreHexRgb(bgHex),
+      stride=Math.max(1,Math.floor(other/180));
+  for(let a=0;a<len;a++){
+    let e=0,f=0,n=0;
+    for(let b=0;b<other;b+=stride){
+      let xx=axis==='x'?a:b,yy=axis==='x'?b:a,prev=Math.max(0,a-1),
+          pxx=axis==='x'?prev:b,pyy=axis==='x'?b:prev,
+          i=(yy*w+xx)*4,pi=(pyy*w+pxx)*4,alpha=d[i+3]/255,pa=d[pi+3]/255;
+      if(alpha<.03&&pa<.03)continue;
+      let rgb=[d[i],d[i+1],d[i+2]],prgb=[d[pi],d[pi+1],d[pi+2]];
+      e+=(restoreRgbDistance(rgb,prgb)/441)*Math.max(alpha,pa);
+      f+=Math.max(restoreRgbDistance(rgb,bg)/441,Math.abs(alpha-pa)*.85,alpha<.98?(1-alpha)*.45:0);
+      n++
+    }
+    edge[a]=n?e/n:0;fg[a]=n?f/n:0
+  }
+  return {edge:smoothRestoreProfile(edge,1),fg:smoothRestoreProfile(fg,1)}
+}
+function restoreProfileCorrelation(profile,lag){
+  let n=profile.length-lag;if(n<8)return -1;
+  let ma=0,mb=0;for(let i=0;i<n;i++){ma+=profile[i];mb+=profile[i+lag]}ma/=n;mb/=n;
+  let num=0,da=0,db=0,err=0;
+  for(let i=0;i<n;i++){let a=profile[i]-ma,b=profile[i+lag]-mb;num+=a*b;da+=a*a;db+=b*b;err+=Math.abs(profile[i]-profile[i+lag])}
+  let corr=(da>1e-10&&db>1e-10)?num/Math.sqrt(da*db):0,st=restoreProfileStats(profile),range=Math.max(1e-5,st.max-st.min),
+      similarity=1-Math.min(1,(err/n)/range);
+  return clamp((corr+1)*.34+similarity*.32,0,1)
+}
+function estimateRestorePeriod(profile){
+  let n=profile.length,maxLag=Math.min(Math.floor(n*.48),180);if(maxLag<5)return {period:0,score:0};
+  let candidates=[];
+  for(let lag=4;lag<=maxLag;lag++){
+    if(n/lag<2.05)continue;
+    let score=restoreProfileCorrelation(profile,lag)-Math.min(.06,lag/n*.05);
+    candidates.push({lag,score})
+  }
+  candidates.sort((a,b)=>b.score-a.score);
+  if(!candidates.length)return {period:0,score:0};
+  let top=candidates[0],near=candidates.filter(c=>c.score>=top.score-.025).sort((a,b)=>a.lag-b.lag);
+  let chosen=near[0]||top;
+  // Reject tiny harmonic lags unless they are almost as structurally strong as a larger repeated spacing.
+  let larger=candidates.filter(c=>c.lag>=chosen.lag*1.7&&c.lag<=chosen.lag*2.3&&c.score>=chosen.score-.018).sort((a,b)=>b.score-a.score)[0];
+  if(chosen.lag<9&&larger)chosen=larger;
+  return {period:chosen.lag,score:clamp(chosen.score,0,1)}
+}
+function restoreProfileRuns(profile,period=0){
+  let st=restoreProfileStats(profile),range=st.max-st.median;if(range<1e-5)return [];
+  let threshold=st.median+range*.42,runs=[],start=-1;
+  for(let i=0;i<=profile.length;i++){
+    let on=i<profile.length&&profile[i]>=threshold;
+    if(on&&start<0)start=i;
+    if(!on&&start>=0){let len=i-start;if(len>0&&(!period||len<period*.7))runs.push({start,end:i-1,len,center:(start+i-1)/2,peak:Math.max(...Array.from(profile.slice(start,i)))});start=-1}
+  }
+  return runs
+}
+function restoreMedian(values,fallback=0){
+  let v=values.filter(Number.isFinite).sort((a,b)=>a-b);return v.length?v[Math.floor(v.length/2)]:fallback
+}
+function estimateRestoreBandWidth(profile,period){
+  let runs=restoreProfileRuns(profile,period);if(!runs.length)return 0;
+  return restoreMedian(runs.map(r=>r.len),0)
+}
+function estimateRestorePhase(profile,period){
+  period=Math.round(period);if(!period||period<2)return 0;
+  let sums=new Float64Array(period),counts=new Uint32Array(period);
+  for(let i=0;i<profile.length;i++){let r=((i%period)+period)%period;sums[r]+=profile[i];counts[r]++}
+  let best=0,bv=-Infinity;for(let r=0;r<period;r++){let v=counts[r]?sums[r]/counts[r]:0;if(v>bv){bv=v;best=r}}
+  return best
+}
+function estimateRestoreDash(canvas,bgHex,verticalCoord,scale){
+  let x=canvas.getContext('2d',{willReadFrequently:true}),w=canvas.width,h=canvas.height,d=x.getImageData(0,0,w,h).data,
+      xx=clamp(Math.round(verticalCoord),0,w-1),bg=restoreHexRgb(bgHex),profile=new Float32Array(h);
+  for(let y=0;y<h;y++){
+    let sum=0,n=0;
+    for(let dx=-1;dx<=1;dx++){
+      let cx=clamp(xx+dx,0,w-1),i=(y*w+cx)*4,a=d[i+3]/255;if(a<.03)continue;
+      sum+=Math.max(restoreRgbDistance([d[i],d[i+1],d[i+2]],bg)/441,a<.98?(1-a)*.5:0);n++
+    }
+    profile[y]=n?sum/n:0
+  }
+  let st=restoreProfileStats(profile),threshold=st.median+(st.max-st.median)*.45,runs=[],gaps=[],start=-1,lastEnd=-1;
+  for(let i=0;i<=profile.length;i++){
+    let on=i<profile.length&&profile[i]>=threshold;
+    if(on&&start<0)start=i;
+    if(!on&&start>=0){if(lastEnd>=0&&start-lastEnd>0)gaps.push(start-lastEnd);runs.push(i-start);lastEnd=i;start=-1}
+  }
+  return {dashLength:Math.max(1,Math.round(restoreMedian(runs,0)/Math.max(scale,.001))),dashGap:Math.max(1,Math.round(restoreMedian(gaps,0)/Math.max(scale,.001)))}
+}
+function estimateRestoreStructure(sampleInfo,bgHex){
+  let px=restoreAxisProfiles(sampleInfo.canvas,bgHex,'x'),py=restoreAxisProfiles(sampleInfo.canvas,bgHex,'y'),
+      rx=estimateRestorePeriod(px.edge),ry=estimateRestorePeriod(py.edge),
+      sx=Math.max(sampleInfo.scale,.001),
+      periodX=rx.period?rx.period/sx:0,periodY=ry.period?ry.period/sx:0,
+      bandX=estimateRestoreBandWidth(px.fg,rx.period)/sx,bandY=estimateRestoreBandWidth(py.fg,ry.period)/sx,
+      phaseX=rx.period?estimateRestorePhase(px.fg,rx.period)/sx:0,phaseY=ry.period?estimateRestorePhase(py.fg,ry.period)/sx:0,
+      dash=estimateRestoreDash(sampleInfo.canvas,bgHex,rx.period?estimateRestorePhase(px.fg,rx.period):0,sx);
+  return {
+    periodX:periodX||periodY||72,periodY:periodY||periodX||72,
+    periodScoreX:rx.score,periodScoreY:ry.score,
+    bandX:bandX||bandY||2,bandY:bandY||bandX||2,
+    phaseX,phaseY,dashLength:dash.dashLength||9,dashGap:dash.dashGap||12,
+    confidence:clamp((rx.score+ry.score)/2,0,1)
+  }
+}
+function estimateRestoreOverlapBlend(bgHex,palette){
+  let bg=restoreHexRgb(bgHex),colors=(palette||[]).filter(c=>restoreRgbDistance(restoreHexRgb(c),bg)>14)
+      .sort((a,b)=>restoreRgbDistance(restoreHexRgb(a),bg)-restoreRgbDistance(restoreHexRgb(b),bg));
+  if(colors.length<2)return null;
+  let single=restoreHexRgb(colors[Math.max(0,colors.length-2)]),cross=restoreHexRgb(colors[colors.length-1]),ratios=[];
+  for(let k=0;k<3;k++){
+    let den=single[k]-bg[k];if(Math.abs(den)<8)continue;
+    let r=(cross[k]-single[k])/den;if(Number.isFinite(r)&&r>=-.1&&r<=1.1)ratios.push(r)
+  }
+  if(!ratios.length)return null;
+  let keep=clamp(1-restoreMedian(ratios,.7),.08,.9),fg=[];
+  for(let k=0;k<3;k++)fg[k]=clamp((single[k]-(1-keep)*bg[k])/Math.max(.02,keep),0,255);
+  return {alpha:keep,foreground:rgbToHex(fg),single:rgbToHex(single),intersection:rgbToHex(cross)}
+}
+function restoreFeatureVectorAdvanced(canvas){
+  let {width:w,height:h}=canvas,d=canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data,
+      gray=new Float32Array(w*h),alpha=new Float32Array(w*h),edge=new Float32Array(w*h);
+  for(let i=0,p=0;i<d.length;i+=4,p++){alpha[p]=d[i+3]/255;gray[p]=(d[i]*.299+d[i+1]*.587+d[i+2]*.114)/255}
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let i=y*w+x,x2=Math.min(w-1,x+1),y2=Math.min(h-1,y+1),
+        ex=Math.abs(gray[y*w+x2]-gray[i])+.65*Math.abs(alpha[y*w+x2]-alpha[i]),
+        ey=Math.abs(gray[y2*w+x]-gray[i])+.65*Math.abs(alpha[y2*w+x]-alpha[i]);
+    edge[i]=Math.min(1,ex+ey)
+  }
+  return {gray,alpha,edge}
+}
+function restoreVectorSimilarityAdvanced(a,b){
+  if(!a||!b||a.length!==b.length||!a.length)return 0;
+  let ma=0,mb=0;for(let i=0;i<a.length;i++){ma+=a[i];mb+=b[i]}ma/=a.length;mb/=b.length;
+  let num=0,da=0,db=0,err=0;
+  for(let i=0;i<a.length;i++){let aa=a[i]-ma,bb=b[i]-mb;num+=aa*bb;da+=aa*aa;db+=bb*bb;err+=Math.abs(a[i]-b[i])}
+  let corr=(da>1e-10&&db>1e-10)?(num/Math.sqrt(da*db)+1)/2:0,
+      mseLike=1-Math.min(1,err/a.length);
+  return clamp(corr*.68+mseLike*.32,0,1)
+}
+function restoreFeatureScoreAdvanced(source,candidate){
+  let e=restoreVectorSimilarityAdvanced(source.edge,candidate.edge),
+      g=restoreVectorSimilarityAdvanced(source.gray,candidate.gray),
+      a=restoreVectorSimilarityAdvanced(source.alpha,candidate.alpha),
+      mean=v=>{let s=0;for(let n of v)s+=n;return s/v.length},
+      density=1-Math.min(1,Math.abs(mean(source.edge)-mean(candidate.edge))*4.5);
+  return clamp(e*.60+g*.22+a*.08+density*.10,0,1)
+}
+function buildRestoreCandidateLayerAdvanced(preset,result){
+  let d=PE.defaults[preset.id]||{},layer=defaultLayer(0,preset.id,true),st=result.structure||{},
+      px=Math.max(8,st.periodX||72),py=Math.max(8,st.periodY||px),period=restoreMedian([px,py],72),
+      thick=Math.max(.8,restoreMedian([st.bandX,st.bandY],2)),opt=preset.opt||{};
+  Object.assign(layer,d);
+  layer.sourceType='builtin';layer.presetId=preset.id;layer.enabled=true;layer.rotation=0;layer.jitter=0;
+  layer.randomSize=false;layer.randomAngle=false;layer.randomPosition=false;layer.colorMode='individual';
+  layer.colors=normalizeColors(result.colors);layer.masterColor=layer.colors[1];layer.seed=47291;
+  layer.offsetX=Math.round(st.phaseX||0);layer.offsetY=Math.round(st.phaseY||0);
+  if(isBasicZeroGapPresetId(preset.id))layer.gap=0;
+
+  if(preset.type==='grid'||preset.type==='grid-diamond'){
+    layer.size=70;layer.gap=0;layer.gridX=Math.round(px);layer.gridY=Math.round(py);layer.stroke=Math.max(1,Math.round(thick));
+    layer.colors[1]=result.lineColor||result.colors[1];layer.colors[4]=layer.colors[1];
+    if(preset.type==='grid-diamond'){layer.diamondColor=result.colors[2]||result.colors[1];layer.diamondSize=Math.max(3,Math.round(thick*2.6))}
+  }else if(preset.type==='dashed-grid'){
+    layer.size=180;layer.gap=0;layer.gridX=Math.round(px);layer.gridY=Math.round(py);
+    layer.dashedLineColor=result.lineColor||result.colors[1];layer.dashedLineOpacity=100;layer.dashedLineWidth=Math.max(1,Math.round(thick));
+    layer.dashLength=clampInt(st.dashLength,1,200,9);layer.dashGap=clampInt(st.dashGap,1,200,12);layer.stroke=layer.dashedLineWidth
+  }else if(preset.type==='checker'){
+    layer.size=Math.max(8,Math.round(period));layer.gap=isBasicZeroGapPresetId(preset.id)?0:Math.max(0,Math.round((d.gap??0)));
+    layer.stroke=0;layer.opacity=100;
+    if(opt.contiguous){layer.colors[2]=result.bg}
+  }else if(preset.type==='overlap-check'){
+    layer.size=Math.max(8,Math.round(period));layer.gap=0;layer.stroke=0;layer.opacity=100;
+    let blend=estimateRestoreOverlapBlend(result.bg,result.palette);
+    if(blend){
+      layer.colors[1]=blend.foreground;layer.masterColor=blend.foreground;
+      let target=blend.alpha;
+      if(target<.22){layer.detail=0;layer.opacity=clampInt(target/.22*100,10,100,100)}
+      else if(target<=.44){layer.detail=clampInt((target-.22)/.22*100,0,100,45);layer.opacity=100}
+      else{layer.detail=100;layer.opacity=100}
+    }
+  }else if(preset.type==='soft-window-check'){
+    layer.size=84;layer.gap=0;layer.windowCheckX=Math.round(px);layer.windowCheckY=Math.round(py);
+    layer.windowCheckLineWidth=Math.max(1,Math.round(thick));layer.windowCheckSecondaryOpacity=28
+  }else if(preset.type==='milky-mini-check-window'){
+    layer.size=84;layer.gap=0;layer.milkyCheckX=Math.round(px);layer.milkyCheckY=Math.round(py);
+    layer.milkyBandWidth=Math.max(3,Math.round(thick));layer.milkyCheckColor=result.colors[2]||result.colors[1];
+    layer.milkyMiniColor=result.colors[3]||'#FFF9F1'
+  }else if(preset.type==='simple-diamond'){
+    layer.size=90;layer.gap=0;layer.simpleDiamondX=Math.round(px);layer.simpleDiamondY=Math.round(Math.max(py,px*1.2));
+    layer.simpleDiamondColor=result.colors[1]
+  }else if(preset.type==='pastel-argyle'){
+    layer.size=92;layer.gap=0;layer.argyleX=Math.round(px);layer.argyleY=Math.round(py);
+    layer.argyleLineWidth=Math.max(1,Math.round(thick));layer.argyleLineColor=result.colors[4]
+  }else if(preset.type==='stripes'){
+    let stripeSize=Math.max(6,Math.round(thick/.55)),step=Math.max(stripeSize,Math.round(py||px));
+    layer.size=stripeSize;layer.gap=Math.max(0,step-stripeSize);layer.stroke=0
+  }else if(preset.type==='plaid'||preset.type==='reference-plaid'||preset.type==='layered-fabric-plaid'||preset.type==='textured-checker'||preset.type==='wavy-checker'){
+    layer.size=Math.max(10,Math.round(period));layer.gap=Math.max(0,Math.round(d.gap??0));layer.stroke=Math.max(1,Math.round(thick))
+  }else if(preset.type==='motif'||preset.type==='raindrops'){
+    let step=Math.max(12,Math.round(period));layer.size=Math.max(12,Math.round(Math.min(step*.7,Math.max(thick*2.4,step*.38))));
+    layer.gap=Math.max(0,step-layer.size)
+  }else{
+    layer.size=Math.max(10,Math.round(period));layer.gap=Math.max(0,Math.round(d.gap??0));layer.stroke=Math.max(0,Math.round(d.stroke??layer.stroke??0))
+  }
+  if(layer.dashedHeartColor!==undefined)layer.dashedHeartColor=result.colors[3];
+  if(layer.airyStripeColor!==undefined)layer.airyStripeColor=result.colors[4];
+  if(layer.airyPointColor!==undefined)layer.airyPointColor=result.colors[3];
+  return layer
+}
+function renderRestoreLayerCandidate(layer,result,sampleInfo){
+  let c=document.createElement('canvas');c.width=sampleInfo.canvas.width;c.height=sampleInfo.canvas.height;
+  let x=c.getContext('2d',{willReadFrequently:true}),preset=getPreset(layer.presetId),s=layerToPatternState(layer,false);
+  resetCanvasRenderState(x);x.clearRect(0,0,c.width,c.height);
+  s.skipBackground=false;s.transparentBg=!!result.transparent;s.bgMode='solid';s.anchorExact=false;s.colors=normalizeColors(layer.colors);
+  PE.render(x,c.width,c.height,s,preset,sampleInfo.scale);
+  return c
+}
+function restoreParameterSpecs(preset,layer,result){
+  let st=result.structure||{},specs=[];
+  const add=(key,min,max,ratios=[.88,.96,1,1.04,1.12])=>{
+    let cur=Number(layer[key]);if(!Number.isFinite(cur))return;
+    specs.push({key,values:[...new Set(ratios.map(r=>clamp(Math.round(cur*r*100)/100,min,max)))]})
+  };
+  if(preset.type==='grid'||preset.type==='grid-diamond'){
+    add('gridX',8,2000,[.9,.96,1,1.04,1.1]);add('gridY',8,2000,[.9,.96,1,1.04,1.1]);add('stroke',1,80,[.65,.82,1,1.18,1.4])
+  }else if(preset.type==='dashed-grid'){
+    add('gridX',8,2000,[.9,.96,1,1.04,1.1]);add('gridY',8,2000,[.9,.96,1,1.04,1.1]);
+    add('dashedLineWidth',.5,80,[.65,.82,1,1.18,1.4]);add('dashLength',1,300,[.75,.9,1,1.12,1.3]);add('dashGap',1,300,[.75,.9,1,1.12,1.3])
+  }else if(preset.type==='soft-window-check'){
+    add('windowCheckX',12,2000,[.9,.96,1,1.04,1.1]);add('windowCheckY',12,2000,[.9,.96,1,1.04,1.1]);add('windowCheckLineWidth',.5,80,[.65,.82,1,1.18,1.4])
+  }else if(preset.type==='milky-mini-check-window'){
+    add('milkyCheckX',16,2000,[.9,.96,1,1.04,1.1]);add('milkyCheckY',16,2000,[.9,.96,1,1.04,1.1]);add('milkyBandWidth',2,300,[.7,.85,1,1.15,1.35])
+  }else if(preset.type==='simple-diamond'){
+    add('simpleDiamondX',12,2000,[.9,.96,1,1.04,1.1]);add('simpleDiamondY',18,2400,[.9,.96,1,1.04,1.1])
+  }else if(preset.type==='pastel-argyle'){
+    add('argyleX',20,2000,[.9,.96,1,1.04,1.1]);add('argyleY',18,2000,[.9,.96,1,1.04,1.1]);add('argyleLineWidth',.5,80,[.7,.85,1,1.15,1.35])
+  }else{
+    add('size',6,1200,[.82,.91,.97,1,1.04,1.1,1.2]);
+    if(!isBasicZeroGapPresetId(preset.id)&&Number(layer.gap)>0)add('gap',0,1000,[.55,.8,1,1.2,1.5])
+    if(Number(layer.stroke)>0)add('stroke',0,80,[.65,.82,1,1.18,1.4])
+  }
+  return specs
+}
+async function optimizeRestoreLayer(preset,initial,result,sampleInfo,sourceFeatures){
+  let bestLayer=clone(initial),bestScore=restoreFeatureScoreAdvanced(sourceFeatures,restoreFeatureVectorAdvanced(renderRestoreLayerCandidate(bestLayer,result,sampleInfo))),
+      specs=restoreParameterSpecs(preset,bestLayer,result),checks=0;
+  for(let pass=0;pass<2;pass++){
+    for(let spec of specs){
+      let localBest=bestScore,localValue=bestLayer[spec.key];
+      for(let value of spec.values){
+        let test=clone(bestLayer);test[spec.key]=value;
+        if(spec.key==='dashedLineWidth')test.stroke=value;
+        let score=restoreFeatureScoreAdvanced(sourceFeatures,restoreFeatureVectorAdvanced(renderRestoreLayerCandidate(test,result,sampleInfo)));
+        if(score>localBest){localBest=score;localValue=value}
+        if(++checks%16===0)await new Promise(r=>requestAnimationFrame(r))
+      }
+      bestLayer[spec.key]=localValue;if(spec.key==='dashedLineWidth')bestLayer.stroke=localValue;bestScore=localBest
+    }
+    let rotationValues=[-45,-30,-15,-8,0,8,15,30,45],rb=bestScore,rv=bestLayer.rotation||0;
+    for(let rot of rotationValues){
+      let test=clone(bestLayer);test.rotation=rot;
+      let score=restoreFeatureScoreAdvanced(sourceFeatures,restoreFeatureVectorAdvanced(renderRestoreLayerCandidate(test,result,sampleInfo)));
+      if(score>rb){rb=score;rv=rot}
+      if(++checks%16===0)await new Promise(r=>requestAnimationFrame(r))
+    }
+    bestLayer.rotation=rv;bestScore=rb
+  }
+  return {layer:bestLayer,score:bestScore}
+}
+function restoreConfidence(score,margin=0,structureConfidence=.5){
+  let fit=clamp((score-.50)/.40,0,1),sep=clamp(margin/.10,0,1);
+  return clamp(fit*.72+sep*.18+structureConfidence*.10,0,1)
+}
+function restoreConfidenceLabel(v){
+  return v>=.78?'높음':v>=.58?'보통':'낮음'
+}
+function restoreSettingsSummary(preset,layer,result,candidate){
+  let st=result.structure||{},rows=[
+    {label:'패턴 종류',value:preset.name,status:candidate?.confidence>=.78?'추정 · 높은 신뢰':'추정'},
+    {label:'캔버스',value:result.width+'×'+result.height+'px',status:'이미지 원본값'},
+    {label:'배경색',value:result.transparent?'투명':result.bg,status:'추정'},
+    {label:'패턴 색상',value:(layer.colors||[]).slice(1,4).join(' / '),status:'추정'}
+  ];
+  if(preset.type==='grid'||preset.type==='grid-diamond')rows.push(
+    {label:'격자 X / Y',value:Math.round(layer.gridX)+' / '+Math.round(layer.gridY)+'px',status:'반복 주기 분석'},
+    {label:'선 두께',value:Math.round(layer.stroke*10)/10+'px',status:'추정'}
+  );
+  else if(preset.type==='dashed-grid')rows.push(
+    {label:'격자 X / Y',value:Math.round(layer.gridX)+' / '+Math.round(layer.gridY)+'px',status:'반복 주기 분석'},
+    {label:'선 두께',value:Math.round(layer.dashedLineWidth*10)/10+'px',status:'추정'},
+    {label:'점선 길이 / 간격',value:Math.round(layer.dashLength)+' / '+Math.round(layer.dashGap)+'px',status:'추정'}
+  );
+  else if(preset.type==='soft-window-check')rows.push(
+    {label:'윈도우 X / Y',value:Math.round(layer.windowCheckX)+' / '+Math.round(layer.windowCheckY)+'px',status:'반복 주기 분석'},
+    {label:'선 두께',value:Math.round(layer.windowCheckLineWidth*10)/10+'px',status:'추정'}
+  );
+  else if(preset.type==='milky-mini-check-window')rows.push(
+    {label:'체크 X / Y',value:Math.round(layer.milkyCheckX)+' / '+Math.round(layer.milkyCheckY)+'px',status:'반복 주기 분석'},
+    {label:'밴드 두께',value:Math.round(layer.milkyBandWidth)+'px',status:'추정'}
+  );
+  else if(preset.type==='simple-diamond')rows.push(
+    {label:'다이아 X / Y',value:Math.round(layer.simpleDiamondX)+' / '+Math.round(layer.simpleDiamondY)+'px',status:'추정'}
+  );
+  else if(preset.type==='pastel-argyle')rows.push(
+    {label:'아가일 X / Y',value:Math.round(layer.argyleX)+' / '+Math.round(layer.argyleY)+'px',status:'추정'},
+    {label:'선 두께',value:Math.round(layer.argyleLineWidth*10)/10+'px',status:'추정'}
+  );
+  else rows.push(
+    {label:'패턴 크기',value:Math.round(layer.size)+'px',status:'반복 구조 분석'},
+    {label:'간격',value:Math.round(layer.gap||0)+'px',status:isBasicZeroGapPresetId(preset.id)?'원본 구조 우선 · 0':'추정'}
+  );
+  rows.push({label:'회전',value:Math.round(layer.rotation||0)+'°',status:'재생성 오차 비교'});
+  if(st.phaseX||st.phaseY)rows.push({label:'반복 기준 위치',value:Math.round(st.phaseX||0)+' / '+Math.round(st.phaseY||0)+'px',status:'추정'});
+  return rows
+}
+async function analyzePatternRestoreImage(img,forcedPresetId=''){
+  let sampleInfo=buildRestoreSampleInfo(img,240),transparent=restoreImageHasTransparency(sampleInfo.canvas),
+      palette=extractRestorePaletteStable(img,7),bg=estimateRestoreBackgroundAdvanced(sampleInfo,palette,transparent),
+      colors=buildRestoreColorsAdvanced(palette,bg),structure=estimateRestoreStructure(sampleInfo,bg),
+      result={exact:false,transparent,bg,colors,palette,width:sampleInfo.iw,height:sampleInfo.ih,structure,lineColor:colors[1],candidates:[],forcedPresetId:forcedPresetId||''},
+      sourceFeatures=restoreFeatureVectorAdvanced(sampleInfo.canvas),
+      presets=forcedPresetId?[getPreset(forcedPresetId)]:restoreCandidatePresets(),coarse=[],checks=0;
+  presets=presets.filter(Boolean);
+  for(let preset of presets){
+    let layer=buildRestoreCandidateLayerAdvanced(preset,result),
+        candidateCanvas=renderRestoreLayerCandidate(layer,result,sampleInfo),
+        score=restoreFeatureScoreAdvanced(sourceFeatures,restoreFeatureVectorAdvanced(candidateCanvas));
+    coarse.push({preset,layer,score});
+    if(++checks%18===0)await new Promise(r=>requestAnimationFrame(r))
+  }
+  coarse.sort((a,b)=>b.score-a.score);
+  let refineCount=forcedPresetId?1:Math.min(6,coarse.length),refined=[];
+  for(let i=0;i<refineCount;i++){
+    let seed=coarse[i],fit=await optimizeRestoreLayer(seed.preset,seed.layer,result,sampleInfo,sourceFeatures);
+    refined.push({id:seed.preset.id,layer:fit.layer,score:fit.score})
+  }
+  refined.sort((a,b)=>b.score-a.score);
+  let second=refined[1]?.score??(refined[0]?.score??0);
+  refined.forEach((cand,i)=>{
+    let margin=i===0?Math.max(0,cand.score-second):0;
+    cand.confidence=restoreConfidence(cand.score,margin,structure.confidence);
+    cand.settings=restoreSettingsSummary(getPreset(cand.id),cand.layer,result,cand)
+  });
+  result.candidates=refined.slice(0,3);
+  return result
+}
+function applyRestoreCandidate(candidate,result=patternRestoreResult,{remember=true}={}){
+  if(!candidate||!result||!candidate.layer)return;
+  if(remember&&!patternRestorePreviousState)patternRestorePreviousState=clone(stripStateForSave(state));
+  state.exportW=clampInt(result.width,16,8000,state.exportW||2000);
+  state.exportH=clampInt(result.height,16,8000,state.exportH||2000);
+  state.bg.transparent=!!result.transparent;state.bg.mode='solid';state.bg.colors=[result.bg,result.bg];
+  state.bg.gradientStops=buildGradientStopsFromColors([result.bg,result.bg]);state.bg.backgroundOnly=false;
+  state.bg.vignette={enabled:false,color:'#6F55C9',range:72,strength:28,softness:28};
+  state.gradientOverlays={overlay1:defaultGradientOverlay(1),overlay2:defaultGradientOverlay(2)};
+  state.layers=[clone(candidate.layer)];state.layers[0].name='기본 레이어';state.layers[0].enabled=true;
+  activeLayerIndex=0;result.appliedCandidateId=candidate.id;
+  persistAll();syncAll();renderPatternRestoreResult()
+}
+function drawPatternRestoreComparison(){
+  let compare=$('#patternRestoreCompareCanvas');if(!compare||!patternRestoreImage)return;
+  let rect=compare.getBoundingClientRect(),cssW=Math.max(260,Math.round(rect.width||520)),
+      ratio=(patternRestoreImage.naturalWidth||patternRestoreImage.width)/Math.max(1,(patternRestoreImage.naturalHeight||patternRestoreImage.height)),
+      cssH=Math.max(160,Math.min(360,Math.round(cssW/Math.max(.35,Math.min(3.5,ratio))))),dpr=Math.min(2,window.devicePixelRatio||1);
+  compare.width=Math.round(cssW*dpr);compare.height=Math.round(cssH*dpr);compare.style.height=cssH+'px';
+  let x=compare.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,cssW,cssH);
+  const drawFit=(img,alpha=1)=>{
+    let iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,fit=Math.min(cssW/iw,cssH/ih),
+        dw=iw*fit,dh=ih*fit,dx=(cssW-dw)/2,dy=(cssH-dh)/2;
+    x.save();x.globalAlpha=alpha;x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(img,dx,dy,dw,dh);x.restore()
+  };
+  if(patternRestoreCompareMode==='original')drawFit(patternRestoreImage,1);
+  else if(patternRestoreCompareMode==='restored')drawFit(canvas,1);
+  else{
+    drawFit(patternRestoreImage,1);
+    drawFit(canvas,.5);
+    x.save();x.fillStyle='rgba(255,255,255,.88)';x.font='700 11px sans-serif';x.fillText('원본 + 복원 50%',10,18);x.restore()
+  }
+}
+function populatePatternRestorePresetSelect(){
+  let sel=$('#patternRestorePresetSelect');if(!sel)return;
+  let current=sel.value||patternRestoreForcedPresetId||'';sel.innerHTML='';
+  let auto=document.createElement('option');auto.value='';auto.textContent='자동 인식 결과 사용';sel.appendChild(auto);
+  let groups=new Map();
+  restoreCandidatePresets().forEach(p=>{if(!groups.has(p.category))groups.set(p.category,[]);groups.get(p.category).push(p)});
+  groups.forEach((items,category)=>{
+    let g=document.createElement('optgroup');g.label=category;
+    items.forEach(p=>{let op=document.createElement('option');op.value=p.id;op.textContent=p.name;g.appendChild(op)});sel.appendChild(g)
+  });
+  sel.value=current
+}
+function renderPatternRestoreResult(){
+  let root=$('#patternRestoreResult'),status=$('#patternRestoreStatus');if(!root)return;
+  root.innerHTML='';populatePatternRestorePresetSelect();
+  if(patternRestoreBusy){if(status)status.textContent='패턴 구조와 설정값을 분석 중…';root.innerHTML='<div class="pattern-restore-loading">반복 주기·선 두께·색상 영역을 분석하고 내장 패턴으로 다시 렌더링해 오차를 비교하고 있어.</div>';return}
+  if(!patternRestoreResult){if(status)status.textContent='이미지를 첨부하면 분석 결과가 여기에 표시돼.';drawPatternRestoreComparison();return}
+  let r=patternRestoreResult;
+  if(r.exact){
+    if(status)status.textContent='PNG 메타데이터의 실제 편집 설정을 사용해 정확 복원했어.';
+    let summary=document.createElement('div');summary.className='pattern-restore-summary';
+    summary.innerHTML='<strong>정확 복원</strong><span>원본 '+r.width+'×'+r.height+'px · 저장된 설정값 사용</span>';root.appendChild(summary);
+    let exact=document.createElement('div');exact.className='pattern-restore-settings';
+    let layer=currentLayer(),p=layer.sourceType==='builtin'?getPreset(layer.presetId):null;
+    [
+      ['패턴 종류',p?p.name:'업로드 에셋','정확'],
+      ['캔버스',r.width+'×'+r.height+'px','정확'],
+      ['패턴 크기',Math.round(layer.size||0)+'px','정확'],
+      ['간격',Math.round(layer.gap||0)+'px','정확'],
+      ['불투명도',Math.round(layer.opacity??100)+'%','정확']
+    ].forEach(v=>{let row=document.createElement('div');row.className='pattern-restore-setting-row';row.innerHTML='<span>'+v[0]+'</span><strong>'+v[1]+'</strong><small>'+v[2]+'</small>';exact.appendChild(row)});
+    root.appendChild(exact)
+  }else{
+    let best=r.candidates?.[0],applied=r.appliedCandidateId&&r.candidates?.find(c=>c.id===r.appliedCandidateId)||best;
+    if(status){
+      if(!best)status.textContent='일치하는 패턴 후보를 찾지 못했어. 패턴 종류를 직접 선택해서 다시 분석해 봐.';
+      else if(best.confidence<.58&&!r.appliedCandidateId)status.textContent='자동 인식 신뢰도가 낮아서 기존 작업을 변경하지 않았어. 패턴 종류를 직접 선택하면 해당 구조로 다시 분석해.';
+      else status.textContent='업로드 이미지를 직접 표시한 것이 아니라 분석한 설정으로 패턴을 다시 생성했어.'
+    }
+    if(best){
+      let summary=document.createElement('div');summary.className='pattern-restore-summary';
+      summary.innerHTML='<strong>'+getPreset(best.id).name+(r.forcedPresetId?' · 수동 선택 분석':' · 자동 인식')+'</strong><span>유사도 '+Math.round(best.score*100)+'% · 신뢰도 '+restoreConfidenceLabel(best.confidence)+' '+Math.round(best.confidence*100)+'%</span>';
+      root.appendChild(summary);
+      let palette=document.createElement('div');palette.className='pattern-restore-palette';
+      (r.palette||[]).slice(0,7).forEach(c=>{let sw=document.createElement('span');sw.title=c;sw.style.background=c;palette.appendChild(sw)});root.appendChild(palette);
+      let settings=document.createElement('div');settings.className='pattern-restore-settings';
+      (applied?.settings||best.settings||[]).forEach(item=>{let row=document.createElement('div');row.className='pattern-restore-setting-row';row.innerHTML='<span>'+item.label+'</span><strong>'+item.value+'</strong><small>'+item.status+'</small>';settings.appendChild(row)});root.appendChild(settings)
+    }
+    if(r.candidates?.length){
+      let list=document.createElement('div');list.className='pattern-restore-candidates';
+      r.candidates.forEach((cand,i)=>{
+        let p=getPreset(cand.id),b=document.createElement('button');b.type='button';b.className='pattern-restore-candidate'+(cand.id===r.appliedCandidateId?' best':'');
+        b.innerHTML='<strong>'+(i===0?'추천 · ':'')+p.name+'</strong><span>유사도 '+Math.round(cand.score*100)+'% · 신뢰도 '+restoreConfidenceLabel(cand.confidence)+' · 패턴 크기 '+Math.round(cand.layer.size||0)+'px</span>';
+        b.onclick=()=>applyRestoreCandidate(cand,r,{remember:false});list.appendChild(b)
+      });
+      root.appendChild(list)
+    }
+  }
+  if(patternRestorePreviousState){
+    let undo=document.createElement('button');undo.type='button';undo.className='mini-btn';undo.textContent='분석 전 작업으로 되돌리기';
+    undo.onclick=()=>{state=mergeState(clone(patternRestorePreviousState));patternRestorePreviousState=null;activeLayerIndex=0;persistAll();syncAll();renderPatternRestoreResult();toast('분석 전 작업으로 되돌렸어.')};
+    root.appendChild(undo)
+  }
+  drawPatternRestoreComparison()
+}
+async function reanalyzePatternRestoreSelectedPreset(){
+  if(!patternRestoreImage||patternRestoreBusy)return;
+  let sel=$('#patternRestorePresetSelect'),id=sel?.value||'';if(!id){toast('직접 분석할 패턴 종류를 선택해줘.');return}
+  patternRestoreForcedPresetId=id;patternRestoreBusy=true;renderPatternRestoreResult();
+  try{
+    let r=await analyzePatternRestoreImage(patternRestoreImage,id);patternRestoreResult=r;
+    let best=r.candidates?.[0];
+    if(best){applyRestoreCandidate(best,r,{remember:false});toast(getPreset(id).name+' 구조로 다시 분석해서 적용했어.')}
+    else toast('선택한 패턴 구조로 설정값을 찾지 못했어.')
+  }catch(err){console.error('Manual restore analysis failed',err);toast('선택한 패턴 재분석 중 오류가 발생했어.')}
+  finally{patternRestoreBusy=false;renderPatternRestoreResult()}
+}
+async function handlePatternRestoreFile(file){
+  if(!file)return;
+  let ok=/^image\/(png|jpeg|webp)$/i.test(file.type||'')||/\.(png|jpe?g|webp)$/i.test(file.name||'');
+  if(!ok){toast('PNG / JPG / JPEG / WEBP 이미지만 분석할 수 있어.');return}
+  if(file.size>80*1024*1024){toast('이미지 파일이 너무 커. 80MB 이하 파일을 사용해줘.');return}
+  patternRestoreBusy=true;patternRestoreResult=null;patternRestoreForcedPresetId='';patternRestoreSourceFile=file;
+  if(!patternRestorePreviousState)patternRestorePreviousState=clone(stripStateForSave(state));
+  renderPatternRestoreResult();
+  try{
+    if(patternRestoreObjectUrl)URL.revokeObjectURL(patternRestoreObjectUrl);
+    patternRestoreObjectUrl=URL.createObjectURL(file);patternRestoreImage=await loadImage(patternRestoreObjectUrl);
+    let preview=$('#patternRestorePreview');if(preview){preview.src=patternRestoreObjectUrl;preview.hidden=false}
+    let meta=await readPatternStudioMetadata(file);
+    if(meta?.state&&restoreExactState(meta,patternRestoreImage)){
+      patternRestoreResult={exact:true,width:patternRestoreImage.naturalWidth||patternRestoreImage.width,height:patternRestoreImage.naturalHeight||patternRestoreImage.height,palette:extractRestorePaletteStable(patternRestoreImage,7),colors:currentLayer().colors||[],candidates:[],metadataVersion:meta.version||''};
+      toast('PNG에 저장된 실제 편집 설정을 정확하게 복원했어.')
+    }else{
+      let r=await analyzePatternRestoreImage(patternRestoreImage,'');patternRestoreResult=r;
+      let best=r.candidates?.[0];
+      if(best&&best.confidence>=.58){applyRestoreCandidate(best,r,{remember:false});toast('이미지를 분석해 가장 가까운 편집 가능한 패턴을 재생성했어.')}
+      else if(best){toast('자동 인식 신뢰도가 낮아 기존 작업은 유지했어. 패턴 종류를 직접 선택해 다시 분석할 수 있어.')}
+      else toast('패턴 후보를 찾지 못했어. 패턴 종류 직접 선택을 사용해봐.')
+    }
+  }catch(err){
+    console.error('Pattern restore failed',err);patternRestoreResult=null;toast('이미지 분석 중 오류가 발생했어. 기존 작업은 유지했어.')
+  }finally{patternRestoreBusy=false;renderPatternRestoreResult()}
+}
+function bindPatternRestoreControls(){
+  let input=$('#patternRestoreInput'),pick=$('#patternRestorePickBtn'),drop=$('#patternRestoreDropzone');
+  if(!input||!pick||!drop)return;
+  populatePatternRestorePresetSelect();
+  pick.onclick=()=>input.click();
+  drop.onclick=e=>{if(e.target.closest('button,select'))return;input.click()};
+  input.onchange=()=>{let file=input.files?.[0];if(file){patternRestorePreviousState=null;handlePatternRestoreFile(file)}input.value=''};
+  ['dragenter','dragover'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add('dragover')}));
+  ['dragleave','drop'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove('dragover')}));
+  drop.addEventListener('drop',e=>{let file=[...(e.dataTransfer?.files||[])][0];if(file){patternRestorePreviousState=null;handlePatternRestoreFile(file)}});
+  let re=$('#patternRestoreReanalyzeBtn');if(re)re.onclick=reanalyzePatternRestoreSelectedPreset;
+  document.querySelectorAll('[data-restore-compare]').forEach(btn=>btn.onclick=()=>{
+    patternRestoreCompareMode=btn.dataset.restoreCompare||'overlay';
+    document.querySelectorAll('[data-restore-compare]').forEach(b=>b.classList.toggle('active',b===btn));drawPatternRestoreComparison()
+  });
+  renderPatternRestoreResult()
+}
+async function runPatternRestoreSyntheticTests(){
+  const makeResult=(bg,colors)=>({transparent:false,bg,colors:normalizeColors(colors),palette:colors,width:512,height:512,structure:{periodX:64,periodY:64,bandX:3,bandY:3,phaseX:0,phaseY:0,dashLength:9,dashGap:12,confidence:1}});
+  let tests=[];
+  try{
+    let gridResult=makeResult('#17191E',['#17191E','#6E747D','#9AA0A9','#CED2D6','#6E747D']),gridPreset=getPreset('grid'),
+        gridLayer=buildRestoreCandidateLayerAdvanced(gridPreset,gridResult);gridLayer.gridX=64;gridLayer.gridY=72;gridLayer.stroke=3;
+    let gridCanvas=document.createElement('canvas');gridCanvas.width=gridCanvas.height=512;
+    let gs=layerToPatternState(gridLayer,false);gs.skipBackground=false;gs.transparentBg=false;PE.render(gridCanvas.getContext('2d'),512,512,gs,gridPreset,1);
+    let ga=await analyzePatternRestoreImage(gridCanvas,'grid'),gb=ga.candidates?.[0];
+    tests.push({name:'A dark grid',pass:!!gb&&gb.id==='grid'&&Math.abs(gb.layer.gridX-64)<=10&&Math.abs(gb.layer.gridY-72)<=12,result:gb});
+
+    let checkResult=makeResult('#FFF7E8',['#FFF7E8','#BBD98F','#E3F1C8','#F4EEDB','#9EBB73']),checkPreset=getPreset('pastel-checker'),
+        checkLayer=buildRestoreCandidateLayerAdvanced(checkPreset,checkResult);checkLayer.size=48;checkLayer.gap=0;
+    let checkCanvas=document.createElement('canvas');checkCanvas.width=checkCanvas.height=512;
+    let cs=layerToPatternState(checkLayer,false);cs.skipBackground=false;cs.transparentBg=false;PE.render(checkCanvas.getContext('2d'),512,512,cs,checkPreset,1);
+    let ca=await analyzePatternRestoreImage(checkCanvas,'pastel-checker'),cb=ca.candidates?.[0];
+    tests.push({name:'B green checker',pass:!!cb&&cb.id==='pastel-checker'&&cb.layer.gap===0&&Math.abs(cb.layer.size-48)<=10,result:cb});
+
+    let ma=await analyzePatternRestoreImage(checkCanvas,'pastel-checker'),mb=ma.candidates?.[0];
+    tests.push({name:'C manual preset reanalysis',pass:!!mb&&mb.id==='pastel-checker',result:mb});
+
+    let tiny=document.createElement('canvas');tiny.width=tiny.height=8;let blob=await new Promise(r=>tiny.toBlob(r,'image/png')),
+        payload={schema:2,version:'2.9.0',state:stripStateForSave(state)},tagged=await attachPatternStudioMetadata(blob,payload),
+        file=new File([tagged],'restore-test.png',{type:'image/png'}),meta=await readPatternStudioMetadata(file);
+    tests.push({name:'D PNG metadata roundtrip',pass:meta?.schema===2&&meta?.version==='2.9.0'})
+  }catch(err){tests.push({name:'diagnostic error',pass:false,error:String(err)})}
+  return {passed:tests.filter(t=>t.pass).length,total:tests.length,tests}
+}
+window.CutePatternRestoreDiagnostics={runSyntheticTests:runPatternRestoreSyntheticTests};
 function renderReferencePalette(){
   let wrap=$('#referencePalette');if(!wrap)return;wrap.innerHTML='';
   if(!referencePalette.length){wrap.innerHTML='<div class="micro-copy">이미지를 첨부하면 대표색 5개가 자동으로 나타나.</div>';return}
