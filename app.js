@@ -20,7 +20,7 @@ const MAX_LAYERS=8;
 const colorMeta=[['배경 A','주 배경/기본색'],['패턴 A','패턴 기본색'],['패턴 B','서브 패턴색'],['포인트','포인트/장식색'],['선 색','체크 외곽선/그리드 선']];
 const defaultBg=['#FFF9FC','#F5B9D4'];
 const MAX_BG_STOPS=6;
-let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],recentReferenceColors=[],referenceImage=null,referenceObjectUrl='',referenceSampleCanvas=null,referenceSelectedColor='',referenceSelectedRgb=null,referenceZoom=1,referencePanX=0,referencePanY=0,referenceViewMetrics=null,activeReferenceColorInput=null,activeReferenceColorLabel='',referenceDragState=null,referenceDockCollapsed=localStorage.getItem('cps-v260-reference-dock-collapsed')==='1',patternRestoreImage=null,patternRestoreObjectUrl='',patternRestoreResult=null,patternRestorePreviousState=null,patternRestoreBusy=false;
+let zoom=1,activeCategory='전체',activeLayerIndex=0,thumbTimer=0,referencePalette=[],recentReferenceColors=[],referenceImage=null,referenceObjectUrl='',referenceSampleCanvas=null,referenceSelectedColor='',referenceSelectedRgb=null,referenceZoom=1,referencePanX=0,referencePanY=0,referenceViewMetrics=null,activeReferenceColorInput=null,activeReferenceColorLabel='',referenceDragState=null,referenceDockCollapsed=localStorage.getItem('cps-v260-reference-dock-collapsed')==='1',patternRestoreImage=null,patternRestoreObjectUrl='',patternRestoreResult=null,patternRestorePreviousState=null,patternRestoreBusy=false,patternRestoreSourceFile=null,patternRestoreCompareMode='overlay',patternRestoreForcedPresetId='';
 
 function normalizeHexLike(value,fallback='#FFFFFF'){return /^#[0-9a-fA-F]{6}$/.test(String(value||'').trim())?String(value).trim().toUpperCase():fallback}
 function buildGradientStopsFromColors(colors){let list=(Array.isArray(colors)?colors:[...defaultBg]).filter(Boolean).map((c,i)=>normalizeHexLike(c,defaultBg[Math.min(i,defaultBg.length-1)]||'#FFFFFF')).slice(0,MAX_BG_STOPS);if(!list.length)list=[defaultBg[0],defaultBg[1]];if(list.length===1)list.push(list[0]);let step=list.length>1?100/(list.length-1):100;return list.map((color,i)=>({color,pos:Math.round(step*i)}))}
@@ -384,7 +384,7 @@ function composePreviewFrame(){
 function renderMainNow(){
   const frame=composePreviewFrame();
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='copy';ctx.drawImage(frame,0,0);ctx.globalCompositeOperation='source-over';
-  updateSelected();renderCirclePreview()
+  updateSelected();renderCirclePreview();if(patternRestoreImage)drawPatternRestoreComparison()
 }
 function renderMain(){
   const token=++previewRenderToken;
