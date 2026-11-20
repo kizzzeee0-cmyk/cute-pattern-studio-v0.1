@@ -66,10 +66,10 @@
   }
 
   function checker(ctx,w,h,s,scale,opt={}){
-    let p=common(s,scale),cell=Math.max(4,p.size),contiguous=!!opt.contiguous,step=contiguous?cell:Math.max(cell*.45,cell+p.gap),rng=mulberry32(p.seed),cols=s.colors,outlineColor=cols[4]||cols[3]||cols[2]||cols[1],extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180;
+    let p=common(s,scale),cell=Math.max(4,p.size),contiguous=!!opt.contiguous,step=contiguous?cell:Math.max(cell*.45,cell+p.gap),rng=mulberry32(p.seed),cols=s.colors,outlineColor=cols[4]||cols[3]||cols[2]||cols[1],extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180,ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale;
     if(opt.rotate45){
       let diamondW=Math.max(12,cell*1.05),diamondH=Math.max(18,cell*1.68),extra=Math.hypot(w,h)+diamondH*3;
-      ctx.save();ctx.translate(w/2,h/2);ctx.rotate(p.rot+(opt.rotateDeg||0)*Math.PI/180);ctx.translate(-w/2,-h/2);
+      ctx.save();ctx.translate(w/2,h/2);ctx.rotate(p.rot+(opt.rotateDeg||0)*Math.PI/180);ctx.translate(-w/2,-h/2);ctx.translate(ox,oy);
       alignedDiamondLattice(ctx,w,h,{
         diamondW,diamondH,extra,
         colorAt:(row,col,rowParity)=>rowParity===0?(cols[1]||'#AFC3FF'):(opt.gingham?(cols[2]||cols[0]):(cols[0]||'#FFFFFF')),
@@ -81,7 +81,7 @@
       });
       ctx.restore();return
     }
-    ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3; y<h+step*3; row++,y+=step){for(let col=-3,x=-step*3; x<w+step*3; col++,x+=step){let on=(row+col)%2===0;let wob=opt.hand?p.jit*.3:0,xx=x+jitter(rng,wob),yy=y+jitter(rng,wob),sz=cell+(opt.hand?jitter(rng,p.jit*.18):0),drawn=false;ctx.lineWidth=p.stroke;ctx.strokeStyle=outlineColor;if(opt.tricolor){let chosen=[cols[1],cols[2],cols[3]][Math.abs((row+col)%3)];ctx.globalAlpha=(s.anchorExact&&chosen===cols[1])?1:p.op;ctx.fillStyle=chosen;if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.16));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(opt.gingham){let chosen=s.anchorExact?(on?cols[1]:cols[2]):(on?cols[2]:cols[1]);ctx.globalAlpha=s.anchorExact?1:p.op*(on?.62:.18);ctx.fillStyle=chosen;ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false){ctx.globalAlpha=p.op;ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(contiguous){ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else{if(!on)continue;ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}if(drawn&&opt.soft){ctx.globalAlpha=p.op*.14;ctx.fillStyle=opt.tricolor?cols[(Math.abs((row+col)%3)+1)%3+1]:on?cols[2]:cols[1];ctx.fillRect(xx+sz*.08,yy+sz*.08,sz*.84,sz*.84)}if(drawn&&opt.motif&&rng()<.35+p.detail*.5){ctx.fillStyle=cols[3];ctx.globalAlpha=p.op*.88;let mx=xx+sz/2,my=yy+sz/2,ms=sz*(.16+.13*p.detail);if(opt.motif==='heart'){heart(ctx,mx,my,ms);ctx.fill()}if(opt.motif==='star'){star(ctx,mx,my,ms,ms*.48);ctx.fill()}if(opt.motif==='dot'){ctx.beginPath();ctx.arc(mx,my,ms*.65,0,TAU);ctx.fill()}}}}ctx.restore()}
+    ctx.save();ctx.globalAlpha=p.op;ctx.translate(w/2,h/2);ctx.rotate(p.rot+extraRot);ctx.translate(-w/2,-h/2);for(let row=-3,y=-step*3+oy; y<h+step*3; row++,y+=step){for(let col=-3,x=-step*3+ox; x<w+step*3; col++,x+=step){let on=(row+col)%2===0;let wob=opt.hand?p.jit*.3:0,xx=x+jitter(rng,wob),yy=y+jitter(rng,wob),sz=cell+(opt.hand?jitter(rng,p.jit*.18):0),drawn=false;ctx.lineWidth=p.stroke;ctx.strokeStyle=outlineColor;if(opt.tricolor){let chosen=[cols[1],cols[2],cols[3]][Math.abs((row+col)%3)];ctx.globalAlpha=(s.anchorExact&&chosen===cols[1])?1:p.op;ctx.fillStyle=chosen;if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.16));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(opt.gingham){let chosen=s.anchorExact?(on?cols[1]:cols[2]):(on?cols[2]:cols[1]);ctx.globalAlpha=s.anchorExact?1:p.op*(on?.62:.18);ctx.fillStyle=chosen;ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false){ctx.globalAlpha=p.op;ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else if(contiguous){ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}else{if(!on)continue;ctx.globalAlpha=s.anchorExact?1:p.op;ctx.fillStyle=on?cols[1]:cols[2];if(opt.round){roundRect(ctx,xx,yy,sz,sz,Math.max(3,sz*.18));ctx.fill();if(p.stroke>0&&opt.outline!==false)ctx.stroke()}else{ctx.fillRect(xx,yy,sz,sz);if(p.stroke>0&&opt.outline!==false)ctx.strokeRect(xx,yy,sz,sz)}drawn=true}if(drawn&&opt.soft){ctx.globalAlpha=p.op*.14;ctx.fillStyle=opt.tricolor?cols[(Math.abs((row+col)%3)+1)%3+1]:on?cols[2]:cols[1];ctx.fillRect(xx+sz*.08,yy+sz*.08,sz*.84,sz*.84)}if(drawn&&opt.motif&&rng()<.35+p.detail*.5){ctx.fillStyle=cols[3];ctx.globalAlpha=p.op*.88;let mx=xx+sz/2,my=yy+sz/2,ms=sz*(.16+.13*p.detail);if(opt.motif==='heart'){heart(ctx,mx,my,ms);ctx.fill()}if(opt.motif==='star'){star(ctx,mx,my,ms,ms*.48);ctx.fill()}if(opt.motif==='dot'){ctx.beginPath();ctx.arc(mx,my,ms*.65,0,TAU);ctx.fill()}}}}ctx.restore()}
   function overlapChecker(ctx,w,h,s,scale,opt={}){
     let p=common(s,scale),cell=Math.max(8,p.size),step=Math.max(8,cell+(opt.allowGap?(p.gap||0):0)),rng=mulberry32(p.seed),
       extraRot=((opt.rotate45?45:0)+(opt.rotateDeg||0))*Math.PI/180,
@@ -376,9 +376,9 @@
       secondary=s.colors[3]||primary,
       lineW=Math.max(.8,(s.windowCheckLineWidth??2)*sizeFactor*scale),
       secondaryAlpha=Math.max(0,Math.min(1,(s.windowCheckSecondaryOpacity??28)/100)),
-      bandW=Math.max(lineW*4,Math.min(stepX,stepY)*.085);
+      bandW=Math.max(lineW*4,Math.min(stepX,stepY)*.085),ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale;
     ctx.save();
-    ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);
+    ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);ctx.translate(ox,oy);
 
     // Very soft wide bands around the main grid lines create the layered fabric/check feel.
     ctx.fillStyle=secondary;
@@ -421,12 +421,13 @@
     const miniGap=Math.max(0,(s.milkyMiniGap??2)*sizeFactor*scale);
     const miniEvery=Math.max(1,Math.round(s.milkyMiniEvery??2));
 
-    const extra=Math.max(stepX,stepY)*4;
+    const extra=Math.max(stepX,stepY)*4,ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale;
 
     ctx.save();
     ctx.translate(w/2,h/2);
     ctx.rotate(p.rot);
     ctx.translate(-w/2,-h/2);
+    ctx.translate(ox,oy);
 
     /*
      * 0. Very light same-hue wash.
@@ -557,13 +558,13 @@
     ctx.restore()
   }
 
-  function grid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),baseStep=Math.max(10,p.size+p.gap),customXY=s.presetId==='grid',sizeFactor=customXY?Math.max(.1,(Number(s.size)||70)/70):1,stepX=customXY?Math.max(10,(s.gridX??96)*sizeFactor*scale):baseStep,stepY=customXY?Math.max(10,(s.gridY??96)*sizeFactor*scale):baseStep,rng=mulberry32(p.seed);ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.lineCap='round';ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let x=-stepX;x<w+stepX;x+=stepX){ctx.beginPath();for(let y=-stepY;y<=h+stepY;y+=Math.max(2,stepY/3)){let xx=x+(opt.hand?jitter(rng,p.jit*.22):0);y===-stepY?ctx.moveTo(xx,y):ctx.lineTo(xx,y)}ctx.stroke()}for(let y=-stepY;y<h+stepY;y+=stepY){ctx.beginPath();for(let x=-stepX;x<=w+stepX;x+=Math.max(2,stepX/3)){let yy=y+(opt.hand?jitter(rng,p.jit*.22):0);x===-stepX?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke()}ctx.restore()}
+  function grid(ctx,w,h,s,scale,opt={}){let p=common(s,scale),baseStep=Math.max(10,p.size+p.gap),customXY=s.presetId==='grid',sizeFactor=customXY?Math.max(.1,(Number(s.size)||70)/70):1,stepX=customXY?Math.max(10,(s.gridX??96)*sizeFactor*scale):baseStep,stepY=customXY?Math.max(10,(s.gridY??96)*sizeFactor*scale):baseStep,rng=mulberry32(p.seed),ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale;ctx.save();ctx.globalAlpha=p.op;ctx.strokeStyle=s.colors[1];ctx.lineWidth=p.stroke;ctx.lineCap='round';ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);for(let x=-stepX+ox;x<w+stepX;x+=stepX){ctx.beginPath();for(let y=-stepY+oy;y<=h+stepY;y+=Math.max(2,stepY/3)){let xx=x+(opt.hand?jitter(rng,p.jit*.22):0);y===-stepY?ctx.moveTo(xx,y):ctx.lineTo(xx,y)}ctx.stroke()}for(let y=-stepY+oy;y<h+stepY;y+=stepY){ctx.beginPath();for(let x=-stepX+ox;x<=w+stepX;x+=Math.max(2,stepX/3)){let yy=y+(opt.hand?jitter(rng,p.jit*.22):0);x===-stepX?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke()}ctx.restore()}
   function gridDiamond(ctx,w,h,s,scale,opt={}){
     let p=common(s,scale),sizeFactor=Math.max(.1,(Number(s.size)||70)/70),
       stepX=Math.max(10,(s.gridX??96)*sizeFactor*scale),stepY=Math.max(10,(s.gridY??96)*sizeFactor*scale),
       diamondColor=s.diamondColor||s.colors[2]||s.colors[1]||'#BFD7FF',
       diamondSize=Math.max(2,(s.diamondSize??10)*sizeFactor*scale),
-      half=diamondSize/2;
+      half=diamondSize/2,ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale;
     ctx.save();
     ctx.globalAlpha=p.op;
     ctx.strokeStyle=s.colors[1];
@@ -572,17 +573,17 @@
     ctx.translate(w/2,h/2);ctx.rotate(p.rot);ctx.translate(-w/2,-h/2);
 
     // Same clean pastel grid structure as the standard grid preset.
-    for(let x=-stepX;x<w+stepX;x+=stepX){
+    for(let x=-stepX+ox;x<w+stepX;x+=stepX){
       ctx.beginPath();ctx.moveTo(x,-stepY);ctx.lineTo(x,h+stepY);ctx.stroke()
     }
-    for(let y=-stepY;y<h+stepY;y+=stepY){
+    for(let y=-stepY+oy;y<h+stepY;y+=stepY){
       ctx.beginPath();ctx.moveTo(-stepX,y);ctx.lineTo(w+stepX,y);ctx.stroke()
     }
 
     // Soft diamond accents sit exactly on the grid intersections.
     ctx.fillStyle=diamondColor;
-    for(let x=-stepX;x<w+stepX;x+=stepX){
-      for(let y=-stepY;y<h+stepY;y+=stepY){
+    for(let x=-stepX+ox;x<w+stepX;x+=stepX){
+      for(let y=-stepY+oy;y<h+stepY;y+=stepY){
         ctx.beginPath();
         ctx.moveTo(x,y-half);
         ctx.lineTo(x+half,y);
@@ -809,7 +810,7 @@
     let gridX=Math.max(8,(s.gridX??180)*overallScale*scale);
     let gridY=Math.max(8,(s.gridY??180)*overallScale*scale);
     let extraRotation=opt.diamond?45:0,rot=((s.rotation||0)+extraRotation)*Math.PI/180;
-    let ox=0,oy=0,extra=Math.hypot(w,h);
+    let ox=(s.offsetX||0)*scale,oy=(s.offsetY||0)*scale,extra=Math.hypot(w,h);
     let heartSize=Math.max(3,(s.dashedHeartSize??14)*overallScale*scale);
     let heartPadding=Math.max(lineWidth*2.2,(s.dashedHeartGap??4)*overallScale*scale);
     let heartClearance=heartSize*.72+heartPadding;
