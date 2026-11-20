@@ -358,7 +358,8 @@ function resizePreviewCanvasToOutput(){
 }
 function composePreviewFrame(){
   let frame=document.createElement('canvas');frame.width=canvas.width;frame.height=canvas.height;
-  let fctx=frame.getContext('2d');
+  let fctx=frame.getContext('2d'),target=getCanvasTargetSize(),
+      renderScale=Math.min(frame.width/Math.max(1,target.w),frame.height/Math.max(1,target.h));
   resetCanvasRenderState(fctx);
   fctx.clearRect(0,0,frame.width,frame.height);
   drawBackground(fctx,frame.width,frame.height);
@@ -366,8 +367,8 @@ function composePreviewFrame(){
     if(!layer.enabled)continue;
     try{
       resetCanvasRenderState(fctx);
-      if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),frame.width/2000);
-      else renderUploadedLayer(fctx,frame.width,frame.height,layer,frame.width/2000,false);
+      if(layer.sourceType==='builtin')PE.render(fctx,frame.width,frame.height,layerToPatternState(layer,false),getPreset(layer.presetId),renderScale);
+      else renderUploadedLayer(fctx,frame.width,frame.height,layer,renderScale,false);
       resetCanvasRenderState(fctx);
     }catch(err){console.error('Layer render failed:',layer?.presetId||layer?.assetId,err)}
   }
@@ -1116,13 +1117,13 @@ async function exportPNG(seamless=false){
     if(!layer.enabled)continue;
     resetCanvasRenderState(octx);
     if(layer.sourceType==='builtin'){
-      PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),w/2000)
+      PE.render(octx,w,h,layerToPatternState(layer,seamless),getPreset(layer.presetId),1)
     }else{
       let asset=userAssets.find(v=>v.id===layer.assetId);
       if(asset){
         await ensureAssetImage(asset,layer).catch(()=>null);
         resetCanvasRenderState(octx);
-        renderUploadedLayer(octx,w,h,layer,w/2000,seamless)
+        renderUploadedLayer(octx,w,h,layer,1,seamless)
       }
     }
     resetCanvasRenderState(octx)
@@ -1138,7 +1139,7 @@ async function exportPNG(seamless=false){
   resetCanvasRenderState(octx);
   let blob=await new Promise(r=>out.toBlob(r,'image/png'));
   if(!blob){toast('PNG 생성에 실패했어.');return}
-  blob=await attachPatternStudioMetadata(blob,{schema:1,version:'2.8.0',savedAt:Date.now(),state:stripStateForSave(state),export:{w,h,seamless:!!seamless}});
+  blob=await attachPatternStudioMetadata(blob,{schema:2,version:'2.9.0',savedAt:Date.now(),state:stripStateForSave(state),export:{w,h,seamless:!!seamless}});
   let link=document.createElement('a');link.href=URL.createObjectURL(blob);
   link.download=seamless?('cute-pattern-seamless-'+w+'x'+h+'.png'):('cute-pattern-'+w+'x'+h+'.png');
   link.click();
