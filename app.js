@@ -1138,6 +1138,7 @@ async function exportPNG(seamless=false){
   resetCanvasRenderState(octx);
   let blob=await new Promise(r=>out.toBlob(r,'image/png'));
   if(!blob){toast('PNG 생성에 실패했어.');return}
+  blob=await attachPatternStudioMetadata(blob,{schema:1,version:'2.8.0',savedAt:Date.now(),state:stripStateForSave(state),export:{w,h,seamless:!!seamless}});
   let link=document.createElement('a');link.href=URL.createObjectURL(blob);
   link.download=seamless?('cute-pattern-seamless-'+w+'x'+h+'.png'):('cute-pattern-'+w+'x'+h+'.png');
   link.click();
@@ -1515,6 +1516,8 @@ function applyRestoreCandidate(candidate,result=patternRestoreResult,{remember=t
 }
 function restoreExactState(meta,img){
   if(!meta?.state)return false;
+  let missingAsset=(meta.state.layers||[]).some(layer=>layer?.sourceType==='uploaded'&&layer.assetId&&!userAssets.some(a=>a.id===layer.assetId));
+  if(missingAsset)return false;
   if(!patternRestorePreviousState)patternRestorePreviousState=clone(stripStateForSave(state));
   state=mergeState(meta.state);
   state.exportW=clampInt(img.naturalWidth||img.width,16,8000,state.exportW||2000);
@@ -1715,6 +1718,7 @@ function bindPatternWheelScroll(){
   },{passive:false})
 }
 function bindGlobalControls(){
+  bindPatternRestoreControls();
   $('#searchInput').oninput=renderPatternList;
   $('#favoriteOnly').onchange=renderPatternList;
   $('#checkOnly').onchange=renderPatternList;
