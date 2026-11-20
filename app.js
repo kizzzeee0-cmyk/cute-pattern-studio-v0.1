@@ -1161,7 +1161,7 @@ async function exportPNG(seamless=false){
   resetCanvasRenderState(octx);
   let blob=await new Promise(r=>out.toBlob(r,'image/png'));
   if(!blob){toast('PNG 생성에 실패했어.');return}
-  blob=await attachPatternStudioMetadata(blob,{schema:2,version:'2.9.0',savedAt:Date.now(),state:stripStateForSave(state),export:{w,h,seamless:!!seamless}});
+  blob=await attachPatternStudioMetadata(blob,{schema:2,version:'2.9.1',savedAt:Date.now(),state:stripStateForSave(state),export:{w,h,seamless:!!seamless}});
   let link=document.createElement('a');link.href=URL.createObjectURL(blob);
   link.download=seamless?('cute-pattern-seamless-'+w+'x'+h+'.png'):('cute-pattern-'+w+'x'+h+'.png');
   link.click();
@@ -2342,7 +2342,7 @@ async function runPatternRestoreSyntheticTests(){
     tests.push({name:'C manual preset reanalysis',pass:!!mb&&mb.id==='pastel-checker',result:mb});
 
     let tiny=document.createElement('canvas');tiny.width=tiny.height=8;let blob=await new Promise(r=>tiny.toBlob(r,'image/png')),
-        payload={schema:2,version:'2.9.0',state:stripStateForSave(state)},tagged=await attachPatternStudioMetadata(blob,payload),
+        payload={schema:2,version:'2.9.1',state:stripStateForSave(state)},tagged=await attachPatternStudioMetadata(blob,payload),
         file=new File([tagged],'restore-test.png',{type:'image/png'}),meta=await readPatternStudioMetadata(file);
     tests.push({name:'D PNG metadata roundtrip',pass:meta?.schema===2&&meta?.version==='2.9.0'})
   }catch(err){tests.push({name:'diagnostic error',pass:false,error:String(err)})}
