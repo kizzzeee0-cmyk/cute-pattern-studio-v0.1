@@ -1066,7 +1066,29 @@ function sliderRow(label,key,val,min,max,unit,setter){let wrap=document.createEl
 function syncLayerUI(){setupLayerTabs();renderLayerSummary();try{renderLayerEditor()}catch(err){console.error('Layer editor render failed:',err);let root=$('#layerEditor');if(root)root.innerHTML='<div class="info-box"><strong>설정 패널을 다시 불러오는 중이야.</strong><div class="micro-copy">패턴 미리보기와 선택 기능은 계속 사용할 수 있어. 새로고침하면 설정 패널도 다시 시도돼.</div></div>'}updateSelected();persistAll()}
 function renderPatternListDebounced(){clearTimeout(thumbTimer);thumbTimer=setTimeout(renderPatternList,160)}
 
-async function handleAssetFiles(files){let added=0,addedAssets=[];for(let file of files){try{let asset=await fileToAsset(file);userAssets.unshift(asset);addedAssets.unshift(asset);added++}catch(e){console.error(e)}}if(added){let layer=currentLayer();if(addedAssets[0]){layer.sourceType='uploaded';layer.assetId=addedAssets[0].id;layer.renderMode=layer.renderMode||'motif'}persistAll();syncLayerUI();renderAssetList();toast(`${added}개 에셋을 추가했고, 현재 레이어에 바로 연결했어.`);renderMain()}}
+async function shouldRouteAssetFileToPatternRestore(file){
+  if(!file||file.type?.includes('svg')||/\.svg$/i.test(file.name||''))return false;
+  if(await readPatternStudioMetadata(file).catch(()=>null))return true;
+  return /^cute-pattern(?:-|_|\s)/i.test(file.name||'')||/^pattern(?:-|_|\s).*\d+x\d+/i.test(file.name||'')
+}
+async function handleAssetFiles(files){
+  let added=0,addedAssets=[],restored=0;
+  for(let file of files){
+    try{
+      if(await shouldRouteAssetFileToPatternRestore(file)){
+        await handlePatternRestoreFile(file);restored++;continue
+      }
+      let asset=await fileToAsset(file);userAssets.unshift(asset);addedAssets.unshift(asset);added++
+    }catch(e){console.error(e)}
+  }
+  if(added){
+    let layer=currentLayer();
+    if(addedAssets[0]){layer.sourceType='uploaded';layer.assetId=addedAssets[0].id;layer.renderMode=layer.renderMode||'motif'}
+    persistAll();syncLayerUI();renderAssetList();toast(`${added}개 모티프 에셋을 추가했어.`);renderMain()
+  }else if(restored){
+    renderAssetList()
+  }
+}
 function readFileAsDataURL(file){return new Promise((resolve,reject)=>{let fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(file)})}
 function readFileAsText(file){return new Promise((resolve,reject)=>{let fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsText(file)})}
 async function fileToAsset(file){let kind=file.type.includes('svg')||file.name.toLowerCase().endsWith('.svg')?'svg':'raster';let dataURL=await readFileAsDataURL(file);let asset={id:uid('asset'),name:file.name,kind,dataURL,addedAt:Date.now(),svgText:'',svgColorMode:'original',tint:'#9B87F5'};if(kind==='svg')asset.svgText=await readFileAsText(file);await ensureAssetImage(asset,{svgColorMode:'original',colors:['#FFF','#9B87F5','#B9D7FF','#BFAAF2']}).catch(()=>null);return asset}
@@ -1984,11 +2006,79 @@ function restoreSettingsSummary(preset,layer,result,candidate){
   if(st.phaseX||st.phaseY)rows.push({label:'반복 기준 위치',value:Math.round(st.phaseX||0)+' / '+Math.round(st.phaseY||0)+'px',status:estimateStatus});
   return rows
 }
+
+function restoreMostDistinctPaletteColor(palette,bgHex){
+  let bg=restoreHexRgb(bgHex),best=null,bestDist=-1;
+  for(let c of (palette||[])){
+    let d=restoreRgbDistance(restoreHexRgb(c),bg);
+    if(d>bestDist){bestDist=d;best=c}
+  }
+  return best||'#808080'
+}
+function restoreGridAxisCoverage(sampleInfo,bgHex,axis,periodOriginal,phaseOriginal,bandOriginal){
+  let c=sampleInfo.canvas,x=c.getContext('2d',{willReadFrequently:true}),w=c.width,h=c.height,
+      d=x.getImageData(0,0,w,h).data,bg=restoreHexRgb(bgHex),scale=Math.max(.001,sampleInfo.scale),
+      period=Math.max(2,periodOriginal*scale),phase=((phaseOriginal*scale)%period+period)%period,
+      radius=Math.max(0,Math.min(3,Math.round((bandOriginal*scale)/2))),
+      len=axis==='x'?w:h,other=axis==='x'?h:w,threshold=12,coverages=[];
+  for(let coord=phase;coord<len;coord+=period){
+    let ci=Math.round(coord),hit=0,total=0;
+    for(let b=0;b<other;b+=Math.max(1,Math.floor(other/220))){
+      let best=0;
+      for(let o=-radius;o<=radius;o++){
+        let xx=axis==='x'?clamp(ci+o,0,w-1):b,yy=axis==='x'?b:clamp(ci+o,0,h-1),
+            i=(yy*w+xx)*4,a=d[i+3]/255;if(a<.1)continue;
+        best=Math.max(best,restoreRgbDistance([d[i],d[i+1],d[i+2]],bg))
+      }
+      if(best>threshold)hit++;total++
+    }
+    if(total)coverages.push(hit/total)
+  }
+  return coverages.length?restoreMedian(coverages,0):0
+}
+function detectSolidPastelGridRestore(img,palette,bgHex,transparent){
+  let measurementInfo=buildRestoreSampleInfo(img,720),structure=estimateRestoreStructure(measurementInfo,bgHex),
+      px=Math.max(1,structure.periodX||0),py=Math.max(1,structure.periodY||0),
+      bx=Math.max(.5,structure.bandX||0),by=Math.max(.5,structure.bandY||0),
+      covX=restoreGridAxisCoverage(measurementInfo,bgHex,'x',px,structure.phaseX||0,bx),
+      covY=restoreGridAxisCoverage(measurementInfo,bgHex,'y',py,structure.phaseY||0,by),
+      thinX=bx/px,thinY=by/py,
+      regular=structure.periodScoreX>=.52&&structure.periodScoreY>=.52,
+      thin=thinX<=.28&&thinY<=.28,
+      continuous=covX>=.78&&covY>=.78,
+      squareish=Math.max(px,py)/Math.max(1,Math.min(px,py))<=2.5,
+      confidence=clamp(structure.confidence*.35+Math.min(covX,covY)*.55+(thin?.10:0),0,1);
+  if(!regular||!thin||!continuous||!squareish)return null;
+  let lineColor=restoreMostDistinctPaletteColor(palette,bgHex),result={
+    exact:false,transparent,bg:bgHex,palette,colors:normalizeColors([bgHex,lineColor,mixHex(lineColor,bgHex,.35),mixHex(lineColor,bgHex,.65),lineColor]),
+    width:img.naturalWidth||img.width,height:img.naturalHeight||img.height,
+    structure,lineColor,candidates:[],forcedPresetId:'',detector:'solid-grid'
+  };
+  let preset=getPreset('grid'),layer=buildRestoreCandidateLayerAdvanced(preset,result);
+  layer.size=70;layer.gap=0;layer.gridX=Math.max(8,Math.round(px));layer.gridY=Math.max(8,Math.round(py));
+  layer.stroke=Math.max(1,Math.round(restoreMedian([bx,by],2)*10)/10);
+  layer.opacity=100;layer.rotation=0;layer.colors[0]=bgHex;layer.colors[1]=lineColor;layer.colors[4]=lineColor;
+  layer.masterColor=lineColor;layer.offsetX=Math.round(structure.phaseX||0);layer.offsetY=Math.round(structure.phaseY||0);
+  let candidate={id:'grid',layer,score:clamp(.82+confidence*.15,0,1),confidence:Math.max(.90,confidence)};
+  candidate.settings=restoreSettingsSummary(preset,layer,result,candidate);
+  result.candidates=[candidate];result.structure=structure;
+  return result
+}
 async function analyzePatternRestoreImage(img,forcedPresetId=''){
-  let sampleInfo=buildRestoreSampleInfo(img,240),transparent=restoreImageHasTransparency(sampleInfo.canvas),
-      palette=extractRestorePaletteStable(img,7),bg=estimateRestoreBackgroundAdvanced(sampleInfo,palette,transparent),
-      colors=buildRestoreColorsAdvanced(palette,bg),structure=estimateRestoreStructure(sampleInfo,bg),
-      result={exact:false,transparent,bg,colors,palette,width:sampleInfo.iw,height:sampleInfo.ih,structure,lineColor:colors[1],candidates:[],forcedPresetId:forcedPresetId||''},
+  let sampleInfo=buildRestoreSampleInfo(img,240),measurementInfo=buildRestoreSampleInfo(img,720),
+      transparent=restoreImageHasTransparency(sampleInfo.canvas),
+      palette=extractRestorePaletteStable(img,7),bg=estimateRestoreBackgroundAdvanced(measurementInfo,palette,transparent),
+      colors=buildRestoreColorsAdvanced(palette,bg),structure=estimateRestoreStructure(measurementInfo,bg);
+
+  // Strong primitive recognition comes before the broad library competition.
+  // A continuous axis-aligned grid should restore as the built-in "파스텔 격자",
+  // never as an uploaded tile or a visually similar dashed/stripe preset.
+  if(!forcedPresetId||forcedPresetId==='grid'){
+    let directGrid=detectSolidPastelGridRestore(img,palette,bg,transparent);
+    if(directGrid)return directGrid
+  }
+
+  let result={exact:false,transparent,bg,colors,palette,width:sampleInfo.iw,height:sampleInfo.ih,structure,lineColor:colors[1],candidates:[],forcedPresetId:forcedPresetId||''},
       sourceFeatures=restoreFeatureVectorAdvanced(sampleInfo.canvas),
       presets=forcedPresetId?[getPreset(forcedPresetId)]:restoreCandidatePresets(),coarse=[],checks=0;
   presets=presets.filter(Boolean);
@@ -2181,6 +2271,14 @@ function bindPatternRestoreControls(){
   ['dragenter','dragover'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add('dragover')}));
   ['dragleave','drop'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove('dragover')}));
   drop.addEventListener('drop',e=>{let file=[...(e.dataTransfer?.files||[])][0];if(file){patternRestorePreviousState=null;handlePatternRestoreFile(file)}});
+  let leftBtn=$('#patternRestoreLeftBtn'),leftDrop=$('#patternRestoreLeftDropzone');
+  if(leftBtn)leftBtn.onclick=()=>input.click();
+  if(leftDrop){
+    leftDrop.onclick=()=>input.click();
+    ['dragenter','dragover'].forEach(type=>leftDrop.addEventListener(type,e=>{e.preventDefault();leftDrop.classList.add('dragover')}));
+    ['dragleave','drop'].forEach(type=>leftDrop.addEventListener(type,e=>{e.preventDefault();leftDrop.classList.remove('dragover')}));
+    leftDrop.addEventListener('drop',e=>{let file=[...(e.dataTransfer?.files||[])][0];if(file){patternRestorePreviousState=null;handlePatternRestoreFile(file)}})
+  }
   let re=$('#patternRestoreReanalyzeBtn');if(re)re.onclick=reanalyzePatternRestoreSelectedPreset;
   document.querySelectorAll('[data-restore-compare]').forEach(btn=>btn.onclick=()=>{
     patternRestoreCompareMode=btn.dataset.restoreCompare||'overlay';
