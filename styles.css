@@ -262,6 +262,13 @@ input[type=range]{accent-color:#ef82a7}
 .reference-selected-swatch{width:46px;height:46px;border-radius:12px;border:1px solid rgba(0,0,0,.09);background:linear-gradient(135deg,#f4f1f8,#fff)}
 .reference-selected-copy{display:grid;gap:2px}.reference-selected-copy strong{font-size:12px}.reference-selected-copy span{font-size:10px;color:#665d77}.reference-selected-copy small{font-size:9px;color:var(--muted)}
 .reference-apply-card,
+.pattern-import-shortcut{display:grid;gap:8px;background:#fbfaff}
+.pattern-import-shortcut .section-title-row{align-items:flex-start}
+.pattern-import-shortcut .micro-copy{line-height:1.5}
+.pattern-restore-shortcut-dropzone{width:100%;display:grid;gap:4px;text-align:left;padding:10px 11px;border:1.5px dashed #cfc3f6;border-radius:12px;background:#fff;color:#5f5872;cursor:pointer}
+.pattern-restore-shortcut-dropzone strong{font-size:10px;color:#514768}
+.pattern-restore-shortcut-dropzone span{font-size:9px;line-height:1.5;color:#8a819c}
+.pattern-restore-shortcut-dropzone:hover,.pattern-restore-shortcut-dropzone.dragover{border-color:#8f79e8;background:#f6f2ff}
 .pattern-restore-section{display:grid;gap:10px}
 .pattern-restore-dropzone{border:1.5px dashed #d7cdf8;background:linear-gradient(180deg,#fcfbff,#f7f4ff);border-radius:15px;padding:10px;display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center;cursor:pointer;min-height:88px}
 .pattern-restore-dropzone.dragover{background:#f0ebff;border-color:#9b87f0}
