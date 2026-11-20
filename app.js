@@ -1945,42 +1945,43 @@ function restoreConfidenceLabel(v){
   return v>=.78?'높음':v>=.58?'보통':'낮음'
 }
 function restoreSettingsSummary(preset,layer,result,candidate){
-  let st=result.structure||{},rows=[
-    {label:'패턴 종류',value:preset.name,status:candidate?.confidence>=.78?'추정 · 높은 신뢰':'추정'},
+  let st=result.structure||{},uncertain=(candidate?.confidence??0)<.58,estimateStatus=uncertain?'불확실 · 수정 가능':'추정',
+      structureStatus=uncertain?'불확실 · 반복 분석':'반복 주기 분석',rows=[
+    {label:'패턴 종류',value:preset.name,status:candidate?.confidence>=.78?'추정 · 높은 신뢰':estimateStatus},
     {label:'캔버스',value:result.width+'×'+result.height+'px',status:'이미지 원본값'},
-    {label:'배경색',value:result.transparent?'투명':result.bg,status:'추정'},
-    {label:'패턴 색상',value:(layer.colors||[]).slice(1,4).join(' / '),status:'추정'}
+    {label:'배경색',value:result.transparent?'투명':result.bg,status:estimateStatus},
+    {label:'패턴 색상',value:(layer.colors||[]).slice(1,4).join(' / '),status:estimateStatus}
   ];
   if(preset.type==='grid'||preset.type==='grid-diamond')rows.push(
-    {label:'격자 X / Y',value:Math.round(layer.gridX)+' / '+Math.round(layer.gridY)+'px',status:'반복 주기 분석'},
-    {label:'선 두께',value:Math.round(layer.stroke*10)/10+'px',status:'추정'}
+    {label:'격자 X / Y',value:Math.round(layer.gridX)+' / '+Math.round(layer.gridY)+'px',status:structureStatus},
+    {label:'선 두께',value:Math.round(layer.stroke*10)/10+'px',status:estimateStatus}
   );
   else if(preset.type==='dashed-grid')rows.push(
-    {label:'격자 X / Y',value:Math.round(layer.gridX)+' / '+Math.round(layer.gridY)+'px',status:'반복 주기 분석'},
-    {label:'선 두께',value:Math.round(layer.dashedLineWidth*10)/10+'px',status:'추정'},
-    {label:'점선 길이 / 간격',value:Math.round(layer.dashLength)+' / '+Math.round(layer.dashGap)+'px',status:'추정'}
+    {label:'격자 X / Y',value:Math.round(layer.gridX)+' / '+Math.round(layer.gridY)+'px',status:structureStatus},
+    {label:'선 두께',value:Math.round(layer.dashedLineWidth*10)/10+'px',status:estimateStatus},
+    {label:'점선 길이 / 간격',value:Math.round(layer.dashLength)+' / '+Math.round(layer.dashGap)+'px',status:estimateStatus}
   );
   else if(preset.type==='soft-window-check')rows.push(
-    {label:'윈도우 X / Y',value:Math.round(layer.windowCheckX)+' / '+Math.round(layer.windowCheckY)+'px',status:'반복 주기 분석'},
-    {label:'선 두께',value:Math.round(layer.windowCheckLineWidth*10)/10+'px',status:'추정'}
+    {label:'윈도우 X / Y',value:Math.round(layer.windowCheckX)+' / '+Math.round(layer.windowCheckY)+'px',status:structureStatus},
+    {label:'선 두께',value:Math.round(layer.windowCheckLineWidth*10)/10+'px',status:estimateStatus}
   );
   else if(preset.type==='milky-mini-check-window')rows.push(
-    {label:'체크 X / Y',value:Math.round(layer.milkyCheckX)+' / '+Math.round(layer.milkyCheckY)+'px',status:'반복 주기 분석'},
-    {label:'밴드 두께',value:Math.round(layer.milkyBandWidth)+'px',status:'추정'}
+    {label:'체크 X / Y',value:Math.round(layer.milkyCheckX)+' / '+Math.round(layer.milkyCheckY)+'px',status:structureStatus},
+    {label:'밴드 두께',value:Math.round(layer.milkyBandWidth)+'px',status:estimateStatus}
   );
   else if(preset.type==='simple-diamond')rows.push(
-    {label:'다이아 X / Y',value:Math.round(layer.simpleDiamondX)+' / '+Math.round(layer.simpleDiamondY)+'px',status:'추정'}
+    {label:'다이아 X / Y',value:Math.round(layer.simpleDiamondX)+' / '+Math.round(layer.simpleDiamondY)+'px',status:estimateStatus}
   );
   else if(preset.type==='pastel-argyle')rows.push(
-    {label:'아가일 X / Y',value:Math.round(layer.argyleX)+' / '+Math.round(layer.argyleY)+'px',status:'추정'},
-    {label:'선 두께',value:Math.round(layer.argyleLineWidth*10)/10+'px',status:'추정'}
+    {label:'아가일 X / Y',value:Math.round(layer.argyleX)+' / '+Math.round(layer.argyleY)+'px',status:estimateStatus},
+    {label:'선 두께',value:Math.round(layer.argyleLineWidth*10)/10+'px',status:estimateStatus}
   );
   else rows.push(
     {label:'패턴 크기',value:Math.round(layer.size)+'px',status:'반복 구조 분석'},
     {label:'간격',value:Math.round(layer.gap||0)+'px',status:isBasicZeroGapPresetId(preset.id)?'원본 구조 우선 · 0':'추정'}
   );
-  rows.push({label:'회전',value:Math.round(layer.rotation||0)+'°',status:'재생성 오차 비교'});
-  if(st.phaseX||st.phaseY)rows.push({label:'반복 기준 위치',value:Math.round(st.phaseX||0)+' / '+Math.round(st.phaseY||0)+'px',status:'추정'});
+  rows.push({label:'회전',value:Math.round(layer.rotation||0)+'°',status:uncertain?'불확실 · 오차 비교':'재생성 오차 비교'});
+  if(st.phaseX||st.phaseY)rows.push({label:'반복 기준 위치',value:Math.round(st.phaseX||0)+' / '+Math.round(st.phaseY||0)+'px',status:estimateStatus});
   return rows
 }
 async function analyzePatternRestoreImage(img,forcedPresetId=''){
@@ -2111,6 +2112,25 @@ function renderPatternRestoreResult(){
     root.appendChild(undo)
   }
   drawPatternRestoreComparison()
+}
+function restoreExactState(meta,img){
+  if(!meta?.state)return false;
+  let missingAsset=(meta.state.layers||[]).some(layer=>layer?.sourceType==='uploaded'&&layer.assetId&&!userAssets.some(a=>a.id===layer.assetId));
+  if(missingAsset)return false;
+  if(!patternRestorePreviousState)patternRestorePreviousState=clone(stripStateForSave(state));
+  let restored=clone(meta.state),legacyPixelScale=(Number(meta.schema)||1)<2;
+  if(legacyPixelScale){
+    let oldW=Number(meta.export?.w||restored.exportW||img.naturalWidth||img.width||2000),factor=Math.max(.05,oldW/2000);
+    (restored.layers||[]).forEach(layer=>{
+      ['size','gap','stroke','offsetX','offsetY','row1OffsetX','row1OffsetY','row2OffsetX','row2OffsetY'].forEach(k=>{
+        if(Number.isFinite(+layer[k]))layer[k]=Math.round(+layer[k]*factor*100)/100
+      })
+    })
+  }
+  state=mergeState(restored);
+  state.exportW=clampInt(img.naturalWidth||img.width,16,8000,state.exportW||2000);
+  state.exportH=clampInt(img.naturalHeight||img.height,16,8000,state.exportH||2000);
+  activeLayerIndex=0;persistAll();syncAll();return true
 }
 async function reanalyzePatternRestoreSelectedPreset(){
   if(!patternRestoreImage||patternRestoreBusy)return;
