@@ -2024,6 +2024,34 @@ function normalizeRestoreProbeStructure(structure,probe){
   if(out.periodY>0)out.phaseY=(((out.phaseY||0)+(probe.originY||0))%out.periodY+out.periodY)%out.periodY;
   return out
 }
+
+function sampleSolidGridLineColor(probe,bgHex,mx,my){
+  let c=probe.canvas,x=c.getContext('2d',{willReadFrequently:true}),w=c.width,h=c.height,
+      d=x.getImageData(0,0,w,h).data,bg=restoreHexRgb(bgHex),buckets=new Map();
+  const addPixel=(xx,yy)=>{
+    xx=clamp(Math.round(xx),0,w-1);yy=clamp(Math.round(yy),0,h-1);
+    let best=null,bestDist=0,radius=2;
+    for(let oy=-radius;oy<=radius;oy++)for(let ox=-radius;ox<=radius;ox++){
+      let px=clamp(xx+ox,0,w-1),py=clamp(yy+oy,0,h-1),i=(py*w+px)*4;
+      if(d[i+3]<220)continue;
+      let rgb=[d[i],d[i+1],d[i+2]],dist=restoreRgbDistance(rgb,bg);
+      if(dist>bestDist){bestDist=dist;best=rgb}
+    }
+    if(!best||bestDist<12)return;
+    let q=2,key=best.map(v=>Math.round(v/q)*q).join(','),item=buckets.get(key)||{n:0,r:0,g:0,b:0};
+    item.n++;item.r+=best[0];item.g+=best[1];item.b+=best[2];buckets.set(key,item)
+  };
+  if(mx?.period>0){
+    let p=mx.period,phase=((mx.phase%p)+p)%p;
+    for(let xx=phase;xx<w;xx+=p)for(let yy=3;yy<h;yy+=Math.max(3,Math.floor(h/120)))addPixel(xx,yy)
+  }
+  if(my?.period>0){
+    let p=my.period,phase=((my.phase%p)+p)%p;
+    for(let yy=phase;yy<h;yy+=p)for(let xx=3;xx<w;xx+=Math.max(3,Math.floor(w/180)))addPixel(xx,yy)
+  }
+  let best=[...buckets.values()].sort((a,b)=>b.n-a.n)[0];
+  return best?rgbToHex([best.r/best.n,best.g/best.n,best.b/best.n]):null
+}
 function restoreMostDistinctPaletteColor(palette,bgHex){
   let bg=restoreHexRgb(bgHex),best=null,bestDist=-1;
   for(let c of (palette||[])){
@@ -2082,7 +2110,7 @@ function detectSolidPastelGridRestore(img,palette,bgHex,transparent){
       squareish=Math.max(px,py)/Math.max(1,Math.min(px,py))<=2.5,
       confidence=clamp(structure.confidence*.35+Math.min(covX,covY)*.55+(thin?.10:0),0,1);
   if(!regular||!thin||!continuous||!squareish)return null;
-  let lineColor=restoreMostDistinctPaletteColor(palette,bgHex),result={
+  let lineColor=sampleSolidGridLineColor(probe,bgHex,mx,my)||restoreMostDistinctPaletteColor(palette,bgHex),result={
     exact:false,transparent,bg:bgHex,palette,colors:normalizeColors([bgHex,lineColor,mixHex(lineColor,bgHex,.35),mixHex(lineColor,bgHex,.65),lineColor]),
     width:img.naturalWidth||img.width,height:img.naturalHeight||img.height,
     structure,lineColor,candidates:[],forcedPresetId:'',detector:'solid-grid'
