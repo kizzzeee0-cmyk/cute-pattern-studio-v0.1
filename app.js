@@ -2032,6 +2032,16 @@ function restoreMostDistinctPaletteColor(palette,bgHex){
   }
   return best||'#808080'
 }
+
+function measureSolidGridAxis(probe,bgHex,axis){
+  let profiles=restoreAxisProfiles(probe.canvas,bgHex,axis),rough=estimateRestorePeriod(profiles.edge),
+      runs=restoreProfileRuns(profiles.fg,rough.period||0),
+      centers=runs.map(r=>r.center),diffs=[];
+  for(let i=1;i<centers.length;i++){let d=centers[i]-centers[i-1];if(d>=3)diffs.push(d)}
+  let period=restoreMedian(diffs,rough.period||0),band=restoreMedian(runs.map(r=>r.len),0),
+      phase=runs.length&&period?(((runs[0].center%period)+period)%period):estimateRestorePhase(profiles.fg,rough.period||1);
+  return {period:period/Math.max(.001,probe.scale),band:band/Math.max(.001,probe.scale),phase:phase/Math.max(.001,probe.scale),score:rough.score,runs:runs.length}
+}
 function restoreGridAxisCoverage(sampleInfo,bgHex,axis,periodOriginal,phaseOriginal,bandOriginal){
   let c=sampleInfo.canvas,x=c.getContext('2d',{willReadFrequently:true}),w=c.width,h=c.height,
       d=x.getImageData(0,0,w,h).data,bg=restoreHexRgb(bgHex),scale=Math.max(.001,sampleInfo.scale),
@@ -2054,14 +2064,19 @@ function restoreGridAxisCoverage(sampleInfo,bgHex,axis,periodOriginal,phaseOrigi
   return coverages.length?restoreMedian(coverages,0):0
 }
 function detectSolidPastelGridRestore(img,palette,bgHex,transparent){
-  let probe=buildRestoreNativeProbe(img,1024),localStructure=estimateRestoreStructure(probe,bgHex),
-      px=Math.max(1,localStructure.periodX||0),py=Math.max(1,localStructure.periodY||0),
-      bx=Math.max(.5,localStructure.bandX||0),by=Math.max(.5,localStructure.bandY||0),
-      covX=restoreGridAxisCoverage(probe,bgHex,'x',px,localStructure.phaseX||0,bx),
+  let probe=buildRestoreNativeProbe(img,1024),mx=measureSolidGridAxis(probe,bgHex,'x'),my=measureSolidGridAxis(probe,bgHex,'y'),
+      localStructure=estimateRestoreStructure(probe,bgHex),
+      px=Math.max(1,mx.period||localStructure.periodX||0),py=Math.max(1,my.period||localStructure.periodY||0),
+      bx=Math.max(.5,mx.band||localStructure.bandX||0),by=Math.max(.5,my.band||localStructure.bandY||0);
+  localStructure.periodX=px;localStructure.periodY=py;localStructure.bandX=bx;localStructure.bandY=by;
+  localStructure.phaseX=mx.phase||localStructure.phaseX||0;localStructure.phaseY=my.phase||localStructure.phaseY||0;
+  localStructure.periodScoreX=mx.score||localStructure.periodScoreX;localStructure.periodScoreY=my.score||localStructure.periodScoreY;
+  localStructure.confidence=clamp(((mx.score||0)+(my.score||0))/2,0,1);
+  let covX=restoreGridAxisCoverage(probe,bgHex,'x',px,localStructure.phaseX||0,bx),
       covY=restoreGridAxisCoverage(probe,bgHex,'y',py,localStructure.phaseY||0,by),
       structure=normalizeRestoreProbeStructure(localStructure,probe),
       thinX=bx/px,thinY=by/py,
-      regular=structure.periodScoreX>=.52&&structure.periodScoreY>=.52,
+      regular=(mx.runs>=3&&my.runs>=3)&&(structure.periodScoreX>=.52&&structure.periodScoreY>=.52),
       thin=thinX<=.28&&thinY<=.28,
       continuous=covX>=.78&&covY>=.78,
       squareish=Math.max(px,py)/Math.max(1,Math.min(px,py))<=2.5,
