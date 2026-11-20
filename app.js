@@ -1293,7 +1293,303 @@ function extractPalette(img,count=5){
   return out.slice(0,count).map(rgbToHex)
 }
 function colorDistance(a,b){let dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dr*dr+dg*dg+db*db)}
+
 function rgbToHex([r,g,b]){return '#'+[r,g,b].map(v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('').toUpperCase()}
+
+// ---- Pattern image restore / embedded PNG state metadata ----
+const PATTERN_RESTORE_META_KEY='CutePatternStudio';
+const RESTORE_EXCLUDED_TYPES=new Set(['graphic-composition','sunburst-bg','soft-sunburst-bg','glossy-sun-bg','sparkle-glow-bg']);
+function utf8ToBase64(text){
+  let bytes=new TextEncoder().encode(text),binary='';
+  for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return btoa(binary)
+}
+function base64ToUtf8(text){
+  let binary=atob(text),bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes)
+}
+function crc32Bytes(bytes){
+  let crc=0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++){
+    crc^=bytes[i];
+    for(let k=0;k<8;k++)crc=(crc>>>1)^((crc&1)?0xEDB88320:0)
+  }
+  return (crc^0xFFFFFFFF)>>>0
+}
+function makePngTextChunk(keyword,text){
+  let enc=new TextEncoder(),type=enc.encode('tEXt'),key=enc.encode(keyword),value=enc.encode(text),
+      data=new Uint8Array(key.length+1+value.length);
+  data.set(key,0);data[key.length]=0;data.set(value,key.length+1);
+  let crcInput=new Uint8Array(type.length+data.length);crcInput.set(type);crcInput.set(data,type.length);
+  let chunk=new Uint8Array(12+data.length),view=new DataView(chunk.buffer);
+  view.setUint32(0,data.length);chunk.set(type,4);chunk.set(data,8);view.setUint32(8+data.length,crc32Bytes(crcInput));
+  return chunk
+}
+async function attachPatternStudioMetadata(blob,payload){
+  try{
+    let bytes=new Uint8Array(await blob.arrayBuffer());
+    if(bytes.length<12||bytes[0]!==137||bytes[1]!==80||bytes[2]!==78||bytes[3]!==71)return blob;
+    let offset=8,iend=-1;
+    while(offset+12<=bytes.length){
+      let view=new DataView(bytes.buffer,bytes.byteOffset+offset),len=view.getUint32(0),
+          type=String.fromCharCode(bytes[offset+4],bytes[offset+5],bytes[offset+6],bytes[offset+7]);
+      if(type==='IEND'){iend=offset;break}
+      offset+=12+len
+    }
+    if(iend<0)return blob;
+    let packed='b64:'+utf8ToBase64(JSON.stringify(payload)),chunk=makePngTextChunk(PATTERN_RESTORE_META_KEY,packed);
+    return new Blob([bytes.slice(0,iend),chunk,bytes.slice(iend)],{type:'image/png'})
+  }catch(err){console.warn('PNG restore metadata attach failed',err);return blob}
+}
+async function readPatternStudioMetadata(file){
+  try{
+    if(!file||!(file.type==='image/png'||/\.png$/i.test(file.name||'')))return null;
+    let bytes=new Uint8Array(await file.arrayBuffer());
+    if(bytes.length<12||bytes[0]!==137||bytes[1]!==80||bytes[2]!==78||bytes[3]!==71)return null;
+    let offset=8;
+    while(offset+12<=bytes.length){
+      let view=new DataView(bytes.buffer,bytes.byteOffset+offset),len=view.getUint32(0),
+          type=String.fromCharCode(bytes[offset+4],bytes[offset+5],bytes[offset+6],bytes[offset+7]);
+      if(type==='tEXt'&&offset+12+len<=bytes.length){
+        let data=bytes.slice(offset+8,offset+8+len),zero=data.indexOf(0);
+        if(zero>0){
+          let key=new TextDecoder().decode(data.slice(0,zero));
+          if(key===PATTERN_RESTORE_META_KEY){
+            let value=new TextDecoder().decode(data.slice(zero+1));
+            if(value.startsWith('b64:'))return JSON.parse(base64ToUtf8(value.slice(4)))
+          }
+        }
+      }
+      if(type==='IEND')break;
+      offset+=12+len
+    }
+  }catch(err){console.warn('PNG restore metadata read failed',err)}
+  return null
+}
+function buildRestoreSampleCanvas(img,maxDim=192){
+  let iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,ratio=Math.min(1,maxDim/Math.max(iw,ih)),
+      c=document.createElement('canvas');
+  c.width=Math.max(24,Math.round(iw*ratio));c.height=Math.max(24,Math.round(ih*ratio));
+  let x=c.getContext('2d',{willReadFrequently:true});x.clearRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+  return c
+}
+function restoreImageHasTransparency(canvas){
+  let d=canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,canvas.width,canvas.height).data,
+      transparent=0,total=d.length/4;
+  for(let i=3;i<d.length;i+=4)if(d[i]<245)transparent++;
+  return transparent/Math.max(1,total)>.015
+}
+function estimateRestoreBackground(canvas,palette,transparent){
+  if(transparent)return '#FFFFFF';
+  let x=canvas.getContext('2d',{willReadFrequently:true}),d=x.getImageData(0,0,canvas.width,canvas.height).data,
+      buckets=new Map(),w=canvas.width,h=canvas.height,border=Math.max(2,Math.round(Math.min(w,h)*.08));
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+    if(xx>=border&&xx<w-border&&yy>=border&&yy<h-border)continue;
+    let i=(yy*w+xx)*4;if(d[i+3]<200)continue;
+    let key=[Math.round(d[i]/20)*20,Math.round(d[i+1]/20)*20,Math.round(d[i+2]/20)*20].map(v=>clamp(v,0,255)).join(',');
+    let b=buckets.get(key)||{n:0,r:0,g:0,b:0};b.n++;b.r+=d[i];b.g+=d[i+1];b.b+=d[i+2];buckets.set(key,b)
+  }
+  let best=[...buckets.values()].sort((a,b)=>b.n-a.n)[0];
+  if(best)return rgbToHex([best.r/best.n,best.g/best.n,best.b/best.n]);
+  return palette[0]||'#FFFFFF'
+}
+function buildRestoreColors(palette,bg){
+  let bgRgb=Object.values(hexToRgb(bg)),unique=(palette||[]).filter(c=>{
+    let rgb=Object.values(hexToRgb(c));return colorDistance(rgb,bgRgb)>20
+  });
+  if(!unique.length)unique=(palette||[]).slice();
+  unique.sort((a,b)=>luminance(a)-luminance(b));
+  let p1=unique[0]||'#AFC3FF',p2=unique[1]||mixHex(p1,'#FFFFFF',.45),
+      p3=unique[2]||unique[unique.length-1]||mixHex(p1,'#FFFFFF',.72),
+      line=unique[0]||p1;
+  return normalizeColors([bg,p1,p2,p3,line])
+}
+function restoreFeatureVector(canvas){
+  let {width:w,height:h}=canvas,d=canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data,
+      gray=new Float32Array(w*h),alpha=new Float32Array(w*h),edge=new Float32Array(w*h);
+  for(let i=0,p=0;i<d.length;i+=4,p++){alpha[p]=d[i+3]/255;gray[p]=(d[i]*.299+d[i+1]*.587+d[i+2]*.114)/255}
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let i=y*w+x,x2=Math.min(w-1,x+1),y2=Math.min(h-1,y+1),
+        ex=Math.abs(gray[y*w+x2]-gray[i])+.8*Math.abs(alpha[y*w+x2]-alpha[i]),
+        ey=Math.abs(gray[y2*w+x]-gray[i])+.8*Math.abs(alpha[y2*w+x]-alpha[i]);
+    edge[i]=Math.min(1,ex+ey)
+  }
+  return {gray,alpha,edge}
+}
+function vectorSimilarity(a,b){
+  if(!a||!b||a.length!==b.length||!a.length)return 0;
+  let ma=0,mb=0;for(let i=0;i<a.length;i++){ma+=a[i];mb+=b[i]}ma/=a.length;mb/=b.length;
+  let num=0,da=0,db=0;
+  for(let i=0;i<a.length;i++){let aa=a[i]-ma,bb=b[i]-mb;num+=aa*bb;da+=aa*aa;db+=bb*bb}
+  if(da<1e-8||db<1e-8){
+    let diff=0;for(let i=0;i<a.length;i++)diff+=Math.abs(a[i]-b[i]);
+    return Math.max(0,1-diff/a.length)
+  }
+  return clamp((num/Math.sqrt(da*db)+1)/2,0,1)
+}
+function restoreFeatureScore(source,candidate){
+  let e=vectorSimilarity(source.edge,candidate.edge),g=vectorSimilarity(source.gray,candidate.gray),
+      a=vectorSimilarity(source.alpha,candidate.alpha),mean=(v)=>{let s=0;for(let n of v)s+=n;return s/v.length},
+      density=1-Math.min(1,Math.abs(mean(source.edge)-mean(candidate.edge))*4);
+  return clamp(e*.56+g*.22+a*.12+density*.10,0,1)
+}
+function restoreCandidatePresets(){
+  return PE.presets.filter(p=>!RESTORE_EXCLUDED_TYPES.has(p.type)&&p.id!=='torn-checker')
+}
+function buildRestoreCandidateLayer(preset,palette,size,rotation=0){
+  let d=PE.defaults[preset.id]||{},layer=defaultLayer(0,preset.id,true);
+  Object.assign(layer,d);
+  layer.sourceType='builtin';layer.presetId=preset.id;layer.size=size;layer.rotation=rotation;
+  layer.jitter=d.jitter??0;layer.gap=isBasicZeroGapPresetId(preset.id)?0:(d.gap??layer.gap??0);
+  layer.stroke=d.stroke??layer.stroke;layer.opacity=d.opacity??100;layer.detail=d.detail??layer.detail;
+  layer.colorMode='individual';layer.colors=normalizeColors(palette);layer.masterColor=layer.colors[1];layer.seed=47291;
+  if(layer.simpleDiamondColor!==undefined)layer.simpleDiamondColor=layer.colors[1];
+  if(layer.diamondColor!==undefined)layer.diamondColor=layer.colors[1];
+  if(layer.argyleLineColor!==undefined)layer.argyleLineColor=layer.colors[4];
+  if(layer.dashedLineColor!==undefined)layer.dashedLineColor=layer.colors[4];
+  if(layer.dashedHeartColor!==undefined)layer.dashedHeartColor=layer.colors[3];
+  if(layer.airyStripeColor!==undefined)layer.airyStripeColor=layer.colors[4];
+  if(layer.airyPointColor!==undefined)layer.airyPointColor=layer.colors[3];
+  if(layer.milkyCheckColor!==undefined)layer.milkyCheckColor=layer.colors[2];
+  if(layer.milkyMiniColor!==undefined)layer.milkyMiniColor=layer.colors[3];
+  return layer
+}
+function renderRestoreCandidate(preset,palette,size,rotation,w,h,transparent){
+  let c=document.createElement('canvas');c.width=w;c.height=h;let x=c.getContext('2d',{willReadFrequently:true}),
+      layer=buildRestoreCandidateLayer(preset,palette,size,rotation),s=layerToPatternState(layer,false);
+  resetCanvasRenderState(x);x.clearRect(0,0,w,h);
+  s.skipBackground=false;s.transparentBg=transparent;s.bgMode='solid';s.anchorExact=false;
+  PE.render(x,w,h,s,preset,w/2000);
+  return c
+}
+async function analyzePatternRestoreImage(img){
+  let source=buildRestoreSampleCanvas(img,192),transparent=restoreImageHasTransparency(source),
+      palette=extractPalette(img,5),bg=estimateRestoreBackground(source,palette,transparent),
+      colors=buildRestoreColors(palette,bg),features=restoreFeatureVector(source),
+      presets=restoreCandidatePresets(),results=[],checks=0;
+  for(let preset of presets){
+    let d=PE.defaults[preset.id]||{},base=Math.max(12,Number(d.size)||72),
+        sizes=[.48,.62,.78,.92,1,1.18,1.42,1.72,2.05].map(m=>clamp(Math.round(base*m),12,240)),
+        uniq=[...new Set(sizes)],best=null;
+    for(let size of uniq){
+      let cand=renderRestoreCandidate(preset,colors,size,0,source.width,source.height,transparent),
+          score=restoreFeatureScore(features,restoreFeatureVector(cand));
+      if(!best||score>best.score)best={id:preset.id,size,rotation:0,score};
+      if(++checks%28===0)await new Promise(r=>requestAnimationFrame(r))
+    }
+    if(best)results.push(best)
+  }
+  results.sort((a,b)=>b.score-a.score);
+  let refined=[];
+  for(let seed of results.slice(0,5)){
+    let preset=getPreset(seed.id),sizes=[.82,.91,1,1.09,1.18].map(m=>clamp(Math.round(seed.size*m),12,260)),
+        rotations=[-45,-30,-15,0,15,30,45],best=seed;
+    for(let size of [...new Set(sizes)])for(let rotation of rotations){
+      let cand=renderRestoreCandidate(preset,colors,size,rotation,source.width,source.height,transparent),
+          score=restoreFeatureScore(features,restoreFeatureVector(cand));
+      if(score>best.score)best={id:preset.id,size,rotation,score};
+      if(++checks%24===0)await new Promise(r=>requestAnimationFrame(r))
+    }
+    refined.push(best)
+  }
+  refined.sort((a,b)=>b.score-a.score);
+  return {
+    exact:false,transparent,bg,colors,palette,
+    width:img.naturalWidth||img.width,height:img.naturalHeight||img.height,
+    candidates:refined.slice(0,3)
+  }
+}
+function applyRestoreCandidate(candidate,result=patternRestoreResult,{remember=true}={}){
+  if(!candidate||!result)return;
+  if(remember&&!patternRestorePreviousState)patternRestorePreviousState=clone(stripStateForSave(state));
+  state.exportW=clampInt(result.width,16,8000,state.exportW||2000);
+  state.exportH=clampInt(result.height,16,8000,state.exportH||2000);
+  state.bg.transparent=!!result.transparent;state.bg.mode='solid';state.bg.colors=[result.bg,result.bg];
+  state.bg.gradientStops=buildGradientStopsFromColors([result.bg,result.bg]);state.bg.backgroundOnly=false;
+  state.bg.vignette={enabled:false,color:'#6F55C9',range:72,strength:28,softness:28};
+  state.gradientOverlays={overlay1:defaultGradientOverlay(1),overlay2:defaultGradientOverlay(2)};
+  let preset=getPreset(candidate.id),layer=buildRestoreCandidateLayer(preset,result.colors,candidate.size,candidate.rotation);
+  state.layers=[layer];activeLayerIndex=0;
+  persistAll();syncAll();renderPatternRestoreResult()
+}
+function restoreExactState(meta,img){
+  if(!meta?.state)return false;
+  if(!patternRestorePreviousState)patternRestorePreviousState=clone(stripStateForSave(state));
+  state=mergeState(meta.state);
+  state.exportW=clampInt(img.naturalWidth||img.width,16,8000,state.exportW||2000);
+  state.exportH=clampInt(img.naturalHeight||img.height,16,8000,state.exportH||2000);
+  activeLayerIndex=0;persistAll();syncAll();return true
+}
+function renderPatternRestoreResult(){
+  let root=$('#patternRestoreResult'),status=$('#patternRestoreStatus');if(!root)return;
+  root.innerHTML='';
+  if(patternRestoreBusy){if(status)status.textContent='패턴과 색상을 분석 중…';root.innerHTML='<div class="pattern-restore-loading">이미지 구조를 내장 패턴들과 비교하고 있어.</div>';return}
+  if(!patternRestoreResult){if(status)status.textContent='이미지를 첨부하면 분석 결과가 여기에 표시돼.';return}
+  let r=patternRestoreResult;
+  if(status)status.textContent=r.exact?'이 프로그램의 복원 데이터를 확인했어.':'픽셀 분석으로 가장 가까운 패턴을 찾았어.';
+  let summary=document.createElement('div');summary.className='pattern-restore-summary';
+  let confidence=r.exact?'정확 복원':(r.candidates?.[0]?Math.round(r.candidates[0].score*100)+'% 유사도':'분석 불가');
+  summary.innerHTML='<strong>'+(r.exact?'설정 데이터로 복원 완료':'분석 결과 적용 완료')+'</strong><span>원본 '+r.width+'×'+r.height+'px · '+confidence+'</span>';
+  let palette=document.createElement('div');palette.className='pattern-restore-palette';
+  (r.palette||r.colors||[]).slice(0,5).forEach(c=>{let sw=document.createElement('span');sw.title=c;sw.style.background=c;palette.appendChild(sw)});
+  root.append(summary,palette);
+  if(!r.exact&&r.candidates?.length){
+    let list=document.createElement('div');list.className='pattern-restore-candidates';
+    r.candidates.forEach((cand,i)=>{
+      let p=getPreset(cand.id),b=document.createElement('button');b.type='button';b.className='pattern-restore-candidate'+(i===0?' best':'');
+      b.innerHTML='<strong>'+(i===0?'추천 · ':'')+p.name+'</strong><span>패턴 크기 '+cand.size+' · 회전 '+cand.rotation+'° · '+Math.round(cand.score*100)+'%</span>';
+      b.onclick=()=>applyRestoreCandidate(cand,r,{remember:false});list.appendChild(b)
+    });
+    root.appendChild(list)
+  }
+  if(patternRestorePreviousState){
+    let undo=document.createElement('button');undo.type='button';undo.className='mini-btn';undo.textContent='분석 전 작업으로 되돌리기';
+    undo.onclick=()=>{state=mergeState(clone(patternRestorePreviousState));patternRestorePreviousState=null;activeLayerIndex=0;persistAll();syncAll();renderPatternRestoreResult();toast('분석 전 작업으로 되돌렸어.')};
+    root.appendChild(undo)
+  }
+}
+async function handlePatternRestoreFile(file){
+  if(!file)return;
+  let ok=/^image\/(png|jpeg|webp)$/i.test(file.type||'')||/\.(png|jpe?g|webp)$/i.test(file.name||'');
+  if(!ok){toast('PNG / JPG / JPEG / WEBP 이미지만 분석할 수 있어.');return}
+  patternRestoreBusy=true;patternRestoreResult=null;renderPatternRestoreResult();
+  try{
+    if(patternRestoreObjectUrl)URL.revokeObjectURL(patternRestoreObjectUrl);
+    patternRestoreObjectUrl=URL.createObjectURL(file);
+    patternRestoreImage=await loadImage(patternRestoreObjectUrl);
+    let preview=$('#patternRestorePreview');if(preview){preview.src=patternRestoreObjectUrl;preview.hidden=false}
+    patternRestorePreviousState=clone(stripStateForSave(state));
+    let meta=await readPatternStudioMetadata(file);
+    if(meta?.state&&restoreExactState(meta,patternRestoreImage)){
+      patternRestoreResult={
+        exact:true,width:patternRestoreImage.naturalWidth||patternRestoreImage.width,
+        height:patternRestoreImage.naturalHeight||patternRestoreImage.height,
+        palette:extractPalette(patternRestoreImage,5),colors:currentLayer().colors||[],candidates:[]
+      };
+      toast('이 프로그램에서 저장한 설정을 정확하게 복원했어.')
+    }else{
+      patternRestoreResult=await analyzePatternRestoreImage(patternRestoreImage);
+      let best=patternRestoreResult.candidates?.[0];
+      if(best){applyRestoreCandidate(best,patternRestoreResult,{remember:false});toast('이미지에서 가장 가까운 패턴과 색상을 복원했어.')}
+      else toast('패턴 후보를 찾지 못했어.')
+    }
+  }catch(err){
+    console.error('Pattern restore failed',err);patternRestoreResult=null;toast('이미지 분석 중 오류가 발생했어.')
+  }finally{patternRestoreBusy=false;renderPatternRestoreResult()}
+}
+function bindPatternRestoreControls(){
+  let input=$('#patternRestoreInput'),pick=$('#patternRestorePickBtn'),drop=$('#patternRestoreDropzone');
+  if(!input||!pick||!drop)return;
+  pick.onclick=()=>input.click();
+  drop.onclick=e=>{if(e.target.closest('button'))return;input.click()};
+  input.onchange=()=>{let file=input.files?.[0];if(file)handlePatternRestoreFile(file);input.value=''};
+  ['dragenter','dragover'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add('dragover')}));
+  ['dragleave','drop'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove('dragover')}));
+  drop.addEventListener('drop',e=>{let file=[...(e.dataTransfer?.files||[])][0];if(file)handlePatternRestoreFile(file)});
+  renderPatternRestoreResult()
+}
+
 function renderReferencePalette(){
   let wrap=$('#referencePalette');if(!wrap)return;wrap.innerHTML='';
   if(!referencePalette.length){wrap.innerHTML='<div class="micro-copy">이미지를 첨부하면 대표색 5개가 자동으로 나타나.</div>';return}
