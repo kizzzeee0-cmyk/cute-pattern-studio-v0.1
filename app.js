@@ -1076,7 +1076,7 @@ async function handleAssetFiles(files){
   for(let file of files){
     try{
       if(await shouldRouteAssetFileToPatternRestore(file)){
-        await handlePatternRestoreFile(file);restored++;continue
+        patternRestorePreviousState=null;await handlePatternRestoreFile(file);restored++;continue
       }
       let asset=await fileToAsset(file);userAssets.unshift(asset);addedAssets.unshift(asset);added++
     }catch(e){console.error(e)}
@@ -2352,12 +2352,13 @@ async function runPatternRestoreSyntheticTests(){
   const makeResult=(bg,colors)=>({transparent:false,bg,colors:normalizeColors(colors),palette:colors,width:512,height:512,structure:{periodX:64,periodY:64,bandX:3,bandY:3,phaseX:0,phaseY:0,dashLength:9,dashGap:12,confidence:1}});
   let tests=[];
   try{
-    let gridResult=makeResult('#17191E',['#17191E','#6E747D','#9AA0A9','#CED2D6','#6E747D']),gridPreset=getPreset('grid'),
-        gridLayer=buildRestoreCandidateLayerAdvanced(gridPreset,gridResult);gridLayer.gridX=64;gridLayer.gridY=72;gridLayer.stroke=3;
-    let gridCanvas=document.createElement('canvas');gridCanvas.width=gridCanvas.height=512;
-    let gs=layerToPatternState(gridLayer,false);gs.skipBackground=false;gs.transparentBg=false;PE.render(gridCanvas.getContext('2d'),512,512,gs,gridPreset,1);
-    let ga=await analyzePatternRestoreImage(gridCanvas,'grid'),gb=ga.candidates?.[0];
-    tests.push({name:'A dark grid',pass:!!gb&&gb.id==='grid'&&Math.abs(gb.layer.gridX-64)<=10&&Math.abs(gb.layer.gridY-72)<=12,result:gb});
+    let gridResult=makeResult('#131515',['#131515','#505050','#404242','#303232','#505050']),gridPreset=getPreset('grid'),
+        gridLayer=buildRestoreCandidateLayerAdvanced(gridPreset,gridResult);gridLayer.gridX=34;gridLayer.gridY=34;gridLayer.stroke=3;gridLayer.colors=normalizeColors(['#131515','#505050','#404242','#303232','#505050']);
+    let gridCanvas=document.createElement('canvas');gridCanvas.width=1024;gridCanvas.height=298;
+    let gx=gridCanvas.getContext('2d');gx.fillStyle='#131515';gx.fillRect(0,0,gridCanvas.width,gridCanvas.height);
+    let gs=layerToPatternState(gridLayer,false);gs.skipBackground=true;gs.transparentBg=false;PE.render(gx,gridCanvas.width,gridCanvas.height,gs,gridPreset,1);
+    let ga=await analyzePatternRestoreImage(gridCanvas,''),gb=ga.candidates?.[0];
+    tests.push({name:'A dark grid auto-detect',pass:!!gb&&gb.id==='grid'&&Math.abs(gb.layer.gridX-34)<=2&&Math.abs(gb.layer.gridY-34)<=2&&Math.abs(gb.layer.stroke-3)<=2,result:gb});
 
     let checkResult=makeResult('#FFF7E8',['#FFF7E8','#BBD98F','#E3F1C8','#F4EEDB','#9EBB73']),checkPreset=getPreset('pastel-checker'),
         checkLayer=buildRestoreCandidateLayerAdvanced(checkPreset,checkResult);checkLayer.size=48;checkLayer.gap=0;
