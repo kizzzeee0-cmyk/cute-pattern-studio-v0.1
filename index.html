@@ -187,6 +187,27 @@
             <div id="gradientOverlayEditor" class="gradient-overlay-list"></div>
           </section>
 
+          <section id="patternRestoreSection" class="control-section pattern-restore-section">
+            <div class="section-title-row">
+              <div>
+                <h2>패턴 이미지 복원</h2>
+                <p class="micro-copy">이 프로그램에서 만든 PNG를 다시 첨부하면 캔버스 크기·색상·패턴·패턴 크기를 불러와 편집 상태로 복원해.</p>
+              </div>
+              <button id="patternRestorePickBtn" class="mini-btn" type="button">이미지 분석</button>
+            </div>
+            <input id="patternRestoreInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            <div id="patternRestoreDropzone" class="pattern-restore-dropzone">
+              <img id="patternRestorePreview" alt="분석할 패턴 이미지 미리보기" hidden />
+              <div class="pattern-restore-drop-copy">
+                <strong>PNG / JPG / WEBP를 끌어놓거나 클릭</strong>
+                <span>v2.8.0 이후 이 프로그램에서 저장한 PNG는 설정 데이터를 이용해 정확 복원하고, 이전 이미지는 픽셀 구조를 분석해 가장 가까운 내장 패턴을 찾아.</span>
+              </div>
+            </div>
+            <div id="patternRestoreStatus" class="micro-copy pattern-restore-status">이미지를 첨부하면 분석 결과가 여기에 표시돼.</div>
+            <div id="patternRestoreResult" class="pattern-restore-result"></div>
+            <div class="micro-copy pattern-restore-note">복원 후에도 아래 캔버스 크기와 레이어의 패턴 크기를 자유롭게 다시 수정할 수 있어. 복합 레이어나 외부 에셋이 포함된 예전 이미지처럼 픽셀만으로 정확 구분이 어려운 경우에는 상위 후보를 함께 표시해.</div>
+          </section>
+
           <section id="referenceColorSection" class="control-section reference-dock">
             <div class="section-title-row">
               <div>
@@ -305,8 +326,8 @@
           </section>
 
           <section class="control-section info-box">
-            <h3>v2.7.10 캔버스 숫자 입력 보정</h3>
-            <p>① 완성형 디자인 배경 영역을 제거하고 기존 패턴 편집 중심 구조로 복원</p>
+            <h3>v2.8.0 패턴 이미지 복원</h3>
+            <p>NEW · 기본 체크 계열의 기본 간격을 0으로 통일 · 파스텔 체크/미니 체크/깅엄 등은 칸 사이가 뜨지 않게 시작</p><p>NEW · 패턴 이미지 복원 · 이 프로그램에서 저장한 PNG는 설정 데이터로 색상·패턴·크기·캔버스를 정확 복원</p><p>NEW · 이전 PNG/JPG/WEBP는 픽셀 분석으로 배경/팔레트/패턴 종류/크기/회전을 추정하고 상위 후보를 표시</p><p>① 완성형 디자인 배경 영역을 제거하고 기존 패턴 편집 중심 구조로 복원</p>
             <p>② 「점선 체크 / Dashed Grid」 추가 · 선 색/투명도/두께/점선 길이·간격/격자 X·Y/회전/오프셋 편집</p>
             <p>③ 대표색은 가장 진한 Anchor Color로 사용 · HEX/컬러 피커/스포이드 자유 지정 + 기존 7색 빠른 선택 유지</p>
             <p>④ 밝은 보조색과 흰색 영역은 기존 명암 관계를 유지한 옅은 틴트로 자동 변환</p>
